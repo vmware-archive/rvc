@@ -17,30 +17,6 @@ include RLUI::Util
 
 Thread.abort_on_exception = true
 
-ALIASES = {
-  :on => 'vm.on',
-  :off => 'vm.off',
-  :reset => 'vm.reset',
-  :r => 'vm.reset',
-  :suspend => 'vm.suspend',
-  :s => 'vm.suspend',
-  :info => 'vm.info',
-  :i => 'vm.info',
-  :kill => 'vm.kill',
-  :k => 'vm.kill',
-  :ping => 'vm.ping',
-  :view => 'vmrc.view',
-  :v => 'vmrc.view',
-  :V => 'vnc.view',
-  :ssh => 'vm.ssh',
-  :type => 'basic.type',
-  :debug => 'basic.debug',
-  :rc => 'basic.rc',
-  :reload => 'basic.reload',
-  :cd => 'basic.cd',
-  :ls => 'basic.ls',
-}
-
 MODULES = {}
 CMD = Module.new
 
@@ -100,7 +76,7 @@ def evalcmd str
     mode = MODES[$'.to_sym] or err("no such mode")
     $mode = mode
   else
-    cmd = ALIASES[cmd.to_sym] if ALIASES[cmd.to_sym]
+    cmd = $mode.aliases[cmd] if $mode.aliases.member? cmd
     module_name, cmd, = cmd.split '.'
     m = MODULES[module_name] or err("invalid module")
     err "invalid command" unless m.respond_to? cmd.to_sym
@@ -154,7 +130,7 @@ Readline.completion_proc = lambda do |word|
   MODES.each do |name,mode|
     candidates << ":#{name}"
   end
-  candidates.concat ALIASES.keys.map(&:to_s)
+  candidates.concat $mode.aliases.keys
   candidates.concat $mode.items.keys.map(&:to_s)
   candidates.sort.find_all { |e| e.match(prefix_regex) }
 end

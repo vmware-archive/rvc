@@ -1,13 +1,21 @@
 module RLUI
 
 class Mode
-  attr_reader :display_path, :items, :root, :cur
+  attr_reader :display_path, :items, :root, :cur, :aliases
 
   def initialize root
     @root = root
     @cur = root
     @items = {}
     @next_item_index = 0
+    @aliases = {
+      'type' => 'basic.type',
+      'debug' => 'basic.debug',
+      'rc' => 'basic.rc',
+      'reload' => 'basic.reload',
+      'cd' => 'basic.cd',
+      'ls' => 'basic.ls',
+    }
   end
 
   def display_path
@@ -76,6 +84,27 @@ class Mode
 end
 
 class VmMode < Mode
+  def initialize *args
+    super
+    aliases.merge!(
+      'on' => 'vm.on',
+      'off' => 'vm.off',
+      'reset' => 'vm.reset',
+      'r' => 'vm.reset',
+      'suspend' => 'vm.suspend',
+      's' => 'vm.suspend',
+      'info' => 'vm.info',
+      'i' => 'vm.info',
+      'kill' => 'vm.kill',
+      'k' => 'vm.kill',
+      'ping' => 'vm.ping',
+      'view' => 'vmrc.view',
+      'v' => 'vmrc.view',
+      'V' => 'vnc.view',
+      'ssh' => 'vm.ssh'
+    )
+  end
+
   def ls
     clear_items
     _ls(:Folder => %w(name), :VirtualMachine => %w(name runtime.powerState)).each do |r|
