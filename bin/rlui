@@ -10,6 +10,7 @@ require 'yaml'
 require 'backports'
 require 'rlui/modules'
 require 'rlui/util'
+require 'rlui/mode'
 
 VIM = RbVmomi::VIM
 include RLUI::Util
@@ -38,6 +39,8 @@ ALIASES = {
   :debug => 'basic.debug',
   :rc => 'basic.rc',
   :reload => 'basic.reload',
+  :cd => 'basic.cd',
+  :mode => 'basic.mode'
 }
 
 MODULES = {}
@@ -133,6 +136,16 @@ end
 
 fail "no such folder" unless $vmFolder
 
+# XXX optimize
+MODES = {
+  :vm => RLUI::Mode.new($vmFolder),
+  :datastore => RLUI::Mode.new($dc.datastoreFolder),
+  :host => RLUI::Mode.new($dc.hostFolder),
+  :network => RLUI::Mode.new($dc.networkFolder),
+}
+
+$mode = MODES[:vm]
+
 Readline.completion_append_character = " "
 Readline.completion_proc = lambda do |word|
   return unless word
@@ -167,7 +180,7 @@ persist_ruby = false
 CMD.vm.list
 loop do
 begin
-  input = $opts[:cmd].shift || Readline.readline("#{$opts[:host]}#{persist_ruby ? '~' : '>'} ", false) or break
+  input = $opts[:cmd].shift || Readline.readline("#{$opts[:host]}#{persist_ruby ? '~' : ":#{$mode.path*'/'}>"} ", false) or break
   input = input.strip
   next if input.empty?
   if input == '//'

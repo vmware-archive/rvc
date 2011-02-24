@@ -75,3 +75,14 @@ end
 def reload
   RLUI.reload_modules
 end
+
+def cd path="/"
+  els = path.split '/'
+  relative = !els.empty? && els[0].empty?
+  $mode.cd els, relative
+end
+
+def mode name
+  err "no such mode" unless MODES.member? name.to_sym
+  $mode = MODES[name.to_sym]
+end
