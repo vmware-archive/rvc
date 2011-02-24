@@ -1,0 +1,245 @@
+#!/usr/bin/env ruby
+require 'curses'
+require 'readline'
+require 'pp'
+require 'trollop'
+require 'rbvmomi'
+require 'rbvmomi/trollop'
+require 'shellwords'
+require 'yaml'
+require 'rlui/modules'
+require 'rlui/util'
+
+VIM = RbVmomi::VIM
+include RLUI::Util
+
+Thread.abort_on_exception = true
+
+if ENV['PHONEHOME']
+  require 'json'
+  require 'socket'
+  require 'timeout'
+
+  def phonehome key, msg={}
+    msg.merge! key: key, time: Time.now, user: ENV['USER'], pid: $$
+    begin
+      timeout(1) { TCPSocket.open('rlane-desktop.eng.vmware.com', 9372) { |s| s.puts JSON.dump(msg) } }
+    rescue
+    end
+  end
+else
+  def phonehome *a
+  end
+end
+
+ALIASES = {
+  list: 'vm.list',
+  l: 'vm.list',
+  on: 'vm.on',
+  off: 'vm.off',
+  reset: 'vm.reset',
+  r: 'vm.reset',
+  suspend: 'vm.suspend',
+  s: 'vm.suspend',
+  info: 'vm.info',
+  i: 'vm.info',
+  kill: 'vm.kill',
+  k: 'vm.kill',
+  ping: 'vm.ping',
+  view: 'vmrc.view',
+  v: 'vmrc.view',
+  V: 'vnc.view',
+  ssh: 'vm.ssh',
+  type: 'basic.type',
+  debug: 'basic.debug',
+  rc: 'basic.rc',
+  reload: 'basic.reload',
+
+  gdb: 'vmware.gdb',
+  ddt: 'vmware.ddt',
+  rlui: 'vmware.rlui',
+}
+
+MODULES = {}
+CMD = Module.new
+
+$opts = Trollop.options do
+  banner <<-EOS
+rlui is a developer's UI to the VI API.
+
+Usage:
+       rlui [options] [hostname]
+
+where [options] are:
+EOS
+
+  rbvmomi_connection_opts
+  rbvmomi_datacenter_opt
+  opt :"create-datacenter", 'Create the datacenter if it does not exist', short: :none
+  rbvmomi_folder_opt
+
+  opt :cmd, "command to evaluate", short: 'c', multi: true, type: :string
+end
+
+if ARGV.length == 0
+  Trollop.die("must specify host") unless $opts[:host]
+elsif ARGV.length == 1
+  $opts[:host] = ARGV[0]
+else
+  Trollop.die("too many arguments")
+end
+
+ENV['RBVMOMI_HOST'] = $opts[:host]
+ENV['RBVMOMI_PORT'] = $opts[:port].to_s
+ENV['RBVMOMI_SSL'] = $opts[:"no-ssl"] ? '0' : '1';
+ENV['RBVMOMI_PATH'] = $opts[:path]
+ENV['RBVMOMI_USER'] = $opts[:user]
+ENV['RBVMOMI_PASSWORD'] = $opts[:password]
+ENV['RBVMOMI_FOLDER'] = $opts[:folder]
+ENV['RBVMOMI_DATACENTER'] = $opts[:datacenter]
+
+phonehome 'rlui.start', opts: ($opts.reject { |x| x == :password })
+
+
+## internal
+
+def tokenize str
+  Shellwords.shellwords(str).map do |x|
+    case x
+    when /^\d+$/ then x.to_i
+    else x
+    end
+  end
+end
+
+def evalcmd str
+  cmd, *args = tokenize str
+  return unless cmd
+  err "invalid command" unless cmd.is_a? String
+  cmd = ALIASES[cmd.to_sym] if ALIASES[cmd.to_sym]
+  module_name, cmd, = cmd.split '.'
+  m = MODULES[module_name] or err("invalid module")
+  err "invalid command" unless m.respond_to? cmd.to_sym
+  m.send cmd.to_sym, *args
+end
+
+def method_missing sym, *a
+  a.empty? && MODULES[sym.to_s] or super
+end
+
+
+## main
+
+$items = {}
+
+begin
+  $vim = RbVmomi.connect $opts
+rescue Errno::EHOSTUNREACH
+  abort $!.message
+end
+
+rootFolder = $vim.rootFolder
+
+$dc = if $opts[:datacenter]
+  rootFolder.traverse $opts[:datacenter], VIM::Datacenter or
+    $opts[:"create-datacenter"] && rootFolder.CreateDatacenter(name: $opts[:datacenter])
+else
+  rootFolder.childEntity.grep(VIM::Datacenter).first
+end or fail "datacenter not found"
+
+if $opts[:folder]
+  $vmFolder = $dc.vmFolder.traverse! $opts[:folder], VIM::Folder
+else
+  $vmFolder = $dc.vmFolder
+end
+
+fail "no such folder" unless $vmFolder
+
+Readline.completion_append_character = " "
+Readline.completion_proc = lambda do |word|
+  return unless word
+  prefix_regex = /^#{Regexp.escape(word)}/
+  candidates = []
+  MODULES.each do |name,m|
+    m.commands.each { |s| candidates << "#{name}.#{s}" }
+  end
+  candidates.concat ALIASES.keys.map(&:to_s)
+  candidates.concat $items.keys.map(&:to_s)
+  candidates.sort.find_all { |e| e.match(prefix_regex) }
+end
+
+history_fn = "#{ENV['HOME']}/.rlui-history"
+IO.foreach(history_fn) { |l| Readline::HISTORY << l.chomp } rescue puts "Welcome to RLUI! Try the 'help' command."
+history = File.open(history_fn, 'a')
+
+RLUI.reload_modules false
+RLUI.reload_rc
+
+Thread.new do
+  while true
+    sleep 600
+    $vim.serviceInstance.RetrieveServiceContent
+  end
+end
+
+vim = $vim
+$binding = binding
+persist_ruby = false
+
+CMD.vm.list
+loop do
+begin
+  input = $opts[:cmd].shift || Readline.readline("#{$opts[:host]}#{persist_ruby ? '~' : '>'} ", false) or break
+  input = input.strip
+  next if input.empty?
+  if input == '//'
+    persist_ruby = !persist_ruby
+    next
+  end
+
+  (history.puts input; Readline::HISTORY << input) unless input == Readline::HISTORY.to_a[-1]
+
+  if input[0..0] == '!'
+    system_fg input[1..-1]
+    next
+  end
+
+  ruby = persist_ruby
+  if input =~ /^\//
+    input = $'
+    ruby = !ruby
+  end
+
+  if ruby
+    result = eval(input, $binding)
+    if input =~ /\#$/
+      type result.class.wsdl_name
+    else
+      pp result
+    end
+  else
+    evalcmd input
+  end
+rescue SystemExit, IOError
+  raise
+rescue UserError, RuntimeError, RbVmomi::Fault
+  if ruby
+    puts "#{$!.class}: #{$!.message}"
+    puts $!.backtrace * "\n"
+  else
+    case $!
+    when RbVmomi::Fault, UserError
+      puts $!.message
+    else
+      puts "#{$!.class}: #{$!.message}"
+    end
+  end
+  phonehome 'rlui.exception', klass: $!.class, message: $!.message, backtrace: $!.backtrace
+rescue Interrupt
+  puts
+rescue Exception
+  puts "#{$!.class}: #{$!.message}"
+  puts $!.backtrace * "\n"
+  phonehome 'rlui.exception', klass: $!.class, message: $!.message, backtrace: $!.backtrace, extra: ($!.extra rescue nil)
+end
+end
