@@ -97,11 +97,17 @@ def evalcmd str
   cmd, *args = tokenize str
   return unless cmd
   err "invalid command" unless cmd.is_a? String
-  cmd = ALIASES[cmd.to_sym] if ALIASES[cmd.to_sym]
-  module_name, cmd, = cmd.split '.'
-  m = MODULES[module_name] or err("invalid module")
-  err "invalid command" unless m.respond_to? cmd.to_sym
-  m.send cmd.to_sym, *args
+  case cmd
+  when /^:/
+    mode = MODES[$'.to_sym] or err("no such mode")
+    $mode = mode
+  else
+    cmd = ALIASES[cmd.to_sym] if ALIASES[cmd.to_sym]
+    module_name, cmd, = cmd.split '.'
+    m = MODULES[module_name] or err("invalid module")
+    err "invalid command" unless m.respond_to? cmd.to_sym
+    m.send cmd.to_sym, *args
+  end
 end
 
 def method_missing sym, *a
@@ -155,6 +161,9 @@ Readline.completion_proc = lambda do |word|
   candidates = []
   MODULES.each do |name,m|
     m.commands.each { |s| candidates << "#{name}.#{s}" }
+  end
+  MODES.each do |name,mode|
+    candidates << ":#{name}"
   end
   candidates.concat ALIASES.keys.map(&:to_s)
   candidates.concat $items.keys.map(&:to_s)

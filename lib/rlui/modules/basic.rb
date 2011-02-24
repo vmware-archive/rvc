@@ -81,8 +81,3 @@ def cd path="/"
   relative = !els.empty? && els[0].empty?
   $mode.cd els, relative
 end
-
-def mode name
-  err "no such mode" unless MODES.member? name.to_sym
-  $mode = MODES[name.to_sym]
-end
