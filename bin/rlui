@@ -113,7 +113,7 @@ MODES = {
   :vm => RLUI::VmMode.new(vmRoot),
   :datastore => RLUI::DatastoreMode.new(datastoreRoot),
   :host => RLUI::Mode.new(hostRoot),
-  :network => RLUI::Mode.new(networkRoot),
+  :network => RLUI::NetworkMode.new(networkRoot),
 }
 
 $mode = MODES[:vm]
