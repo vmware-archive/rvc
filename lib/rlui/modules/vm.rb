@@ -1,22 +1,5 @@
 include RLUI::Util
 
-def list
-  $items.clear
-  tree = $vmFolder.inventory :VirtualMachine => %w(name runtime.powerState)
-  display_inventory tree, $vmFolder do |obj,props,indent|
-    i = _list_vm obj, props['name']
-    puts "#{"  "*indent}#{i} #{props['name']} #{props['runtime.powerState']}"
-  end
-end
-
-def _list_vm vm, name=vm.name
-  i = $items.keys.select { |x| x.is_a? Integer }.max
-  i = i ? i+1 : 0
-  $items[i] = vm
-  $items[name] = vm
-  i
-end
-
 def on *ids
   vmtask ids, :PowerOnVM
 end
@@ -43,7 +26,6 @@ def register datastore, path
   vm = $vmFolder.RegisterVM_Task(:path => ds_path,
                                  :asTemplate => false,
                                  :pool => rp).wait_for_completion
-  _list_vm vm
 end
 
 def unregister id
@@ -152,7 +134,6 @@ def find datastore_name=nil
   vm = $vmFolder.RegisterVM_Task(:path => path,
                                  :asTemplate => false,
                                  :pool => rp).wait_for_completion
-  _list_vm vm
 end
 
 def extraConfig id, *args

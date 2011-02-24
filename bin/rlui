@@ -18,8 +18,6 @@ include RLUI::Util
 Thread.abort_on_exception = true
 
 ALIASES = {
-  :list => 'vm.list',
-  :l => 'vm.list',
   :on => 'vm.on',
   :off => 'vm.off',
   :reset => 'vm.reset',
@@ -117,8 +115,6 @@ end
 
 ## main
 
-$items = {}
-
 begin
   $vim = RbVmomi.connect $opts
 rescue Errno::EHOSTUNREACH
@@ -166,7 +162,7 @@ Readline.completion_proc = lambda do |word|
     candidates << ":#{name}"
   end
   candidates.concat ALIASES.keys.map(&:to_s)
-  candidates.concat $items.keys.map(&:to_s)
+  candidates.concat $mode.items.keys.map(&:to_s)
   candidates.sort.find_all { |e| e.match(prefix_regex) }
 end
 
@@ -188,7 +184,7 @@ vim = $vim
 $binding = binding
 persist_ruby = false
 
-CMD.vm.list
+CMD.basic.ls
 loop do
 begin
   input = $opts[:cmd].shift || Readline.readline("#{$opts[:host]}#{persist_ruby ? '~' : ":#{$mode.display_path}>"} ", false) or break

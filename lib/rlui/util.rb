@@ -3,7 +3,9 @@ module Util
   extend self
 
   def vm id
-    $items[id] || err("invalid id #{id}")
+    x = $mode.items[id] || err("invalid id #{id}")
+    err "not a VM" unless x.is_a? VIM::VirtualMachine
+    x
   end
 
   def vm_ip vm

@@ -1,11 +1,13 @@
 module RLUI
 
 class Mode
-  attr_reader :display_path
+  attr_reader :display_path, :items
 
   def initialize root
     @root = root
     @cur = root
+    @items = {}
+    @next_item_index = 0
   end
 
   def display_path
@@ -46,13 +48,28 @@ class Mode
     $vim.propertyCollector.RetrieveProperties(:specSet => [filterSpec])
   end
 
+  def clear_items
+    @items.clear
+    @next_item_index = 0
+  end
+
+  def add_item name, obj
+    i = @next_item_index
+    @next_item_index += 1
+    @items[i] = obj
+    @items[name] = obj
+    i
+  end
+
   def ls
+    clear_items
     _ls(:ManagedEntity => %w(name)).each do |r|
+      i = add_item r['name'], r.obj
       case r.obj
       when VIM::Folder
-        puts r['name'] + "/"
+        puts "#{i} #{r['name']}/"
       else
-        puts r['name']
+        puts "#{i} #{r['name']}"
       end
     end
   end
@@ -60,14 +77,16 @@ end
 
 class VmMode < Mode
   def ls
+    clear_items
     _ls(:Folder => %w(name), :VirtualMachine => %w(name runtime.powerState)).each do |r|
+      i = add_item r['name'], r.obj
       case r.obj
       when VIM::Folder
-        puts r['name'] + "/"
+        puts "#{i} #{r['name']}/"
       when VIM::VirtualMachine
-        puts "#{r['name']} #{r['runtime.powerState']}"
+        puts "#{i} #{r['name']} #{r['runtime.powerState']}"
       else
-        puts r['name']
+        puts "#{i} #{r['name']}"
       end
     end
   end
