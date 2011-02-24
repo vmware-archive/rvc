@@ -15,23 +15,6 @@ include RLUI::Util
 
 Thread.abort_on_exception = true
 
-if ENV['PHONEHOME']
-  require 'json'
-  require 'socket'
-  require 'timeout'
-
-  def phonehome key, msg={}
-    msg.merge! key: key, time: Time.now, user: ENV['USER'], pid: $$
-    begin
-      timeout(1) { TCPSocket.open('rlane-desktop.eng.vmware.com', 9372) { |s| s.puts JSON.dump(msg) } }
-    rescue
-    end
-  end
-else
-  def phonehome *a
-  end
-end
-
 ALIASES = {
   list: 'vm.list',
   l: 'vm.list',
@@ -97,8 +80,6 @@ ENV['RBVMOMI_USER'] = $opts[:user]
 ENV['RBVMOMI_PASSWORD'] = $opts[:password]
 ENV['RBVMOMI_FOLDER'] = $opts[:folder]
 ENV['RBVMOMI_DATACENTER'] = $opts[:datacenter]
-
-phonehome 'rlui.start', opts: ($opts.reject { |x| x == :password })
 
 
 ## internal
@@ -234,12 +215,10 @@ rescue UserError, RuntimeError, RbVmomi::Fault
       puts "#{$!.class}: #{$!.message}"
     end
   end
-  phonehome 'rlui.exception', klass: $!.class, message: $!.message, backtrace: $!.backtrace
 rescue Interrupt
   puts
 rescue Exception
   puts "#{$!.class}: #{$!.message}"
   puts $!.backtrace * "\n"
-  phonehome 'rlui.exception', klass: $!.class, message: $!.message, backtrace: $!.backtrace, extra: ($!.extra rescue nil)
 end
 end
