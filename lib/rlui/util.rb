@@ -34,12 +34,12 @@ module Util
 
     datastorePath = "[#{ds.name}] /"
     searchSpec = {
-      details: { fileOwner: false, fileSize: false, fileType: true, modification: false  },
-      query: [
+      :details => { :fileOwner => false, :fileSize => false, :fileType => true, :modification => false  },
+      :query => [
         VIM::VmConfigFileQuery()
       ]
     }
-    task = ds.browser.SearchDatastoreSubFolders_Task(datastorePath: datastorePath, searchSpec: searchSpec)
+    task = ds.browser.SearchDatastoreSubFolders_Task(:datastorePath => datastorePath, :searchSpec => searchSpec)
 
     results = task.wait_for_completion
 
@@ -149,13 +149,22 @@ module Util
     Curses.cols > 0
   end
 
+  def tcsetpgrp pgrp=Process.getpgrp
+    return unless $stdin.tty?
+    trap('TTOU', 'SIG_IGN')
+    $stdin.ioctl 0x5410, [pgrp].pack('I')
+    trap('TTOU', 'SIG_DFL')
+  end
+
   def system_fg cmd, env={}
-    pid = Process.spawn(env, cmd, pgroup: true)
-    pgrp = Process.getpgid pid
-    err "failed to execute command" unless pid
-    $stdout.ioctl 0x5410, [pgrp].pack('I')
+    pid = fork do
+      env.each { |k,v| ENV[k] = v }
+      Process.setpgrp
+      tcsetpgrp
+      exec cmd
+    end
     Process.waitpid2 pid
-    $stdout.ioctl 0x5410, [Process.getpgrp].pack('I')
+    tcsetpgrp
     nil
   end
 end

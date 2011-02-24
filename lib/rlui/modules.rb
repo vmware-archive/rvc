@@ -23,7 +23,7 @@ def self.reload_modules verbose=true
       CMD.define_singleton_method(module_name.to_sym) { m }
       MODULES[module_name] = m
     end
-    MODULES[module_name].instance_eval code
+    MODULES[module_name].instance_eval code, f
   end
 end
 

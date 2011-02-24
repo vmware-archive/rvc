@@ -2,7 +2,7 @@ include RLUI::Util
 
 def list
   props = %w(name summary.effectiveCpu summary.effectiveMemory)
-  tree = $dc.hostFolder.inventory(ComputeResource: props, ClusterComputeResource: props)
+  tree = $dc.hostFolder.inventory(:ComputeResource => props, :ClusterComputeResource => props)
   display_inventory tree, $dc.hostFolder do |obj,props,indent|
     case obj
     when VIM::ClusterComputeResource

@@ -22,11 +22,11 @@ def view id
   else
     port = unused_vnc_port ip
     password = vnc_password
-    vm.ReconfigVM_Task(spec: {
-      extraConfig: [
-        { key: 'RemoteDisplay.vnc.enabled', value: 'true' },
-        { key: 'RemoteDisplay.vnc.password', value: password },
-        { key: 'RemoteDisplay.vnc.port', value: port.to_s }
+    vm.ReconfigVM_Task(:spec => {
+      :extraConfig => [
+        { :key => 'RemoteDisplay.vnc.enabled', :value => 'true' },
+        { :key => 'RemoteDisplay.vnc.password', :value => password },
+        { :key => 'RemoteDisplay.vnc.port', :value => port.to_s }
       ]
     }).wait_for_completion
   end
@@ -34,11 +34,11 @@ def view id
 end
 
 def off id
-  vm(id).ReconfigVM_Task(spec: {
-    extraConfig: [
-      { key: 'RemoteDisplay.vnc.enabled', value: 'false' },
-      { key: 'RemoteDisplay.vnc.password', value: '' },
-      { key: 'RemoteDisplay.vnc.port', value: '' }
+  vm(id).ReconfigVM_Task(:spec => {
+    :extraConfig => [
+      { :key => 'RemoteDisplay.vnc.enabled', :value => 'false' },
+      { :key => 'RemoteDisplay.vnc.password', :value => '' },
+      { :key => 'RemoteDisplay.vnc.port', :value => '' }
     ]
   }).wait_for_completion
 end
@@ -75,7 +75,11 @@ end
 # Override this to spawn a VNC client differently
 def vnc_client ip, port, password
   if VNC
-    spawn VNC, "#{ip}:#{port}", pgroup: true, err: "#{ENV['HOME']||'.'}/.rlui-vnc.log"
+    fork do
+      $stderr.reopen("#{ENV['HOME']||'.'}/.rlui-vmrc.log", "w")
+      Process.setpgrp
+      exec VNC, "#{ip}:#{port}"
+    end
     puts "spawning #{VNC}"
     puts "#{ip}:#{port} password: #{password}"
   else

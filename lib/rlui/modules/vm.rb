@@ -2,7 +2,7 @@ include RLUI::Util
 
 def list
   $items.clear
-  tree = $vmFolder.inventory VirtualMachine: %w(name runtime.powerState)
+  tree = $vmFolder.inventory :VirtualMachine => %w(name runtime.powerState)
   display_inventory tree, $vmFolder do |obj,props,indent|
     i = _list_vm obj, props['name']
     puts "#{"  "*indent}#{i} #{props['name']} #{props['runtime.powerState']}"
@@ -99,7 +99,7 @@ def answer id, str
   q = vm(id).runtime.question or err("no question to answer")
   choice = q.choice.choiceInfo.find { |x| x.label == str }
   err("invalid answer") unless choice
-  vm(id).AnswerVM questionId: q.id, answerChoice: choice.key
+  vm(id).AnswerVM :questionId => q.id, :answerChoice => choice.key
 end
 
 def layout id
@@ -197,7 +197,7 @@ def ip *ids
 
   ver = ''
   while not ids.empty?
-    result = $vim.propertyCollector.WaitForUpdates(version: ver)
+    result = $vim.propertyCollector.WaitForUpdates(:version => ver)
     ver = result.version
 
     ids.reject! do |id|

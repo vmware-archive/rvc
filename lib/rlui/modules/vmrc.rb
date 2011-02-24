@@ -5,8 +5,12 @@ VMRC = ENV['VMRC'] || search_path('vmrc')
 def view *ids
   err "VMRC not found" unless VMRC
   ids.each do |id|
-    cmd = [VMRC, '-M', vm(id)._ref, '-h', $opts[:host], '-u', $opts[:user], '-p', $opts[:password], '--disable-ssl-checking']
-    env = ENV.reject { |k,v| k =~ /https_proxy/i }
-    spawn env, *cmd, pgroup: true, err: "#{ENV['HOME']||'.'}/.rlui-vmrc.log"
+    moref = vm(id)._ref
+    fork do
+      ENV['https_proxy'] = ENV['HTTPS_PROXY'] = ''
+      $stderr.reopen("#{ENV['HOME']||'.'}/.rlui-vmrc.log", "w")
+      Process.setpgrp
+      exec VMRC, '-M', moref, '-h', $opts[:host], '-u', $opts[:user], '-p', $opts[:password], '--disable-ssl-checking'
+    end
   end
 end

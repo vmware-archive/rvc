@@ -7,6 +7,7 @@ require 'rbvmomi'
 require 'rbvmomi/trollop'
 require 'shellwords'
 require 'yaml'
+require 'backports'
 require 'rlui/modules'
 require 'rlui/util'
 
@@ -16,27 +17,27 @@ include RLUI::Util
 Thread.abort_on_exception = true
 
 ALIASES = {
-  list: 'vm.list',
-  l: 'vm.list',
-  on: 'vm.on',
-  off: 'vm.off',
-  reset: 'vm.reset',
-  r: 'vm.reset',
-  suspend: 'vm.suspend',
-  s: 'vm.suspend',
-  info: 'vm.info',
-  i: 'vm.info',
-  kill: 'vm.kill',
-  k: 'vm.kill',
-  ping: 'vm.ping',
-  view: 'vmrc.view',
-  v: 'vmrc.view',
-  V: 'vnc.view',
-  ssh: 'vm.ssh',
-  type: 'basic.type',
-  debug: 'basic.debug',
-  rc: 'basic.rc',
-  reload: 'basic.reload',
+  :list => 'vm.list',
+  :l => 'vm.list',
+  :on => 'vm.on',
+  :off => 'vm.off',
+  :reset => 'vm.reset',
+  :r => 'vm.reset',
+  :suspend => 'vm.suspend',
+  :s => 'vm.suspend',
+  :info => 'vm.info',
+  :i => 'vm.info',
+  :kill => 'vm.kill',
+  :k => 'vm.kill',
+  :ping => 'vm.ping',
+  :view => 'vmrc.view',
+  :v => 'vmrc.view',
+  :V => 'vnc.view',
+  :ssh => 'vm.ssh',
+  :type => 'basic.type',
+  :debug => 'basic.debug',
+  :rc => 'basic.rc',
+  :reload => 'basic.reload',
 }
 
 MODULES = {}
@@ -54,10 +55,10 @@ EOS
 
   rbvmomi_connection_opts
   rbvmomi_datacenter_opt
-  opt :"create-datacenter", 'Create the datacenter if it does not exist', short: :none
+  opt :"create-datacenter", 'Create the datacenter if it does not exist', :short => :none
   rbvmomi_folder_opt
 
-  opt :cmd, "command to evaluate", short: 'c', multi: true, type: :string
+  opt :cmd, "command to evaluate", :short => 'c', :multi => true, :type => :string
 end
 
 if ARGV.length == 0
@@ -119,7 +120,7 @@ rootFolder = $vim.rootFolder
 
 $dc = if $opts[:datacenter]
   rootFolder.traverse $opts[:datacenter], VIM::Datacenter or
-    $opts[:"create-datacenter"] && rootFolder.CreateDatacenter(name: $opts[:datacenter])
+    $opts[:"create-datacenter"] && rootFolder.CreateDatacenter(:name => $opts[:datacenter])
 else
   rootFolder.childEntity.grep(VIM::Datacenter).first
 end or fail "datacenter not found"
