@@ -88,3 +88,4 @@ end
 require 'rlui/modes/vm'
 require 'rlui/modes/datastore'
 require 'rlui/modes/network'
+require 'rlui/modes/host'
