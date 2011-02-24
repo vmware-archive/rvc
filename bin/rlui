@@ -180,7 +180,7 @@ begin
   if ruby
     result = eval(input, $binding)
     if input =~ /\#$/
-      type result.class.wsdl_name
+      CMD.basic.type result.class.wsdl_name
     else
       pp result
     end
