@@ -81,3 +81,7 @@ def cd path="/"
   relative = !els.empty? && els[0].empty?
   $mode.cd els, relative
 end
+
+def ls
+  $mode.ls
+end

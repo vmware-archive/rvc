@@ -40,7 +40,7 @@ ALIASES = {
   :rc => 'basic.rc',
   :reload => 'basic.reload',
   :cd => 'basic.cd',
-  :mode => 'basic.mode'
+  :ls => 'basic.ls',
 }
 
 MODULES = {}
