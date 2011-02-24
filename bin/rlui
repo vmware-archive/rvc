@@ -111,7 +111,7 @@ vmRoot, datastoreRoot, hostRoot, networkRoot =
 
 MODES = {
   :vm => RLUI::VmMode.new(vmRoot),
-  :datastore => RLUI::Mode.new(datastoreRoot),
+  :datastore => RLUI::DatastoreMode.new(datastoreRoot),
   :host => RLUI::Mode.new(hostRoot),
   :network => RLUI::Mode.new(networkRoot),
 }

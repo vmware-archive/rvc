@@ -2,10 +2,14 @@ module RLUI
 module Util
   extend self
 
-  def vm id
-    x = $mode.items[id] || err("invalid id #{id}")
-    err "not a VM" unless x.is_a? VIM::VirtualMachine
+  def item id, klass=Object
+    x = $mode.items[id] || err("invalid item #{id}")
+    err "unexpected type #{x.class}" unless x.is_a? klass
     x
+  end
+
+  def vm id
+    item id, VIM::VirtualMachine
   end
 
   def vm_ip vm
