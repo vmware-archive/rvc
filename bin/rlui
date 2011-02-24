@@ -146,7 +146,7 @@ end
 fail "no such folder" unless $vmFolder
 
 MODES = {
-  :vm => RLUI::Mode.new($vmFolder),
+  :vm => RLUI::VmMode.new($vmFolder),
   :datastore => RLUI::Mode.new(datastoreRoot),
   :host => RLUI::Mode.new(hostRoot),
   :network => RLUI::Mode.new(networkRoot),

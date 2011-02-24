@@ -25,7 +25,8 @@ class Mode
     @cur = new_cur
   end
 
-  def ls
+  def _ls propHash
+    propSet = propHash.map { |k,v| { :type => k, :pathSet => v } }
     filterSpec = VIM.PropertyFilterSpec(
       :objectSet => [
         :obj => @cur,
@@ -39,15 +40,32 @@ class Mode
           )
         ]
       ],
-      :propSet => [
-        { :type => 'ManagedEntity', :pathSet => %w(name) }
-      ]
+      :propSet => propSet
     )
 
-    result = $vim.propertyCollector.RetrieveProperties(:specSet => [filterSpec])
-    result.each do |r|
-      if r.obj.is_a? VIM::Folder
+    $vim.propertyCollector.RetrieveProperties(:specSet => [filterSpec])
+  end
+
+  def ls
+    _ls(:ManagedEntity => %w(name)).each do |r|
+      case r.obj
+      when VIM::Folder
         puts r['name'] + "/"
+      else
+        puts r['name']
+      end
+    end
+  end
+end
+
+class VmMode < Mode
+  def ls
+    _ls(:Folder => %w(name), :VirtualMachine => %w(name runtime.powerState)).each do |r|
+      case r.obj
+      when VIM::Folder
+        puts r['name'] + "/"
+      when VIM::VirtualMachine
+        puts "#{r['name']} #{r['runtime.powerState']}"
       else
         puts r['name']
       end
