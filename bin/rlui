@@ -37,10 +37,6 @@ ALIASES = {
   debug: 'basic.debug',
   rc: 'basic.rc',
   reload: 'basic.reload',
-
-  gdb: 'vmware.gdb',
-  ddt: 'vmware.ddt',
-  rlui: 'vmware.rlui',
 }
 
 MODULES = {}
