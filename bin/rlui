@@ -191,7 +191,7 @@ persist_ruby = false
 CMD.vm.list
 loop do
 begin
-  input = $opts[:cmd].shift || Readline.readline("#{$opts[:host]}#{persist_ruby ? '~' : ":#{$mode.path*'/'}>"} ", false) or break
+  input = $opts[:cmd].shift || Readline.readline("#{$opts[:host]}#{persist_ruby ? '~' : ":#{$mode.display_path}>"} ", false) or break
   input = input.strip
   next if input.empty?
   if input == '//'

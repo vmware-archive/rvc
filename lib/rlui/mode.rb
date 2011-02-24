@@ -1,14 +1,15 @@
 module RLUI
 
 class Mode
+  attr_reader :display_path
+
   def initialize root
     @root = root
     @cur = root
   end
 
-  # Array of string path elements
-  def path
-    @cur.pretty_path.split '/'
+  def display_path
+    @cached_display_path ||= @cur.pretty_path
   end
 
   def cd els, relative
@@ -20,6 +21,8 @@ class Mode
         new_cur = new_cur.find(el, VIM::Folder) or fail("no such folder")
       end
     end
+    @cached_display_path = nil unless @cur == new_cur
+    @cur = new_cur
   end
 
   def ls
