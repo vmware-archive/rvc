@@ -23,9 +23,9 @@ def register datastore, path
   resource = $dc.hostFolder.childEntity.first
   rp = resource.resourcePool
   puts "using compute resource #{resource.name}"
-  vm = $vmFolder.RegisterVM_Task(:path => ds_path,
-                                 :asTemplate => false,
-                                 :pool => rp).wait_for_completion
+  vm = MODES[:vm].cur.RegisterVM_Task(:path => ds_path,
+                                      :asTemplate => false,
+                                      :pool => rp).wait_for_completion
 end
 
 def unregister id
@@ -131,9 +131,9 @@ def find datastore_name=nil
   rp = resource.resourcePool
   puts "using compute resource #{resource.name}"
 
-  vm = $vmFolder.RegisterVM_Task(:path => path,
-                                 :asTemplate => false,
-                                 :pool => rp).wait_for_completion
+  vm = MODES[:vm].cur.RegisterVM_Task(:path => path,
+                                      :asTemplate => false,
+                                      :pool => rp).wait_for_completion
 end
 
 def extraConfig id, *args

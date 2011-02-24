@@ -133,22 +133,15 @@ end or fail "datacenter not found"
 vmRoot, datastoreRoot, hostRoot, networkRoot =
   $dc.collect(:vmFolder, :datastoreFolder, :hostFolder, :networkFolder)
 
-if $opts[:folder]
-  $vmFolder = vmRoot.traverse! $opts[:folder], VIM::Folder
-else
-  $vmFolder = vmRoot
-end
-
-fail "no such folder" unless $vmFolder
-
 MODES = {
-  :vm => RLUI::VmMode.new($vmFolder),
+  :vm => RLUI::VmMode.new(vmRoot),
   :datastore => RLUI::Mode.new(datastoreRoot),
   :host => RLUI::Mode.new(hostRoot),
   :network => RLUI::Mode.new(networkRoot),
 }
 
 $mode = MODES[:vm]
+$mode.cd $opts[:folder].split('/'), false
 
 Readline.completion_append_character = " "
 Readline.completion_proc = lambda do |word|

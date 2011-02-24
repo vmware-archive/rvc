@@ -1,7 +1,7 @@
 module RLUI
 
 class Mode
-  attr_reader :display_path, :items
+  attr_reader :display_path, :items, :root, :cur
 
   def initialize root
     @root = root
@@ -15,7 +15,7 @@ class Mode
   end
 
   def cd els, relative
-    new_cur = @root unless relative
+    new_cur = relative ? @cur : @root
     els.each do |el|
       if el == '..'
         new_cur = new_cur.parent unless new_cur == @root

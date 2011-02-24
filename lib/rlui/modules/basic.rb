@@ -78,7 +78,7 @@ end
 
 def cd path="/"
   els = path.split '/'
-  relative = !els.empty? && els[0].empty?
+  relative = els.empty? || !els[0].empty?
   $mode.cd els, relative
 end
 
