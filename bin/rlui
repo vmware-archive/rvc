@@ -128,20 +128,22 @@ else
   rootFolder.childEntity.grep(VIM::Datacenter).first
 end or fail "datacenter not found"
 
+vmRoot, datastoreRoot, hostRoot, networkRoot =
+  $dc.collect(:vmFolder, :datastoreFolder, :hostFolder, :networkFolder)
+
 if $opts[:folder]
-  $vmFolder = $dc.vmFolder.traverse! $opts[:folder], VIM::Folder
+  $vmFolder = vmRoot.traverse! $opts[:folder], VIM::Folder
 else
-  $vmFolder = $dc.vmFolder
+  $vmFolder = vmRoot
 end
 
 fail "no such folder" unless $vmFolder
 
-# XXX optimize
 MODES = {
   :vm => RLUI::Mode.new($vmFolder),
-  :datastore => RLUI::Mode.new($dc.datastoreFolder),
-  :host => RLUI::Mode.new($dc.hostFolder),
-  :network => RLUI::Mode.new($dc.networkFolder),
+  :datastore => RLUI::Mode.new(datastoreRoot),
+  :host => RLUI::Mode.new(hostRoot),
+  :network => RLUI::Mode.new(networkRoot),
 }
 
 $mode = MODES[:vm]
