@@ -44,7 +44,7 @@ CMD = Module.new
 
 $opts = Trollop.options do
   banner <<-EOS
-rlui is a developer's UI to the VI API.
+vSphere console UI.
 
 Usage:
        rlui [options] [hostname]
@@ -146,7 +146,7 @@ Readline.completion_proc = lambda do |word|
 end
 
 history_fn = "#{ENV['HOME']}/.rlui-history"
-IO.foreach(history_fn) { |l| Readline::HISTORY << l.chomp } rescue puts "Welcome to RLUI! Try the 'help' command."
+IO.foreach(history_fn) { |l| Readline::HISTORY << l.chomp } rescue puts "Welcome to rlui. Try the 'help' command."
 history = File.open(history_fn, 'a')
 
 RLUI.reload_modules false
