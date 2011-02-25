@@ -54,7 +54,7 @@ class HostMode < Mode
     :HostSystem => %w(name summary.hardware.memorySize summary.hardware.cpuModel
                       summary.hardware.cpuMhz summary.hardware.numCpuPkgs
                       summary.hardware.numCpuCores summary.hardware.numCpuThreads),
-    :ResourcePool => %w(name),
+    :ResourcePool => %w(name config.cpuAllocation config.memoryAllocation),
   }
 
   def ls
@@ -72,6 +72,16 @@ class HostMode < Mode
         memorySize, cpuModel, cpuMhz, numCpuPkgs, numCpuCores =
           %w(memorySize cpuModel cpuMhz numCpuPkgs numCpuCores).map { |x| r["summary.hardware.#{x}"] }
         puts "#{i} #{r['name']} (host): cpu #{numCpuPkgs}*#{numCpuCores}*#{"%.2f" % (cpuMhz.to_f/1000)} GHz, memory #{"%.2f" % (memorySize/10**9)} GB"
+      when VIM::ResourcePool
+        cpuAlloc, memAlloc = r['config.cpuAllocation'], r['config.memoryAllocation']
+
+        cpu_shares_text = cpuAlloc.shares.level == 'custom' ? cpuAlloc.shares.shares.to_s : cpuAlloc.shares.level
+        mem_shares_text = memAlloc.shares.level == 'custom' ? memAlloc.shares.shares.to_s : memAlloc.shares.level
+
+        puts "#{i} #{r['name']} (resource pool): cpu %0.2f/%0.2f/%s, mem %0.2f/%0.2f/%s" % [
+          cpuAlloc.reservation/1000.0, cpuAlloc.limit/1000.0, cpu_shares_text,
+          memAlloc.reservation/1000.0, memAlloc.limit/1000.0, mem_shares_text,
+        ]
       else
         puts "#{i} #{r['name']}"
       end
