@@ -111,10 +111,10 @@ vmRoot, datastoreRoot, hostRoot, networkRoot =
   $dc.collect(:vmFolder, :datastoreFolder, :hostFolder, :networkFolder)
 
 MODES = {
-  :vm => RLUI::VmMode.new(vmRoot),
-  :datastore => RLUI::DatastoreMode.new(datastoreRoot),
-  :host => RLUI::HostMode.new(hostRoot),
-  :network => RLUI::NetworkMode.new(networkRoot),
+  :vm => RLUI::VmMode.new(vmRoot, %w(vm)),
+  :datastore => RLUI::DatastoreMode.new(datastoreRoot, %w(datastore)),
+  :host => RLUI::HostMode.new(hostRoot, %w(host)),
+  :network => RLUI::NetworkMode.new(networkRoot, %w(network)),
 }
 
 $mode = MODES[$opts[:mode].to_sym] or abort "invalid initial mode"

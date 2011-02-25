@@ -3,7 +3,7 @@ module RLUI
 class Mode
   attr_reader :display_path, :items, :root, :cur, :aliases
 
-  def initialize root
+  def initialize root, initial_path
     @root = root
     @cur = root
     @items = {}
@@ -16,10 +16,11 @@ class Mode
       'cd' => 'basic.cd',
       'ls' => 'basic.ls',
     }
+    @path = initial_path
   end
 
   def display_path
-    @cached_display_path ||= @cur.pretty_path
+    @path * '/'
   end
 
   def traverse_one cur, el
@@ -33,15 +34,18 @@ class Mode
 
   def cd els, relative
     new_cur = relative ? @cur : @root
+    new_path = @path.dup
     els.each do |el|
       if el == '..'
         new_cur = new_cur.parent unless new_cur == @root
+        new_path.pop
       else
         new_cur = traverse_one(new_cur, el) or fail("no such folder")
+        new_path.push el
       end
     end
-    @cached_display_path = nil unless @cur == new_cur
     @cur = new_cur
+    @path = new_path
   end
 
   def _ls_select_set
