@@ -10,7 +10,7 @@ require 'yaml'
 require 'backports'
 require 'rlui/modules'
 require 'rlui/util'
-require 'rlui/mode'
+require 'rlui/context'
 
 VIM = RbVmomi::VIM
 include RLUI::Util
@@ -33,7 +33,6 @@ EOS
   rbvmomi_connection_opts
   rbvmomi_datacenter_opt
   opt :"create-datacenter", 'Create the datacenter if it does not exist', :short => :none
-  opt :mode, 'Initial mode', :short => 'M', :default => 'vm'
   rbvmomi_folder_opt
 
   opt :cmd, "command to evaluate", :short => 'c', :multi => true, :type => :string
@@ -74,10 +73,8 @@ def evalcmd str
   err "invalid command" unless cmd.is_a? String
   case cmd
   when /^:/
-    mode = MODES[$'.to_sym] or err("no such mode")
-    $mode = mode
   else
-    cmd = $mode.aliases[cmd] if $mode.aliases.member? cmd
+    cmd = $context.aliases[cmd] if $context.aliases.member? cmd
     module_name, cmd, = cmd.split '.'
     m = MODULES[module_name] or err("invalid module")
     err "invalid command" unless m.respond_to? cmd.to_sym
@@ -110,15 +107,8 @@ end or fail "datacenter not found"
 vmRoot, datastoreRoot, hostRoot, networkRoot =
   $dc.collect(:vmFolder, :datastoreFolder, :hostFolder, :networkFolder)
 
-MODES = {
-  :vm => RLUI::VmMode.new(vmRoot, %w(vm)),
-  :datastore => RLUI::DatastoreMode.new(datastoreRoot, %w(datastore)),
-  :host => RLUI::HostMode.new(hostRoot, %w(host)),
-  :network => RLUI::NetworkMode.new(networkRoot, %w(network)),
-}
-
-$mode = MODES[$opts[:mode].to_sym] or abort "invalid initial mode"
-$mode.cd $opts[:folder].split('/'), false
+$context = RLUI::Context.new $dc, :datacenter
+$context.cd $opts[:folder].split('/'), false
 
 Readline.completion_append_character = " "
 Readline.completion_proc = lambda do |word|
@@ -128,11 +118,8 @@ Readline.completion_proc = lambda do |word|
   MODULES.each do |name,m|
     m.commands.each { |s| candidates << "#{name}.#{s}" }
   end
-  MODES.each do |name,mode|
-    candidates << ":#{name}"
-  end
-  candidates.concat $mode.aliases.keys
-  candidates.concat $mode.items.keys.map(&:to_s)
+  candidates.concat $context.aliases.keys
+  candidates.concat $context.items.keys.map(&:to_s)
   candidates.sort.find_all { |e| e.match(prefix_regex) }
 end
 
@@ -157,7 +144,7 @@ persist_ruby = false
 CMD.basic.ls
 loop do
 begin
-  input = $opts[:cmd].shift || Readline.readline("#{$opts[:host]}#{persist_ruby ? '~' : ":#{$mode.display_path}>"} ", false) or break
+  input = $opts[:cmd].shift || Readline.readline("#{$opts[:host]}#{persist_ruby ? '~' : ":#{$context.display_path}>"} ", false) or break
   input = input.strip
   next if input.empty?
   if input == '//'

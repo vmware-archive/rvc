@@ -82,13 +82,13 @@ def cd path="/"
     els = path.split '/'
     relative = els.empty? || !els[0].empty?
   when Integer
-    f = $mode.items[path] or err("no such item")
+    f = $context.items[path] or err("no such item")
     els = [f.name]
     relative = true
   else
     err "unexpected type"
   end
-  $mode.cd els, relative
+  $context.cd els, relative
 end
 
 LS_SELECT_SET = [
@@ -116,6 +116,30 @@ LS_SELECT_SET = [
     :path => 'resourcePool',
     :skip => false
   ),
+  VIM.TraversalSpec(
+    :name => 'tsDatacenterVmFolder',
+    :type => 'Datacenter',
+    :path => 'vmFolder',
+    :skip => false
+  ),
+  VIM.TraversalSpec(
+    :name => 'tsDatacenterHostFolder',
+    :type => 'Datacenter',
+    :path => 'hostFolder',
+    :skip => false
+  ),
+  VIM.TraversalSpec(
+    :name => 'tsDatacenterNetworkFolder',
+    :type => 'Datacenter',
+    :path => 'networkFolder',
+    :skip => false
+  ),
+  VIM.TraversalSpec(
+    :name => 'tsDatacenterDatastoreFolder',
+    :type => 'Datacenter',
+    :path => 'datastoreFolder',
+    :skip => false
+  ),
 ]
 
 LS_PROPS = {
@@ -135,7 +159,7 @@ LS_PROPS = {
 }
 
 def ls
-  cur = $mode.cur
+  cur = $context.cur
 
   propSet = LS_PROPS.map { |k,v| { :type => k, :pathSet => v } }
 
@@ -152,9 +176,9 @@ def ls
 
   results = $vim.propertyCollector.RetrieveProperties(:specSet => [filterSpec])
 
-  $mode.clear_items
+  $context.clear_items
   results.each do |r|
-    i = $mode.add_item r['name'], r.obj
+    i = $context.add_item r['name'], r.obj
     case r.obj
     when VIM::Folder
       puts "#{i} #{r['name']}/"
