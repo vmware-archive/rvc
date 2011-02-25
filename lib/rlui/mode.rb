@@ -22,33 +22,48 @@ class Mode
     @cached_display_path ||= @cur.pretty_path
   end
 
+  def traverse_one cur, el
+    case cur
+    when VIM::Folder
+      cur.find el
+    else
+      fail "not a container"
+    end
+  end
+
   def cd els, relative
     new_cur = relative ? @cur : @root
     els.each do |el|
       if el == '..'
         new_cur = new_cur.parent unless new_cur == @root
       else
-        new_cur = new_cur.find(el, VIM::Folder) or fail("no such folder")
+        new_cur = traverse_one(new_cur, el) or fail("no such folder")
       end
     end
     @cached_display_path = nil unless @cur == new_cur
     @cur = new_cur
   end
 
+  def _ls_select_set
+    [
+      VIM.TraversalSpec(
+        :name => 'tsFolder',
+        :type => 'Folder',
+        :path => 'childEntity',
+        :skip => false
+      )
+    ]
+  end
+
   def _ls propHash
     propSet = propHash.map { |k,v| { :type => k, :pathSet => v } }
     filterSpec = VIM.PropertyFilterSpec(
       :objectSet => [
-        :obj => @cur,
-        :skip => true,
-        :selectSet => [
-          VIM.TraversalSpec(
-            :name => 'tsFolder',
-            :type => 'Folder',
-            :path => 'childEntity',
-            :skip => false
-          )
-        ]
+        {
+          :obj => @cur,
+          :skip => true,
+          :selectSet => _ls_select_set
+        }
       ],
       :propSet => propSet
     )

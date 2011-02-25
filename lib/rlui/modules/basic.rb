@@ -82,8 +82,7 @@ def cd path="/"
     els = path.split '/'
     relative = els.empty? || !els[0].empty?
   when Integer
-    f = $mode.items[path]
-    err "not a folder" unless f.is_a? VIM::Folder
+    f = $mode.items[path] or err("no such item")
     els = [f.name]
     relative = true
   else
