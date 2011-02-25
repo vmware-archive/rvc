@@ -48,33 +48,6 @@ class Mode
     @path = new_path
   end
 
-  def _ls_select_set
-    [
-      VIM.TraversalSpec(
-        :name => 'tsFolder',
-        :type => 'Folder',
-        :path => 'childEntity',
-        :skip => false
-      )
-    ]
-  end
-
-  def _ls propHash
-    propSet = propHash.map { |k,v| { :type => k, :pathSet => v } }
-    filterSpec = VIM.PropertyFilterSpec(
-      :objectSet => [
-        {
-          :obj => @cur,
-          :skip => true,
-          :selectSet => _ls_select_set
-        }
-      ],
-      :propSet => propSet
-    )
-
-    $vim.propertyCollector.RetrieveProperties(:specSet => [filterSpec])
-  end
-
   def clear_items
     @items.clear
     @next_item_index = 0
@@ -86,19 +59,6 @@ class Mode
     @items[i] = obj
     @items[name] = obj
     i
-  end
-
-  def ls
-    clear_items
-    _ls(:ManagedEntity => %w(name)).each do |r|
-      i = add_item r['name'], r.obj
-      case r.obj
-      when VIM::Folder
-        puts "#{i} #{r['name']}/"
-      else
-        puts "#{i} #{r['name']}"
-      end
-    end
   end
 end
 

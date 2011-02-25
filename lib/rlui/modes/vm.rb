@@ -21,21 +21,6 @@ class VmMode < Mode
       'ssh' => 'vm.ssh'
     )
   end
-
-  def ls
-    clear_items
-    _ls(:Folder => %w(name), :VirtualMachine => %w(name runtime.powerState)).each do |r|
-      i = add_item r['name'], r.obj
-      case r.obj
-      when VIM::Folder
-        puts "#{i} #{r['name']}/"
-      when VIM::VirtualMachine
-        puts "#{i} #{r['name']} #{r['runtime.powerState']}"
-      else
-        puts "#{i} #{r['name']}"
-      end
-    end
-  end
 end
 
 end

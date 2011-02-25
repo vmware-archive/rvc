@@ -91,6 +91,107 @@ def cd path="/"
   $mode.cd els, relative
 end
 
+LS_SELECT_SET = [
+  VIM.TraversalSpec(
+    :name => 'tsFolderChildren',
+    :type => 'Folder',
+    :path => 'childEntity',
+    :skip => false
+  ),
+  VIM.TraversalSpec(
+    :name => 'tsComputeResourceHosts',
+    :type => 'ComputeResource',
+    :path => 'host',
+    :skip => false
+  ),
+  VIM.TraversalSpec(
+    :name => 'tsComputeResourceResourcePools',
+    :type => 'ComputeResource',
+    :path => 'resourcePool',
+    :skip => false
+  ),
+  VIM.TraversalSpec(
+    :name => 'tsResourcePoolChildren',
+    :type => 'ResourcePool',
+    :path => 'resourcePool',
+    :skip => false
+  ),
+]
+
+LS_PROPS = {
+  :Folder => %w(name),
+  :ComputeResource => %w(name summary.effectiveCpu summary.effectiveMemory),
+  :ClusterComputeResource => %w(name summary.effectiveCpu summary.effectiveMemory),
+  :HostSystem => %w(name summary.hardware.memorySize summary.hardware.cpuModel
+                    summary.hardware.cpuMhz summary.hardware.numCpuPkgs
+                    summary.hardware.numCpuCores summary.hardware.numCpuThreads),
+  :ResourcePool => %w(name config.cpuAllocation config.memoryAllocation),
+  :ManagedEntity => %w(name),
+  :Datastore => %w(name summary.capacity summary.freeSpace),
+  :VirtualMachine => %w(name runtime.powerState),
+  :Network => %w(name),
+  :DistributedVirtualPortgroup => %w(name config.distributedVirtualSwitch),
+  :DistributedVirtualSwitch => %w(name summary.description),
+}
+
 def ls
-  $mode.ls
+  cur = $mode.cur
+
+  propSet = LS_PROPS.map { |k,v| { :type => k, :pathSet => v } }
+
+  filterSpec = VIM.PropertyFilterSpec(
+    :objectSet => [
+      {
+        :obj => cur,
+        :skip => true,
+        :selectSet => LS_SELECT_SET,
+      }
+    ],
+    :propSet => propSet
+  )
+
+  results = $vim.propertyCollector.RetrieveProperties(:specSet => [filterSpec])
+
+  $mode.clear_items
+  results.each do |r|
+    i = $mode.add_item r['name'], r.obj
+    case r.obj
+    when VIM::Folder
+      puts "#{i} #{r['name']}/"
+    when VIM::ClusterComputeResource
+      puts "#{i} #{r['name']} (cluster): cpu #{r['summary.effectiveCpu']/1000} GHz, memory #{r['summary.effectiveMemory']/1000} GB"
+    when VIM::ComputeResource
+      puts "#{i} #{r['name']} (standalone): cpu #{r['summary.effectiveCpu']/1000} GHz, memory #{r['summary.effectiveMemory']/1000} GB"
+    when VIM::HostSystem
+      memorySize, cpuModel, cpuMhz, numCpuPkgs, numCpuCores =
+        %w(memorySize cpuModel cpuMhz numCpuPkgs numCpuCores).map { |x| r["summary.hardware.#{x}"] }
+      puts "#{i} #{r['name']} (host): cpu #{numCpuPkgs}*#{numCpuCores}*#{"%.2f" % (cpuMhz.to_f/1000)} GHz, memory #{"%.2f" % (memorySize/10**9)} GB"
+    when VIM::ResourcePool
+      cpuAlloc, memAlloc = r['config.cpuAllocation'], r['config.memoryAllocation']
+
+      cpu_shares_text = cpuAlloc.shares.level == 'custom' ? cpuAlloc.shares.shares.to_s : cpuAlloc.shares.level
+      mem_shares_text = memAlloc.shares.level == 'custom' ? memAlloc.shares.shares.to_s : memAlloc.shares.level
+
+      puts "#{i} #{r['name']} (resource pool): cpu %0.2f/%0.2f/%s, mem %0.2f/%0.2f/%s" % [
+        cpuAlloc.reservation/1000.0, cpuAlloc.limit/1000.0, cpu_shares_text,
+        memAlloc.reservation/1000.0, memAlloc.limit/1000.0, mem_shares_text,
+      ]
+    when VIM::Datastore
+      pct_used = 100*(1-(r['summary.freeSpace'].to_f/r['summary.capacity']))
+      pct_used_text = "%0.1f%%" % pct_used
+      capacity_text = "%0.2fGB" % (r['summary.capacity'].to_f/10**9)
+      puts "#{i} #{r['name']} #{capacity_text} #{pct_used_text}"
+    when VIM::VirtualMachine
+      puts "#{i} #{r['name']} #{r['runtime.powerState']}"
+    when VIM::DistributedVirtualPortgroup
+      # XXX optimize
+      puts "#{i} #{r['name']} (dvpg) <#{r['config.distributedVirtualSwitch'].name}"
+    when VIM::DistributedVirtualSwitch
+      puts "#{i} #{r['name']} (dvs)"
+    when VIM::Network
+      puts "#{i} #{r['name']}"
+    else
+      puts "#{i} #{r['name']}"
+    end
+  end
 end
