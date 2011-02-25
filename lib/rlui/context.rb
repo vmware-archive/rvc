@@ -60,7 +60,6 @@ class Context
       else
         new_cur = traverse_one(new_cur, el) or fail("no such folder")
         new_mode = transition_mode cur, new_cur, new_mode_stack[-1], el
-        p [new_mode_stack[-1], new_mode]
         new_path.push el
         new_mode_stack.push new_mode
       end
