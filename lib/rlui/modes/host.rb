@@ -11,7 +11,7 @@ class HostMode < Mode
 
   def traverse_one cur, el
     case cur
-    when VIM::ComputeResource
+    when VIM::ComputeResource, VIM::ResourcePool
       $vim.searchIndex.FindChild(:entity => cur, :name => el)
     else
       super
@@ -21,17 +21,29 @@ class HostMode < Mode
   def _ls_select_set
     [
       VIM.TraversalSpec(
-        :name => 'tsFolder',
+        :name => 'tsFolderChildren',
         :type => 'Folder',
         :path => 'childEntity',
         :skip => false
       ),
       VIM.TraversalSpec(
-        :name => 'tsComputeResource',
+        :name => 'tsComputeResourceHosts',
         :type => 'ComputeResource',
         :path => 'host',
         :skip => false
-      )
+      ),
+      VIM.TraversalSpec(
+        :name => 'tsComputeResourceResourcePools',
+        :type => 'ComputeResource',
+        :path => 'resourcePool',
+        :skip => false
+      ),
+      VIM.TraversalSpec(
+        :name => 'tsResourcePoolChildren',
+        :type => 'ResourcePool',
+        :path => 'resourcePool',
+        :skip => false
+      ),
     ]
   end
 
@@ -42,6 +54,7 @@ class HostMode < Mode
     :HostSystem => %w(name summary.hardware.memorySize summary.hardware.cpuModel
                       summary.hardware.cpuMhz summary.hardware.numCpuPkgs
                       summary.hardware.numCpuCores summary.hardware.numCpuThreads),
+    :ResourcePool => %w(name),
   }
 
   def ls
