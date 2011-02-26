@@ -77,18 +77,7 @@ def reload
 end
 
 def cd path="/"
-  case path
-  when String
-    els = path.split '/'
-    relative = els.empty? || !els[0].empty?
-  when Integer
-    f = $context.items[path] or err("no such item")
-    els = [f.name]
-    relative = true
-  else
-    err "unexpected type"
-  end
-  $context.cd els, relative
+  $context.cd path
 end
 
 LS_SELECT_SET = [
@@ -218,4 +207,11 @@ def ls
       puts "#{i} #{r['name']}"
     end
   end
+end
+
+def info path
+  obj = lookup(path)
+  expect obj, VIM::ManagedEntity
+  puts "name: #{obj.name}"
+  puts "type: #{obj.class.wsdl_name}"
 end

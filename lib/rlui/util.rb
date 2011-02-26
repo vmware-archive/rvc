@@ -2,14 +2,14 @@ module RLUI
 module Util
   extend self
 
-  def item id, klass=Object
-    x = $context.items[id] || err("invalid item #{id}")
-    err "unexpected type #{x.class}" unless x.is_a? klass
-    x
+  def lookup path
+    $context.lookup path
   end
 
-  def vm id
-    item id, VIM::VirtualMachine
+  def expect obj, *types
+    unless types.any? { |x| obj.is_a? x }
+      err "unexpected #{obj.class}"
+    end
   end
 
   def vm_ip vm

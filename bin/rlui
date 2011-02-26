@@ -108,7 +108,7 @@ vmRoot, datastoreRoot, hostRoot, networkRoot =
   $dc.collect(:vmFolder, :datastoreFolder, :hostFolder, :networkFolder)
 
 $context = RLUI::Context.new $dc, :datacenter
-$context.cd $opts[:folder].split('/'), false
+$context.cd $opts[:folder]
 
 Readline.completion_append_character = " "
 Readline.completion_proc = lambda do |word|

@@ -20,10 +20,42 @@ class Context
     @mode_stack[-1]
   end
 
+  def parse_path path
+    els = path.split '/'
+    absolute = els[0].nil? || els[0].empty?
+    els.shift if absolute
+    [els, absolute]
+  end
+
+  def lookup path
+    case path
+    when Integer
+      @items[path] or fail("no such item")
+    when String
+      els, absolute = parse_path path
+      base = absolute ? @root : cur
+      traverse(base, els) or fail("not found")
+    else fail
+    end
+  end
+
+  def traverse base, els
+    els.inject(base) do |cur,el|
+      case el
+      when '.'
+        cur
+      when '..'
+        cur == @root ? cur : cur.parent
+      else
+        traverse_one(cur, el) or fail("no such arc #{el}")
+      end
+    end
+  end
+
   def traverse_one cur, el
     case cur
-    when VIM::Folder, VIM::Datacenter
-      cur.find el
+    when VIM::ManagedEntity
+      $vim.searchIndex.FindChild(:entity => cur, :name => el)
     else
       fail "not a container"
     end
@@ -48,9 +80,10 @@ class Context
     end
   end
 
-  def cd els, relative
-    new_cur = relative ? @cur : @root
-    new_path = @path.dup
+  def cd path
+    els, absolute = parse_path path
+    new_cur = absolute ? @root : @cur
+    new_path = absolute ? [] : @path.dup
     new_mode_stack = @mode_stack.dup
     els.each do |el|
       if el == '..'
@@ -58,8 +91,9 @@ class Context
         new_path.pop
         new_mode_stack.pop
       else
-        new_cur = traverse_one(new_cur, el) or fail("no such folder")
-        new_mode = transition_mode cur, new_cur, new_mode_stack[-1], el
+        prev = new_cur
+        new_cur = traverse_one(new_cur, el) or fail("no such arc #{el}")
+        new_mode = transition_mode prev, new_cur, new_mode_stack[-1], el
         new_path.push el
         new_mode_stack.push new_mode
       end

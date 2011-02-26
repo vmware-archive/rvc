@@ -1,19 +1,23 @@
 include RLUI::Util
 
-def on *ids
-  vmtask ids, :PowerOnVM
+def _vm(path)
+  lookup(path).tap { |obj| expect obj, VIM::VirtualMachine }
 end
 
-def off *ids
-  vmtask ids, :PowerOffVM
+def on *paths
+  vmtask paths, :PowerOnVM
 end
 
-def reset *ids
-  vmtask ids, :ResetVM
+def off *paths
+  vmtask paths, :PowerOffVM
 end
 
-def suspend *ids
-  vmtask ids, :SuspendVM
+def reset *paths
+  vmtask paths, :ResetVM
+end
+
+def suspend *paths
+  vmtask paths, :SuspendVM
 end
 
 def register datastore, path
@@ -28,22 +32,22 @@ def register datastore, path
                                       :pool => rp).wait_for_completion
 end
 
-def unregister id
-  vm(id).UnregisterVM
+def unregister path
+  _vm(path).UnregisterVM
 end
 
-def destroy *ids
-  vmtask ids, :Destroy
+def destroy *paths
+  vmtask paths, :Destroy
 end
 
-def kill *ids
-  on_ids = ids.select { |x| vm(x).summary.runtime.powerState == 'poweredOn' }
-  off *on_ids unless on_ids.empty?
-  destroy *ids unless ids.empty?
+def kill *paths
+  on_paths = paths.select { |x| _vm(x).summary.runtime.powerState == 'poweredOn' }
+  off *on_paths unless on_paths.empty?
+  destroy *paths unless paths.empty?
 end
 
-def info id
-  config, runtime, guest = vm(id).collect :config, :runtime, :guest
+def info path
+  config, runtime, guest = _vm(path).collect :config, :runtime, :guest
 
   puts "name: #{config.name}"
   puts "note: #{config.annotation}" if config.annotation and !config.annotation.empty?
@@ -77,21 +81,21 @@ def info id
   end
 end
 
-def answer id, str
-  q = vm(id).runtime.question or err("no question to answer")
+def answer path, str
+  q = _vm(path).runtime.question or err("no question to answer")
   choice = q.choice.choiceInfo.find { |x| x.label == str }
   err("invalid answer") unless choice
-  vm(id).AnswerVM :questionId => q.id, :answerChoice => choice.key
+  _vm(path).AnswerVM :questionid => q.path, :answerChoice => choice.key
 end
 
-def layout id
-  vm(id).layoutEx.file.each do |f|
+def layout path
+  _vm(path).layoutEx.file.each do |f|
     puts "#{f.type}: #{f.name}"
   end
 end
 
-def devices id
-  devs = vm(id).config.hardware.device
+def devices path
+  devs = _vm(path).config.hardware.device
   devs.each do |dev|
     tags = []
     tags << (dev.connectable.connected ? :connected : :disconnected) if dev.props.member? :connectable
@@ -99,12 +103,12 @@ def devices id
   end
 end
 
-def connect id, label
-  change_device_connectivity id, label, true
+def connect path, label
+  change_device_connectivity path, label, true
 end
 
-def disconnect id, label
-  change_device_connectivity id, label, false
+def disconnect path, label
+  change_device_connectivity path, label, false
 end
 
 def find datastore_name=nil
@@ -136,23 +140,23 @@ def find datastore_name=nil
                                       :pool => rp).wait_for_completion
 end
 
-def extraConfig id, *args
-  _extraConfig(id, *args.map { |x| /#{x}/ })
+def extraConfig path, *args
+  _extraConfig(path, *args.map { |x| /#{x}/ })
 end
 
-def setExtraConfig id, *args
+def setExtraConfig path, *args
   h = Hash[args.map { |x| x.split('=', 2).tap { |a| a << '' if a.size == 1 } }]
-  _setExtraConfig id, h
+  _setExtraConfig path, h
 end
 
-def ssh id
-  ip = vm_ip vm(id)
+def ssh path
+  ip = vm_ip _vm(path)
   ssh_cmd = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@#{ip}"
   system_fg(ssh_cmd)
 end
 
-def rlui id
-  ip = vm_ip vm(id)
+def rlui path
+  ip = vm_ip _vm(path)
 
   env = Hash[%w(RBVMOMI_PASSWORD RBVMOMI_HOST RBVMOMI_USER RBVMOMI_SSL RBVMOMI_PORT
                 RBVMOMI_FOLDER RBVMOMI_DATASTORE RBVMOMI_PATH RBVMOMI_DATACENTER
@@ -161,30 +165,30 @@ def rlui id
   system_fg(cmd, env)
 end
 
-def ping id
-  ip = vm_ip vm(id)
+def ping path
+  ip = vm_ip _vm(path)
   system_fg "ping #{ip}"
 end
 
-def ip *ids
+def ip *paths
   paths = %w(summary.runtime.powerState summary.guest.ipAddress summary.config.annotation)
 
-  filters = ids.map do |id|
+  filters = paths.map do |path|
     $vim.propertyCollector.CreateFilter :spec => {
       :propSet => [{ :type => 'VirtualMachine', :all => false, :pathSet => paths }],
-      :objectSet => [{ :obj => vm(id) }],
+      :objectSet => [{ :obj => _vm(path) }],
     }, :partialUpdates => false
   end
 
   ver = ''
-  while not ids.empty?
+  while not paths.empty?
     result = $vim.propertyCollector.WaitForUpdates(:version => ver)
     ver = result.version
 
-    ids.reject! do |id|
+    paths.reject! do |path|
       begin
-        ip = vm_ip(vm(id))
-        puts "#{vm(id).name}: #{ip}"
+        ip = vm_ip(_vm(path))
+        puts "#{_vm(path).name}: #{ip}"
         true
       rescue UserError
         false

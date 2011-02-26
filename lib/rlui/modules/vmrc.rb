@@ -2,10 +2,12 @@ include RLUI::Util
 
 VMRC = ENV['VMRC'] || search_path('vmrc')
 
-def view *ids
+def view *paths
   err "VMRC not found" unless VMRC
-  ids.each do |id|
-    moref = vm(id)._ref
+  paths.each do |path|
+    obj = lookup path
+    expect obj, VIM::VirtualMachine
+    moref = obj._ref
     fork do
       ENV['https_proxy'] = ENV['HTTPS_PROXY'] = ''
       $stderr.reopen("#{ENV['HOME']||'.'}/.rlui-vmrc.log", "w")

@@ -9,8 +9,9 @@ vnc off id - Close the VNC port
   EOS
 end
 
-def view id
-  vm = vm(id)
+def view path
+  vm = lookup(path)
+  expect vm, VIM::VirtualMachine
   ip = reachable_ip vm.runtime.host
 
   extraConfig = vm.config.extraConfig
@@ -33,8 +34,10 @@ def view id
   vnc_client ip, port, password
 end
 
-def off id
-  vm(id).ReconfigVM_Task(:spec => {
+def off path
+  vm = lookup(path)
+  expect vm, VIM::VirtualMachine
+  vm.ReconfigVM_Task(:spec => {
     :extraConfig => [
       { :key => 'RemoteDisplay.vnc.enabled', :value => 'false' },
       { :key => 'RemoteDisplay.vnc.password', :value => '' },

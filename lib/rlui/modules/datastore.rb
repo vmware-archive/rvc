@@ -1,7 +1,8 @@
 include RLUI::Util
 
-def info id
-  ds = item id, VIM::Datastore
+def info path
+  ds = lookup path
+  expect ds, VIM::Datastore
   s = ds.summary
   info = ds.info
   puts "type: #{s.type}"

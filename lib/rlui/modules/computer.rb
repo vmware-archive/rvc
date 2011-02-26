@@ -1,8 +1,9 @@
 include RLUI::Util
 
 # XXX expand, optimize
-def info id
-  c = item(id, VIM::ComputeResource)
+def info path
+  c = lookup path
+  expect c, VIM::ComputeResource
   case c
   when VIM::ClusterComputeResource
     puts "name: #{c.name}"
