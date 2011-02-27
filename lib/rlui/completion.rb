@@ -20,9 +20,9 @@ module Completion
     last = trailing_slash ? '' : (els.pop || '')
     base = absolute ? $context.root : $context.cur
     cur = $context.traverse(base, els) or return []
-    cur.child_map.
+    cur.child_types.
       select { |k,v| k =~ /^#{Regexp.escape(last)}/ }.
-      map { |k,v| v.is_a?(VIM::Folder) ? "#{k}/" : "#{k} " }.
+      map { |k,v| v == VIM::Folder ? "#{k}/" : "#{k} " }.
       map { |x| (els+[x])*'/' }
   end
 end

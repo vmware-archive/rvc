@@ -7,7 +7,7 @@ class ManagedEntity
     puts "type: #{self.class.wsdl_name}"
   end
 
-  def child_map
+  def child_types
     {}
   end
 
@@ -116,8 +116,31 @@ end
 
 Folder
 class Folder
-  def child_map
-    Hash[children.map { |x| [x.name, x] }]
+  def child_types
+    spec = {
+      :objectSet => [
+        {
+          :obj => self,
+          :skip => true,
+          :selectSet => [
+            VIM::TraversalSpec(
+              :path => 'childEntity',
+              :type => 'Folder'
+            )
+          ]
+        }
+      ],
+      :propSet => [
+        {
+          :type => 'ManagedEntity',
+          :pathSet => %w(name),
+        }
+      ]
+    }
+
+    results = @soap.propertyCollector.RetrieveProperties(:specSet => [spec])
+
+    Hash[results.map { |r| [r['name'], r.obj.class] }]
   end
 
   def traverse_one arc
@@ -127,14 +150,12 @@ end
 
 Datacenter
 class Datacenter
-  def child_map
-    vmFolder, datastoreFolder, networkFolder, hostFolder =
-      collect :vmFolder, :datastoreFolder, :networkFolder, :hostFolder
+  def child_types
     {
-      'vm' => vmFolder,
-      'datastore' => datastoreFolder,
-      'network' => networkFolder,
-      'host' => hostFolder
+      'vm' => VIM::Folder,
+      'datastore' => VIM::Folder,
+      'network' => VIM::Folder,
+      'host' => VIM::Folder
     }
   end
 
