@@ -1,6 +1,7 @@
 module RLUI
 module Completion
   Completor = lambda do |word|
+    Readline.completion_append_character = nil
     return unless word
     child_candidates(word) + cmd_candidates(word)
   end

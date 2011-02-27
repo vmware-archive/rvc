@@ -9,7 +9,6 @@ begin
     gem.authors = ["Rich Lane"]
     gem.add_dependency 'rbvmomi', '>= 1.1.5'
     gem.add_dependency 'trollop', '>= 1.16.2'
-    gem.add_dependency 'rb-readline', '>= 0.4.0'
     gem.add_dependency 'backports', '>= 1.18.2'
   end
 rescue LoadError

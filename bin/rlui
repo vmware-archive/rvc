@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 require 'curses'
-require 'rb-readline'
+require 'readline'
 require 'pp'
 require 'trollop'
 require 'rbvmomi'
