@@ -11,6 +11,7 @@ require 'backports'
 require 'rlui/modules'
 require 'rlui/util'
 require 'rlui/context'
+require 'rlui/extensions.rb'
 
 VIM = RbVmomi::VIM
 include RLUI::Util
@@ -62,14 +63,15 @@ ALIASES = {
   'reload' => 'basic.reload',
   'cd' => 'basic.cd',
   'ls' => 'basic.ls',
+  'info' => 'basic.info',
+  'i' => 'basic.info',
+
   'on' => 'vm.on',
   'off' => 'vm.off',
   'reset' => 'vm.reset',
   'r' => 'vm.reset',
   'suspend' => 'vm.suspend',
   's' => 'vm.suspend',
-  'info' => 'vm.info',
-  'i' => 'vm.info',
   'kill' => 'vm.kill',
   'k' => 'vm.kill',
   'ping' => 'vm.ping',

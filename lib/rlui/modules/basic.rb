@@ -212,6 +212,5 @@ end
 def info path
   obj = lookup(path)
   expect obj, VIM::ManagedEntity
-  puts "name: #{obj.name}"
-  puts "type: #{obj.class.wsdl_name}"
+  obj.display_info
 end
