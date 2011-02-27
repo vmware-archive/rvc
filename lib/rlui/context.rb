@@ -16,11 +16,17 @@ class Context
   end
 
   def parse_path path
-    els = path.split '/'
-    trailing_slash = path[-1..-1] == '/'
-    absolute = els[0].nil? || els[0].empty?
-    els.shift if absolute
-    [els, absolute, trailing_slash]
+    if path.empty?
+      return [[], false, false]
+    elsif path == '/'
+      return [[], true, true]
+    else
+      els = path.split '/'
+      trailing_slash = path[-1..-1] == '/'
+      absolute = !els[0].nil? && els[0].empty?
+      els.shift if absolute
+      [els, absolute, trailing_slash]
+    end
   end
 
   def lookup path
