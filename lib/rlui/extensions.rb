@@ -10,6 +10,10 @@ class ManagedEntity
   def child_map
     {}
   end
+
+  def traverse_one arc
+    nil
+  end
 end
 
 ComputeResource
@@ -115,6 +119,10 @@ class Folder
   def child_map
     Hash[children.map { |x| [x.name, x] }]
   end
+
+  def traverse_one arc
+    $vim.searchIndex.find :entity => self, :name => arc
+  end
 end
 
 Datacenter
@@ -128,6 +136,15 @@ class Datacenter
       'network' => networkFolder,
       'host' => hostFolder
     }
+  end
+
+  def traverse_one arc
+    case arc
+    when 'vm' then vmFolder
+    when 'datastore' then datastoreFolder
+    when 'network' then networkFolder
+    when 'host' then hostFolder
+    end
   end
 end
 

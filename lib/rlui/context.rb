@@ -43,17 +43,8 @@ class Context
       when '..'
         cur == @root ? cur : cur.parent
       else
-        traverse_one(cur, el) or return
+        cur.traverse_one(el) or return
       end
-    end
-  end
-
-  def traverse_one cur, el
-    case cur
-    when VIM::ManagedEntity
-      $vim.searchIndex.FindChild(:entity => cur, :name => el)
-    else
-      fail "not a container"
     end
   end
 
@@ -67,7 +58,7 @@ class Context
         new_path.pop
       else
         prev = new_cur
-        new_cur = traverse_one(new_cur, el) or fail("no such arc #{el}")
+        new_cur = new_cur.traverse_one(el) or err("no such entity #{el}")
         new_path.push el
       end
     end
