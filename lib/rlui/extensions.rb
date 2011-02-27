@@ -144,7 +144,7 @@ class Folder
   end
 
   def traverse_one arc
-    $vim.searchIndex.find :entity => self, :name => arc
+    $vim.searchIndex.FindChild :entity => self, :name => arc
   end
 end
 

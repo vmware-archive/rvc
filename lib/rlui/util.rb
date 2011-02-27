@@ -173,9 +173,5 @@ module Util
     tcsetpgrp
     nil
   end
-
-  def find name, cur=$context.cur
-    $vim.searchIndex.FindChild(:entity => cur, :name => name)
-  end
 end
 end
