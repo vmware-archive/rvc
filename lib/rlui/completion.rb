@@ -21,7 +21,7 @@ module Completion
   end
 
   def self.child_candidates word
-    els, absolute, trailing_slash = $context.parse_path word
+    els, absolute, trailing_slash = Path.parse word
     last = trailing_slash ? '' : (els.pop || '')
     base = absolute ? $context.root : $context.cur
     cur = $context.traverse(base, els) or return []

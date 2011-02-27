@@ -15,26 +15,12 @@ class Context
     @path * '/'
   end
 
-  def parse_path path
-    if path.empty?
-      return [[], false, false]
-    elsif path == '/'
-      return [[], true, true]
-    else
-      els = path.split '/'
-      trailing_slash = path[-1..-1] == '/'
-      absolute = !els[0].nil? && els[0].empty?
-      els.shift if absolute
-      [els, absolute, trailing_slash]
-    end
-  end
-
   def lookup path
     case path
     when Integer
       @items[path] or fail("no such item")
     when String
-      els, absolute, trailing_slash = parse_path path
+      els, absolute, trailing_slash = Path.parse path
       base = absolute ? @root : cur
       traverse(base, els) or fail("not found")
     else fail
@@ -55,7 +41,7 @@ class Context
   end
 
   def cd path
-    els, absolute, trailing_slash = parse_path path
+    els, absolute, trailing_slash = Path.parse path
     new_cur = absolute ? @root : @cur
     new_path = absolute ? [] : @path.dup
     els.each do |el|
