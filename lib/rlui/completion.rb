@@ -25,6 +25,7 @@ module Completion
     last = trailing_slash ? '' : (els.pop || '')
     base = absolute ? $context.root : $context.cur
     cur = $context.traverse(base, els) or return []
+    els.unshift '' if absolute
     cur.child_types.
       select { |k,v| k =~ /^#{Regexp.escape(last)}/ }.
       map { |k,v| v == VIM::Folder ? "#{k}/" : k }.
