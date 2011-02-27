@@ -6,6 +6,10 @@ class ManagedEntity
     puts "name: #{name}"
     puts "type: #{self.class.wsdl_name}"
   end
+
+  def child_map
+    {}
+  end
 end
 
 ComputeResource
@@ -103,6 +107,27 @@ class VirtualMachine
       guest_net = guest.net.find { |x| x.macAddress == dev.macAddress }
       puts " #{dev.deviceInfo.label}: #{backing_info} #{dev.connectable.connected ? :connected : :disconnected} #{dev.macAddress} #{guest_net ? (guest_net.ipAddress * ' ') : ''}"
     end
+  end
+end
+
+Folder
+class Folder
+  def child_map
+    Hash[children.map { |x| [x.name, x] }]
+  end
+end
+
+Datacenter
+class Datacenter
+  def child_map
+    vmFolder, datastoreFolder, networkFolder, hostFolder =
+      collect :vmFolder, :datastoreFolder, :networkFolder, :hostFolder
+    {
+      'vm' => vmFolder,
+      'datastore' => datastoreFolder,
+      'network' => networkFolder,
+      'host' => hostFolder
+    }
   end
 end
 

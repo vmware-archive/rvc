@@ -43,7 +43,7 @@ class Context
       when '..'
         cur == @root ? cur : cur.parent
       else
-        traverse_one(cur, el) or fail("no such arc #{el}")
+        traverse_one(cur, el) or return
       end
     end
   end
