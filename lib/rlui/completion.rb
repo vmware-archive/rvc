@@ -3,7 +3,11 @@ module Completion
   Completor = lambda do |word|
     Readline.completion_append_character = nil
     return unless word
-    child_candidates(word) + cmd_candidates(word)
+    candidates = child_candidates(word) + cmd_candidates(word)
+    if candidates.length == 1 && candidates[0][-1] != '/'
+      Readline.completion_append_character = ' '
+    end
+    candidates
   end
 
   def self.cmd_candidates word
@@ -23,7 +27,7 @@ module Completion
     cur = $context.traverse(base, els) or return []
     cur.child_types.
       select { |k,v| k =~ /^#{Regexp.escape(last)}/ }.
-      map { |k,v| v == VIM::Folder ? "#{k}/" : "#{k} " }.
+      map { |k,v| v == VIM::Folder ? "#{k}/" : k }.
       map { |x| (els+[x])*'/' }
   end
 end
