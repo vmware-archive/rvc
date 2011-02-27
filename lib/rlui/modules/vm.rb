@@ -36,10 +36,6 @@ def unregister path
   _vm(path).UnregisterVM
 end
 
-def destroy *paths
-  vmtask paths, :Destroy
-end
-
 def kill *paths
   on_paths = paths.select { |x| _vm(x).summary.runtime.powerState == 'poweredOn' }
   off *on_paths unless on_paths.empty?

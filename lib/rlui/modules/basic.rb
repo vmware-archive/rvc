@@ -214,3 +214,7 @@ def info path
   expect obj, VIM::ManagedEntity
   obj.display_info
 end
+
+def destroy *paths
+  progress paths, :Destroy
+end
