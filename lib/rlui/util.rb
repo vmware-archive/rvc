@@ -119,9 +119,9 @@ module Util
     raise UserError.new(msg)
   end
 
-  def vmtask ids, sym, args={}
-    vms = ids.map { |i| vm(i) }
-    tasks = vms.map { |vm| vm._call :"#{sym}_Task", args }
+  def progress paths, sym, args={}
+    objs = paths.map { |x| lookup(x) }
+    tasks = objs.map { |obj| obj._call :"#{sym}_Task", args }
 
     interested = %w(info.progress info.state info.entityName info.error)
 
@@ -147,7 +147,7 @@ module Util
         $stdout.flush
       end
     end
-    $stdout.write "\e[#{ids.size}B" if interactive?
+    $stdout.write "\e[#{paths.size}B" if interactive?
     true
   end
 

@@ -5,19 +5,19 @@ def _vm(path)
 end
 
 def on *paths
-  vmtask paths, :PowerOnVM
+  progress paths, :PowerOnVM
 end
 
 def off *paths
-  vmtask paths, :PowerOffVM
+  progress paths, :PowerOffVM
 end
 
 def reset *paths
-  vmtask paths, :ResetVM
+  progress paths, :ResetVM
 end
 
 def suspend *paths
-  vmtask paths, :SuspendVM
+  progress paths, :SuspendVM
 end
 
 def register datastore, path
