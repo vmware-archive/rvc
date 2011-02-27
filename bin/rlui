@@ -55,6 +55,30 @@ ENV['RBVMOMI_PASSWORD'] = $opts[:password]
 ENV['RBVMOMI_FOLDER'] = $opts[:folder]
 ENV['RBVMOMI_DATACENTER'] = $opts[:datacenter]
 
+ALIASES = {
+  'type' => 'basic.type',
+  'debug' => 'basic.debug',
+  'rc' => 'basic.rc',
+  'reload' => 'basic.reload',
+  'cd' => 'basic.cd',
+  'ls' => 'basic.ls',
+  'on' => 'vm.on',
+  'off' => 'vm.off',
+  'reset' => 'vm.reset',
+  'r' => 'vm.reset',
+  'suspend' => 'vm.suspend',
+  's' => 'vm.suspend',
+  'info' => 'vm.info',
+  'i' => 'vm.info',
+  'kill' => 'vm.kill',
+  'k' => 'vm.kill',
+  'ping' => 'vm.ping',
+  'view' => 'vmrc.view',
+  'v' => 'vmrc.view',
+  'V' => 'vnc.view',
+  'ssh' => 'vm.ssh'
+}
+
 
 ## internal
 
@@ -74,7 +98,7 @@ def evalcmd str
   case cmd
   when /^:/
   else
-    cmd = $context.aliases[cmd] if $context.aliases.member? cmd
+    cmd = ALIASES[cmd] if ALIASES.member? cmd
     module_name, cmd, = cmd.split '.'
     m = MODULES[module_name] or err("invalid module")
     err "invalid command" unless m.respond_to? cmd.to_sym
@@ -107,7 +131,7 @@ end or fail "datacenter not found"
 vmRoot, datastoreRoot, hostRoot, networkRoot =
   $dc.collect(:vmFolder, :datastoreFolder, :hostFolder, :networkFolder)
 
-$context = RLUI::Context.new $dc, :datacenter
+$context = RLUI::Context.new $dc
 $context.cd $opts[:folder]
 
 Readline.completion_append_character = " "
@@ -118,7 +142,7 @@ Readline.completion_proc = lambda do |word|
   MODULES.each do |name,m|
     m.commands.each { |s| candidates << "#{name}.#{s}" }
   end
-  candidates.concat $context.aliases.keys
+  candidates.concat ALIASES.keys
   candidates.concat $context.items.keys.map(&:to_s)
   candidates.sort.find_all { |e| e.match(prefix_regex) }
 end
