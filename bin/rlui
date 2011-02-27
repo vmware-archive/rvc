@@ -157,6 +157,7 @@ vim = $vim
 $binding = binding
 persist_ruby = false
 
+CMD.basic.cd 'vm'
 CMD.basic.ls
 loop do
 begin
