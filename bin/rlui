@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 require 'curses'
-require 'readline'
+require 'rb-readline'
 require 'pp'
 require 'trollop'
 require 'rbvmomi'
@@ -11,7 +11,8 @@ require 'backports'
 require 'rlui/modules'
 require 'rlui/util'
 require 'rlui/context'
-require 'rlui/extensions.rb'
+require 'rlui/extensions'
+require 'rlui/completion'
 
 VIM = RbVmomi::VIM
 include RLUI::Util
@@ -136,19 +137,7 @@ vmRoot, datastoreRoot, hostRoot, networkRoot =
 $context = RLUI::Context.new $dc
 $context.cd $opts[:folder]
 
-Readline.completion_append_character = " "
-Readline.completion_proc = lambda do |word|
-  return unless word
-  prefix_regex = /^#{Regexp.escape(word)}/
-  candidates = []
-  MODULES.each do |name,m|
-    m.commands.each { |s| candidates << "#{name}.#{s}" }
-  end
-  candidates.concat ALIASES.keys
-  candidates.concat $context.items.keys.map(&:to_s)
-  candidates.sort.find_all { |e| e.match(prefix_regex) }
-end
-
+Readline.completion_proc = RLUI::Completion::Completor
 history_fn = "#{ENV['HOME']}/.rlui-history"
 IO.foreach(history_fn) { |l| Readline::HISTORY << l.chomp } rescue puts "Welcome to rlui. Try the 'help' command."
 history = File.open(history_fn, 'a')
