@@ -15,4 +15,13 @@ class RbVmomi::VIM::ComputeResource
   def self.ls_text r
     " (standalone): cpu #{r['summary.effectiveCpu']/1000} GHz, memory #{r['summary.effectiveMemory']/1000} GB"
   end
+
+  # TODO add datastore, network
+  def ls_children
+    hosts, resourcePool = collect *%w(host resourcePool)
+    {
+      'host' => hosts[0],
+      'resourcePool' => resourcePool,
+    }
+  end
 end
