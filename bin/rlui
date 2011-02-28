@@ -132,7 +132,7 @@ vmRoot, datastoreRoot, hostRoot, networkRoot =
   $dc.collect(:vmFolder, :datastoreFolder, :hostFolder, :networkFolder)
 
 $context = RLUI::Context.new $dc
-$context.cd $opts[:folder]
+$context.cd("/vm/#{$opts[:folder]}")
 
 Readline.completion_proc = RLUI::Completion::Completor
 history_fn = "#{ENV['HOME']}/.rlui-history"
@@ -153,7 +153,6 @@ vim = $vim
 $binding = binding
 persist_ruby = false
 
-CMD.basic.cd 'vm'
 CMD.basic.ls
 loop do
 begin
