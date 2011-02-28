@@ -81,7 +81,6 @@ def cd path="/"
 end
 
 def ls path='.'
-  $context.clear_items
   obj = lookup(path)
   children = obj.ls_children
   return if children.empty?
@@ -106,10 +105,9 @@ def ls path='.'
 
   results.each do |r|
     name = name_map[r.obj]
-    i = $context.add_item name, r.obj
     text = r.obj.class.ls_text r
     realname = r['name'] if name != r['name']
-    puts "#{i} #{name}#{realname && " [#{realname}]"}#{text}"
+    puts "#{name}#{realname && " [#{realname}]"}#{text}"
   end
 end
 

@@ -1,13 +1,11 @@
 module RLUI
 
 class Context
-  attr_reader :items, :root, :cur
+  attr_reader :root, :cur
 
   def initialize root
     @root = root
     @cur = root
-    @items = {}
-    @next_item_index = 0
     @path = []
   end
 
@@ -17,8 +15,6 @@ class Context
 
   def lookup path
     case path
-    when Integer
-      @items[path] or fail("no such item")
     when String
       els, absolute, trailing_slash = Path.parse path
       base = absolute ? @root : cur
@@ -56,19 +52,6 @@ class Context
     end
     @cur = new_cur
     @path = new_path
-  end
-
-  def clear_items
-    @items.clear
-    @next_item_index = 0
-  end
-
-  def add_item name, obj
-    i = @next_item_index
-    @next_item_index += 1
-    @items[i] = obj
-    @items[name] = obj
-    i
   end
 end
 
