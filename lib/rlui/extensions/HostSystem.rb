@@ -1,3 +1,5 @@
+require 'rlui/fake_folder'
+
 class RbVmomi::VIM::HostSystem
   def self.ls_properties
     %w(name summary.hardware.memorySize summary.hardware.cpuModel
@@ -9,5 +11,28 @@ class RbVmomi::VIM::HostSystem
     memorySize, cpuModel, cpuMhz, numCpuPkgs, numCpuCores =
       %w(memorySize cpuModel cpuMhz numCpuPkgs numCpuCores).map { |x| r["summary.hardware.#{x}"] }
     " (host): cpu #{numCpuPkgs}*#{numCpuCores}*#{"%.2f" % (cpuMhz.to_f/1000)} GHz, memory #{"%.2f" % (memorySize/10**9)} GB"
+  end
+
+  def ls_children
+    {
+      'vms' => RLUI::FakeFolder.new(self, :ls_vms),
+      'datastores' => RLUI::FakeFolder.new(self, :ls_datastores),
+    }
+  end
+
+  def ls_vms
+    RLUI::Util.collect_children self, :vm
+  end
+
+  def ls_datastores
+    RLUI::Util.collect_children self, :datastore
+  end
+
+  def traverse_one arc
+    ls_children[arc]
+  end
+
+  def child_types
+    ls_children.map { |k,v| [k, v.class] }
   end
 end

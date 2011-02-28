@@ -31,30 +31,7 @@ class RbVmomi::VIM::Folder
   end
 
   def ls_children
-    spec = {
-      :objectSet => [
-        {
-          :obj => self,
-          :skip => true,
-          :selectSet => [
-            RbVmomi::VIM::TraversalSpec(
-              :path => 'childEntity',
-              :type => 'Folder'
-            )
-          ]
-        }
-      ],
-      :propSet => [
-        {
-          :type => 'ManagedEntity',
-          :pathSet => %w(name),
-        }
-      ]
-    }
-
-    results = @soap.propertyCollector.RetrieveProperties(:specSet => [spec])
-
-    Hash[results.map { |r| [r['name'], r.obj] }]
+    RLUI::Util.collect_children self, :childEntity
   end
 
   def self.ls_properties
@@ -63,5 +40,9 @@ class RbVmomi::VIM::Folder
 
   def self.ls_text r
     "/"
+  end
+
+  def self.folder?
+    true
   end
 end

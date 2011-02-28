@@ -28,7 +28,7 @@ module Completion
     els.unshift '' if absolute
     cur.child_types.
       select { |k,v| k =~ /^#{Regexp.escape(last)}/ }.
-      map { |k,v| v == VIM::Folder ? "#{k}/" : k }.
+      map { |k,v| v.folder? ? "#{k}/" : k }.
       map { |x| (els+[x])*'/' }
   end
 end

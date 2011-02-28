@@ -173,5 +173,32 @@ module Util
     tcsetpgrp
     nil
   end
+
+  def collect_children obj, path
+    spec = {
+      :objectSet => [
+        {
+          :obj => obj,
+          :skip => true,
+          :selectSet => [
+            RbVmomi::VIM::TraversalSpec(
+              :path => path,
+              :type => obj.class.wsdl_name
+            )
+          ]
+        }
+      ],
+      :propSet => [
+        {
+          :type => 'ManagedEntity',
+          :pathSet => %w(name),
+        }
+      ]
+    }
+
+    results = $vim.propertyCollector.RetrieveProperties(:specSet => [spec])
+
+    Hash[results.map { |r| [r['name'], r.obj] }]
+  end
 end
 end

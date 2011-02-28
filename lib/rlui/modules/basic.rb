@@ -83,8 +83,14 @@ end
 def ls path='.'
   obj = lookup(path)
   children = obj.ls_children
-  return if children.empty?
   name_map = children.invert
+  children, fake_children = children.partition { |k,v| v.is_a? VIM::ManagedEntity }
+
+  fake_children.each do |name,obj|
+    puts "#{name}#{obj.ls_text}"
+  end
+
+  return if children.empty?
 
   filterSpec = VIM.PropertyFilterSpec(:objectSet => [], :propSet => [])
   filteredTypes = Set.new

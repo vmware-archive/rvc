@@ -23,4 +23,8 @@ class RbVmomi::VIM::ManagedEntity
   def self.ls_text r
     ""
   end
+
+  def self.folder?
+    false
+  end
 end
