@@ -24,7 +24,8 @@ module Completion
     els, absolute, trailing_slash = Path.parse word
     last = trailing_slash ? '' : (els.pop || '')
     base = absolute ? $context.root : $context.cur
-    cur = $context.traverse(base, els) or return []
+    stack = absolute ? [] : $context.stack
+    cur = $context.traverse(base, stack, els) or return []
     els.unshift '' if absolute
     cur.child_types.
       select { |k,v| k =~ /^#{Regexp.escape(last)}/ }.

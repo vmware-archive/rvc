@@ -25,6 +25,10 @@ class FakeFolder
   def self.folder?
     true
   end
+
+  def parent
+    @target
+  end
 end
 
 end
