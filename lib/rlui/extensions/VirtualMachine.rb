@@ -34,20 +34,6 @@ class RbVmomi::VIM::VirtualMachine
     end
   end
 
-  def child_types
-    {
-      'host' => VIM::HostSystem,
-      'resourcePool' => VIM::ResourcePool,
-    }
-  end
-
-  def traverse_one arc
-    case arc
-    when 'host' then runtime.host
-    when 'resourcePool' then resourcePool
-    end
-  end
-
   def self.ls_properties
     %w(name runtime.powerState)
   end

@@ -27,12 +27,4 @@ class RbVmomi::VIM::HostSystem
   def ls_datastores
     RLUI::Util.collect_children self, :datastore
   end
-
-  def traverse_one arc
-    ls_children[arc]
-  end
-
-  def child_types
-    ls_children.map { |k,v| [k, v.class] }
-  end
 end

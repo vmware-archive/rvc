@@ -5,11 +5,11 @@ class RbVmomi::VIM::ManagedEntity
   end
 
   def child_types
-    {}
+    ls_children.map { |k,v| [k, v.class] }
   end
 
   def traverse_one arc
-    nil
+    ls_children[arc]
   end
 
   def ls_children
