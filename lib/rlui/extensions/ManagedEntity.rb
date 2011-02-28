@@ -11,4 +11,16 @@ class RbVmomi::VIM::ManagedEntity
   def traverse_one arc
     nil
   end
+
+  def ls_children
+    {}
+  end
+
+  def self.ls_properties
+    %w(name)
+  end
+
+  def self.ls_text r
+    ""
+  end
 end

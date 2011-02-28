@@ -6,4 +6,13 @@ class RbVmomi::VIM::DistributedVirtualPortgroup
     puts "description: #{config.description}"
     puts "switch: #{config.distributedVirtualSwitch.name}"
   end
+
+  def self.ls_properties
+    %w(name config.distributedVirtualSwitch)
+  end
+
+  def self.ls_text r
+    # XXX optimize
+    " (dvpg): <#{r['config.distributedVirtualSwitch'].name}"
+  end
 end

@@ -33,4 +33,34 @@ class RbVmomi::VIM::VirtualMachine
       puts " #{dev.deviceInfo.label}: #{backing_info} #{dev.connectable.connected ? :connected : :disconnected} #{dev.macAddress} #{guest_net ? (guest_net.ipAddress * ' ') : ''}"
     end
   end
+
+  def child_types
+    {
+      'host' => VIM::HostSystem,
+      'resourcePool' => VIM::ResourcePool,
+    }
+  end
+
+  def traverse_one arc
+    case arc
+    when 'host' then runtime.host
+    when 'resourcePool' then resourcePool
+    end
+  end
+
+  def self.ls_properties
+    %w(name runtime.powerState)
+  end
+  
+  def self.ls_text r
+    ": #{r['runtime.powerState']}"
+  end
+
+  def ls_children
+    host, resourcePool = collect *%w(runtime.host resourcePool)
+    {
+      'host' => host,
+      'resourcePool' => resourcePool,
+    }
+  end
 end

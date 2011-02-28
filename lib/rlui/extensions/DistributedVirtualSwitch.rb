@@ -9,4 +9,12 @@ class RbVmomi::VIM::DistributedVirtualSwitch
     puts "maximum ports: #{config.maxPorts}"
     puts "netIORM: #{config.networkResourceManagementEnabled}"
   end
+
+  def self.ls_properties
+    %w(name summary.description)
+  end
+
+  def self.ls_text r
+    " (dvs)"
+  end
 end
