@@ -8,12 +8,7 @@ require 'rbvmomi/trollop'
 require 'shellwords'
 require 'yaml'
 require 'backports'
-require 'rlui/modules'
-require 'rlui/util'
-require 'rlui/path'
-require 'rlui/context'
-require 'rlui/extensions'
-require 'rlui/completion'
+require 'rlui'
 
 VIM = RbVmomi::VIM
 include RLUI::Util
