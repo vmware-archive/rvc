@@ -67,7 +67,6 @@ class Context
     els.each_with_index do |el,i|
       case el
       when '.'
-        loc.push el, cur
       when '..'
         loc.pop unless loc.obj == @root
       when '...'

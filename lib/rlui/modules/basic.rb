@@ -81,13 +81,18 @@ def cd path="/"
 end
 
 def ls path='.'
-  obj = lookup(path)
+  loc = $context.lookup_loc(path)
+  obj = loc.obj
   children = obj.ls_children
   name_map = children.invert
   children, fake_children = children.partition { |k,v| v.is_a? VIM::ManagedEntity }
+  i = 0
 
   fake_children.each do |name,obj|
-    puts "#{name}#{obj.ls_text}"
+    puts "#{i} #{name}#{obj.ls_text}"
+    mark_loc = loc.dup.tap { |x| x.push name, obj }
+    $context.mark i.to_s, mark_loc
+    i += 1
   end
 
   return if children.empty?
@@ -113,7 +118,10 @@ def ls path='.'
     name = name_map[r.obj]
     text = r.obj.class.ls_text r
     realname = r['name'] if name != r['name']
-    puts "#{name}#{realname && " [#{realname}]"}#{text}"
+    puts "#{i} #{name}#{realname && " [#{realname}]"}#{text}"
+    mark_loc = loc.dup.tap { |x| x.push name, r.obj }
+    $context.mark i.to_s, mark_loc
+    i += 1
   end
 end
 
