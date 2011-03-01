@@ -105,7 +105,20 @@ def evalcmd str
 end
 
 def method_missing sym, *a
-  a.empty? && MODULES[sym.to_s] or super
+  str = sym.to_s
+  if a.empty?
+    if MODULES.member? str
+      MODULES[str]
+    elsif $context.marks.member?(str)
+      $context.marks[str].obj
+    elsif str[0..0] == '_' && $context.marks.member?(str[1..-1])
+      $context.marks[str[1..-1]].obj
+    else
+      super
+    end
+  else
+    super
+  end
 end
 
 
