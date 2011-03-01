@@ -28,7 +28,9 @@ class Location
 end
 
 class Context
-  attr_reader :root, :loc
+  attr_reader :root, :loc, :marks
+
+  MARK_REGEX = /^~([\d\w]+)$/
 
   def initialize root
     @root = root
@@ -57,7 +59,7 @@ class Context
 
   def lookup_loc path
     case path
-    when /^~([\d\w]+)$/
+    when MARK_REGEX
       obj = @marks[$1] or err("mark not set")
       Location.new(@root).tap { |x| x.push path, obj }
     when '~~'

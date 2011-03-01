@@ -13,6 +13,8 @@ module Completion
     else
       child_candidates(word) + cmd_candidates(word)
     end
+
+    candidates += mark_candidates(word)
         
     if candidates.length == 1 && candidates[0][-1] != '/'
       Readline.completion_append_character = ' '
@@ -41,6 +43,11 @@ module Completion
       select { |k,v| k =~ /^#{Regexp.escape(last)}/ }.
       map { |k,v| v.folder? ? "#{k}/" : k }.
       map { |x| (els+[x])*'/' }
+  end
+
+  def self.mark_candidates word
+    prefix_regex = /^#{Regexp.escape(word[1..-1] || '')}/
+    $context.marks.keys.sort.grep(prefix_regex).map { |x| "~#{x}" }
   end
 end
 end
