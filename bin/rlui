@@ -85,12 +85,7 @@ ALIASES = {
 ## internal
 
 def tokenize str
-  Shellwords.shellwords(str).map do |x|
-    case x
-    when /^\d+$/ then x.to_i
-    else x
-    end
-  end
+  Shellwords.shellwords(str)
 end
 
 def evalcmd str

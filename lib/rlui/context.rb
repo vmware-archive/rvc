@@ -75,8 +75,13 @@ class Context
         return unless i == 0
         loc = @marks[$1].dup or return
       else
-        x = loc.obj.traverse_one(el) or return
-        loc.push el, x
+        # XXX check for ambiguous child
+        if i == 0 and el =~ /^\d+$/ and @marks.member? el
+          loc = @marks[el].dup
+        else
+          x = loc.obj.traverse_one(el) or return
+          loc.push el, x
+        end
       end
     end
     loc
