@@ -98,7 +98,7 @@ def evalcmd str
   return unless cmd
   err "invalid command" unless cmd.is_a? String
   case cmd
-  when RLUI::Context::MARK_REGEX, '~~'
+  when RLUI::Context::MARK_REGEX
     CMD.basic.cd cmd
   else
     cmd = ALIASES[cmd] if ALIASES.member? cmd

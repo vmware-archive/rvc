@@ -30,12 +30,11 @@ end
 class Context
   attr_reader :root, :loc, :marks
 
-  MARK_REGEX = /^~([\d\w]+)$/
+  MARK_REGEX = /^~(?:([\d\w]+|~))$/
 
   def initialize root
     @root = root
     @loc = Location.new root
-    @prev_loc = @loc
     @marks = {}
   end
 
@@ -53,7 +52,7 @@ class Context
 
   def cd path
     new_loc = lookup_loc(path) or return
-    @prev_loc = @loc
+    mark '~', @loc
     @loc = new_loc
   end
 
@@ -61,8 +60,6 @@ class Context
     case path
     when MARK_REGEX
       @marks[$1] or err("mark not set")
-    when '~~'
-      @prev_loc
     else
       els, absolute, trailing_slash = Path.parse path
       base_loc = absolute ? Location.new(@root) : @loc
