@@ -1,4 +1,4 @@
-module RLUI
+module RVC
 module Util
   extend self
 

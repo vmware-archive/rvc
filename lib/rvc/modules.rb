@@ -1,4 +1,4 @@
-module RLUI
+module RVC
 
 class CmdModule < Module
   def commands
@@ -7,7 +7,7 @@ class CmdModule < Module
 end
 
 BULTIN_MODULE_PATH = [File.expand_path(File.join(File.dirname(__FILE__), 'modules'))]
-ENV_MODULE_PATH = (ENV['RLUI_MODULE_PATH'] || '').split ':'
+ENV_MODULE_PATH = (ENV['RVC_MODULE_PATH'] || '').split ':'
 
 def self.reload_modules verbose=true
   MODULES.clear
@@ -28,7 +28,7 @@ def self.reload_modules verbose=true
 end
 
 def self.reload_rc
-  rcfile = "#{ENV['HOME']}/.rluirc"
+  rcfile = "#{ENV['HOME']}/.rvcrc"
   load rcfile if File.exists? rcfile
 end
 

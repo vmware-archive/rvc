@@ -1,4 +1,4 @@
-include RLUI::Util
+include RVC::Util
 
 def _vm(path)
   lookup(path).tap { |obj| expect obj, VIM::VirtualMachine }
@@ -116,13 +116,13 @@ def ssh path
   system_fg(ssh_cmd)
 end
 
-def rlui path
+def rvc path
   ip = vm_ip _vm(path)
 
   env = Hash[%w(RBVMOMI_PASSWORD RBVMOMI_HOST RBVMOMI_USER RBVMOMI_SSL RBVMOMI_PORT
                 RBVMOMI_FOLDER RBVMOMI_DATASTORE RBVMOMI_PATH RBVMOMI_DATACENTER
                 RBVMOMI_COMPUTER).map { |k| [k,nil] }]
-  cmd = "rlui #{ip}"
+  cmd = "rvc #{ip}"
   system_fg(cmd, env)
 end
 

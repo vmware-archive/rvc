@@ -3,7 +3,7 @@ require 'rake/testtask'
 begin
   require 'jeweler'
   Jeweler::Tasks.new do |gem|
-    gem.name = "rlui"
+    gem.name = "rvc"
     gem.summary = "vSphere console UI"
     #gem.description = ""
     gem.email = "rlane@vmware.com"

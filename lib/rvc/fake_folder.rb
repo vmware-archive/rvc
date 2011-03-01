@@ -1,4 +1,4 @@
-module RLUI
+module RVC
 
 class FakeFolder
   def initialize target, method

@@ -1,4 +1,4 @@
-include RLUI::Util
+include RVC::Util
 
 def type name
   klass = RbVmomi::VIM.type(name) rescue err("invalid type #{name.inspect}")
@@ -40,7 +40,7 @@ info id - Information about a VM
 view id - Open a VMRC to this VM
 ip id - Wait for the VM to get an IP, then display it
 ssh id - SSH to this VM
-rlui id - Run rlui against this VM
+rvc id - Run rvc against this VM
 gdb id - Run debug-esx against this VM
 ddt id - Run ddt-esx against this VM
 ping id - Ping the VM
@@ -56,7 +56,7 @@ extraConfig [regex] - Display extraConfig options
 setExtraConfig id key=value - Set extraConfig options
 type name - Show the definition of a VMODL type
 soap - Toggle display of SOAP messages
-rc - Reload ~/.rluirc
+rc - Reload ~/.rvcrc
   EOS
 end
 
@@ -69,11 +69,11 @@ def quit
 end
 
 def rc
-  RLUI.reload_rc
+  RVC.reload_rc
 end
 
 def reload
-  RLUI.reload_modules
+  RVC.reload_modules
 end
 
 def cd path="/"

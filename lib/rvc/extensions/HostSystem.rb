@@ -1,4 +1,4 @@
-require 'rlui/fake_folder'
+require 'rvc/fake_folder'
 
 class RbVmomi::VIM::HostSystem
   def self.ls_properties
@@ -15,16 +15,16 @@ class RbVmomi::VIM::HostSystem
 
   def ls_children
     {
-      'vms' => RLUI::FakeFolder.new(self, :ls_vms),
-      'datastores' => RLUI::FakeFolder.new(self, :ls_datastores),
+      'vms' => RVC::FakeFolder.new(self, :ls_vms),
+      'datastores' => RVC::FakeFolder.new(self, :ls_datastores),
     }
   end
 
   def ls_vms
-    RLUI::Util.collect_children self, :vm
+    RVC::Util.collect_children self, :vm
   end
 
   def ls_datastores
-    RLUI::Util.collect_children self, :datastore
+    RVC::Util.collect_children self, :datastore
   end
 end

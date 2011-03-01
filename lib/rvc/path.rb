@@ -1,4 +1,4 @@
-module RLUI
+module RVC
 module Path
   def self.parse path
     if path.empty?

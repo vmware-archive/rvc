@@ -4,7 +4,7 @@ class RbVmomi::VIM::Folder
   end
 
   def ls_children
-    RLUI::Util.collect_children self, :childEntity
+    RVC::Util.collect_children self, :childEntity
   end
 
   def self.ls_properties

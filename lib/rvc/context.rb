@@ -1,4 +1,4 @@
-module RLUI
+module RVC
 
 class Location
   def initialize root

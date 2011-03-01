@@ -1,4 +1,4 @@
-module RLUI
+module RVC
 module Completion
   Completor = lambda do |word|
     Readline.completion_append_character = nil

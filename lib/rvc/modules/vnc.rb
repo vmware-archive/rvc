@@ -1,4 +1,4 @@
-include RLUI::Util
+include RVC::Util
 
 VNC = ENV['VNC'] || search_path('vinagre') || search_path('tightvnc')
 
@@ -79,7 +79,7 @@ end
 def vnc_client ip, port, password
   if VNC
     fork do
-      $stderr.reopen("#{ENV['HOME']||'.'}/.rlui-vmrc.log", "w")
+      $stderr.reopen("#{ENV['HOME']||'.'}/.rvc-vmrc.log", "w")
       Process.setpgrp
       exec VNC, "#{ip}:#{port}"
     end

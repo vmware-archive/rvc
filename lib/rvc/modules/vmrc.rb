@@ -1,4 +1,4 @@
-include RLUI::Util
+include RVC::Util
 
 VMRC = ENV['VMRC'] || search_path('vmrc')
 
@@ -10,7 +10,7 @@ def view *paths
     moref = obj._ref
     fork do
       ENV['https_proxy'] = ENV['HTTPS_PROXY'] = ''
-      $stderr.reopen("#{ENV['HOME']||'.'}/.rlui-vmrc.log", "w")
+      $stderr.reopen("#{ENV['HOME']||'.'}/.rvc-vmrc.log", "w")
       Process.setpgrp
       exec VMRC, '-M', moref, '-h', $opts[:host], '-u', $opts[:user], '-p', $opts[:password], '--disable-ssl-checking'
     end
