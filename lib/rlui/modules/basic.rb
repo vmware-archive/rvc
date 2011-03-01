@@ -128,5 +128,6 @@ def destroy *paths
 end
 
 def mark key, path='.'
+  err "invalid mark name" unless key =~ /^\w+$/
   $context.mark key, $context.lookup_loc(path)
 end
