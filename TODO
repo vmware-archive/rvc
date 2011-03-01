@@ -1,0 +1,8 @@
+add commands for more entities
+add fake subfolders for more entities
+mark instance variables
+ls marks
+implicit '.' path for some commands
+clean up ls_children
+globbing?
+rename to RVC
