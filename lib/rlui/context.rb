@@ -57,19 +57,14 @@ class Context
   end
 
   def lookup_loc path
-    case path
-    when MARK_REGEX
-      @marks[$1] or err("mark not set")
-    else
-      els, absolute, trailing_slash = Path.parse path
-      base_loc = absolute ? Location.new(@root) : @loc
-      found_loc = traverse(base_loc, els) or err("not found")
-    end
+    els, absolute, trailing_slash = Path.parse path
+    base_loc = absolute ? Location.new(@root) : @loc
+    traverse(base_loc, els) or err("not found")
   end
 
   def traverse base_loc, els
     loc = base_loc.dup
-    els.each do |el|
+    els.each_with_index do |el,i|
       case el
       when '.'
         loc.push el, cur
@@ -77,6 +72,9 @@ class Context
         loc.pop unless loc.obj == @root
       when '...'
         loc.push(el, loc.obj.parent) unless loc.obj == @root
+      when MARK_REGEX
+        return unless i == 0
+        loc = @marks[$1].dup or return
       else
         x = loc.obj.traverse_one(el) or return
         loc.push el, x
