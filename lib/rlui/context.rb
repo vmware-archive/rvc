@@ -60,8 +60,7 @@ class Context
   def lookup_loc path
     case path
     when MARK_REGEX
-      obj = @marks[$1] or err("mark not set")
-      Location.new(@root).tap { |x| x.push path, obj }
+      @marks[$1] or err("mark not set")
     when '~~'
       @prev_loc
     else
@@ -89,8 +88,8 @@ class Context
     loc
   end
 
-  def mark key, obj
-    @marks[key] = obj
+  def mark key, loc
+    @marks[key] = loc
   end
 end
 

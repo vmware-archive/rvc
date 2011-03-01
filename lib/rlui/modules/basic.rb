@@ -128,5 +128,5 @@ def destroy *paths
 end
 
 def mark key, path='.'
-  $context.mark key, lookup(path)
+  $context.mark key, $context.lookup_loc(path)
 end
