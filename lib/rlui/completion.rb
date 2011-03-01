@@ -16,7 +16,7 @@ module Completion
 
     candidates += mark_candidates(word)
         
-    if candidates.length == 1 && candidates[0][-1] != '/'
+    if candidates.length == 1 && candidates[0][-1..-1] != '/'
       Readline.completion_append_character = ' '
     end
     candidates
