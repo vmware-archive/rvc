@@ -8,6 +8,7 @@ class Context
     @cur = root
     @path = []
     @stack = []
+    @marks = {}
   end
 
   def display_path
@@ -16,12 +17,13 @@ class Context
 
   def lookup path
     case path
-    when String
+    when /^~([\d\w]+)$/
+      @marks[$1] or err("mark not set")
+    else
       els, absolute, trailing_slash = Path.parse path
       base = absolute ? @root : cur
       stack = absolute ? [] : @stack
       traverse(base, stack, els) or fail("not found")
-    else fail
     end
   end
 
@@ -45,6 +47,14 @@ class Context
   end
 
   def cd path
+    if path =~ /^~([\d\w]+)$/
+      obj = @marks[$1] or err("mark not set")
+      @cur = obj
+      @stack = [obj]
+      @path = [path]
+      return
+    end
+
     els, absolute, trailing_slash = Path.parse path
     new_cur = absolute ? @root : @cur
     new_path = absolute ? [] : @path.dup
@@ -67,6 +77,10 @@ class Context
     @cur = new_cur
     @path = new_path
     @stack = new_stack
+  end
+
+  def mark key, obj
+    @marks[key] = obj
   end
 end
 

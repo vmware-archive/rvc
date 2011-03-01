@@ -126,3 +126,7 @@ end
 def destroy *paths
   progress paths, :Destroy
 end
+
+def mark key, path='.'
+  $context.mark key, lookup(path)
+end

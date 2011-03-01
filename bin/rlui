@@ -63,6 +63,8 @@ ALIASES = {
   'info' => 'basic.info',
   'i' => 'basic.info',
   'destroy' => 'basic.destroy',
+  'mark' => 'basic.mark',
+  'm' => 'basic.mark',
 
   'on' => 'vm.on',
   'off' => 'vm.off',
