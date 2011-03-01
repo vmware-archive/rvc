@@ -33,6 +33,7 @@ class Context
   def initialize root
     @root = root
     @loc = Location.new root
+    @prev_loc = @loc
     @marks = {}
   end
 
@@ -50,6 +51,7 @@ class Context
 
   def cd path
     new_loc = lookup_loc(path) or return
+    @prev_loc = @loc
     @loc = new_loc
   end
 
@@ -58,6 +60,8 @@ class Context
     when /^~([\d\w]+)$/
       obj = @marks[$1] or err("mark not set")
       Location.new(@root).tap { |x| x.push path, obj }
+    when '~~'
+      @prev_loc
     else
       els, absolute, trailing_slash = Path.parse path
       base_loc = absolute ? Location.new(@root) : @loc

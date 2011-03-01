@@ -98,7 +98,7 @@ def evalcmd str
   return unless cmd
   err "invalid command" unless cmd.is_a? String
   case cmd
-  when /^~([\d\w]+)$/
+  when /^~([\d\w]+)$/, '~~'
     CMD.basic.cd cmd
   else
     cmd = ALIASES[cmd] if ALIASES.member? cmd
