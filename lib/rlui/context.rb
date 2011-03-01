@@ -1,82 +1,86 @@
 module RLUI
 
+class Location
+  def initialize root
+    @stack = [['', root]]
+  end
+
+  def initialize_copy src
+    super
+    @stack = @stack.dup
+  end
+
+  def push name, obj
+    @stack << [name, obj]
+  end
+
+  def pop
+    @stack.pop
+  end
+
+  def obj
+    @stack.empty? ? nil : @stack[-1][1]
+  end
+
+  def path
+    @stack.map { |name,obj| name }
+  end
+end
+
 class Context
-  attr_reader :root, :cur, :stack
+  attr_reader :root, :loc
 
   def initialize root
     @root = root
-    @cur = root
-    @path = []
-    @stack = []
+    @loc = Location.new root
     @marks = {}
   end
 
+  def cur
+    @loc.obj
+  end
+
   def display_path
-    @path * '/'
+    @loc.path * '/'
   end
 
   def lookup path
-    case path
-    when /^~([\d\w]+)$/
-      @marks[$1] or err("mark not set")
-    else
-      els, absolute, trailing_slash = Path.parse path
-      base = absolute ? @root : cur
-      stack = absolute ? [] : @stack
-      traverse(base, stack, els) or fail("not found")
-    end
-  end
-
-  def traverse base, stack, els
-    stack = stack.dup
-    els.inject(base) do |cur,el|
-      case el
-      when '.'
-        cur
-      when '..'
-        stack.pop
-        stack[-1] || @root
-      when '...'
-        cur == @root ? cur : cur.parent
-      else
-        x = cur.traverse_one(el) or return
-        stack << x
-        x
-      end
-    end
+    (lookup_loc(path) || return).obj
   end
 
   def cd path
-    if path =~ /^~([\d\w]+)$/
-      obj = @marks[$1] or err("mark not set")
-      @cur = obj
-      @stack = [obj]
-      @path = [path]
-      return
-    end
+    new_loc = lookup_loc(path) or return
+    @loc = new_loc
+  end
 
-    els, absolute, trailing_slash = Path.parse path
-    new_cur = absolute ? @root : @cur
-    new_path = absolute ? [] : @path.dup
-    new_stack = absolute ? [] : @stack.dup
+  def lookup_loc path
+    case path
+    when /^~([\d\w]+)$/
+      obj = @marks[$1] or err("mark not set")
+      Location.new(@root).tap { |x| x.push path, obj }
+    else
+      els, absolute, trailing_slash = Path.parse path
+      base_loc = absolute ? Location.new(@root) : @loc
+      found_loc = traverse(base_loc, els) or err("not found")
+    end
+  end
+
+  def traverse base_loc, els
+    loc = base_loc.dup
     els.each do |el|
-      if el == '..'
-        new_path.pop
-        new_stack.pop
-        new_cur = new_stack[-1] || @root
-      elsif el == '...'
-        new_cur = new_cur.parent unless new_cur == @root
-        new_path.push el
-        new_stack.push new_cur
+      case el
+      when '.'
+        loc.push el, cur
+      when '..'
+        loc.pop unless loc.obj == @root
+      when '...'
+        loc.push(el, loc.obj.parent) unless loc.obj == @root
       else
-        new_cur = new_cur.traverse_one(el) or err("no such entity #{el}")
-        new_path.push el
-        new_stack.push new_cur
+        x = loc.obj.traverse_one(el) or return
+        loc.push el, x
       end
     end
-    @cur = new_cur
-    @path = new_path
-    @stack = new_stack
+    loc
   end
 
   def mark key, obj

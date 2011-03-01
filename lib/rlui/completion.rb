@@ -23,9 +23,9 @@ module Completion
   def self.child_candidates word
     els, absolute, trailing_slash = Path.parse word
     last = trailing_slash ? '' : (els.pop || '')
-    base = absolute ? $context.root : $context.cur
-    stack = absolute ? [] : $context.stack
-    cur = $context.traverse(base, stack, els) or return []
+    base_loc = absolute ? Location.new($context.root) : $context.loc
+    found_loc = $context.traverse(base_loc, els) or return []
+    cur = found_loc.obj
     els.unshift '' if absolute
     cur.child_types.
       select { |k,v| k =~ /^#{Regexp.escape(last)}/ }.
