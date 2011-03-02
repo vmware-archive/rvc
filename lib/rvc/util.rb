@@ -200,5 +200,16 @@ module Util
 
     Hash[results.map { |r| [r['name'], r.obj] }]
   end
+
+  def options argv, &b
+    parser = Trollop::Parser.new &b
+
+    begin
+      opts = parser.parse argv
+    rescue Trollop::HelpNeeded
+      parser.educate
+      raise Interrupt
+    end
+  end
 end
 end
