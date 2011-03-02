@@ -104,7 +104,7 @@ def evalcmd str
   end
 end
 
-def method_missing sym, *a
+def self.method_missing sym, *a
   str = sym.to_s
   if a.empty?
     if MODULES.member? str
