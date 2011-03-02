@@ -11,10 +11,16 @@ def _find_local_vmrc
   File.exists?(path) && path
 end
 
-VMRC = ENV['VMRC'] || _find_local_vmrc || search_path('vmrc')
+def _find_vmrc
+  @cached_vmrc ||= ENV['VMRC'] || _find_local_vmrc || search_path('vmrc')
+end
+
+def _clear_cached_vmrc
+  @cached_vmrc = nil
+end
 
 def view *paths
-  err "VMRC not found" unless VMRC
+  err "VMRC not found" unless _find_vmrc
   paths.each do |path|
     obj = lookup path
     expect obj, VIM::VirtualMachine
@@ -23,7 +29,7 @@ def view *paths
       ENV['https_proxy'] = ENV['HTTPS_PROXY'] = ''
       $stderr.reopen("#{ENV['HOME']||'.'}/.rvc-vmrc.log", "w")
       Process.setpgrp
-      exec VMRC, '-M', moref, '-h', $opts[:host], '-u', $opts[:user], '-p', $opts[:password]
+      exec _find_vmrc, '-M', moref, '-h', $opts[:host], '-u', $opts[:user], '-p', $opts[:password]
     end
   end
 end
