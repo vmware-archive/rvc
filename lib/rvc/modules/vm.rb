@@ -39,7 +39,7 @@ end
 def kill *paths
   on_paths = paths.select { |x| _vm(x).summary.runtime.powerState == 'poweredOn' }
   off *on_paths unless on_paths.empty?
-  destroy *paths unless paths.empty?
+  CMD.basic.destroy *paths unless paths.empty?
 end
 
 def answer path, str
