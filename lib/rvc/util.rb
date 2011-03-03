@@ -26,14 +26,6 @@ module Util
     end
   end
 
-  def vm_tree vm
-    if note = YAML.load(vm.summary.config.annotation) and note.is_a? Hash and note.member? 'vmtree'
-      note['vmtree']
-    else
-      err "no VMTREE known for this VM"
-    end
-  end
-
   def find_vmx_files datastore_name
     ds = $dc.datastore.find { |x| x.name == datastore_name }
     err("datastore not found") unless ds
