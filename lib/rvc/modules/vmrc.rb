@@ -1,13 +1,14 @@
 include RVC::Util
 
 # TODO windows tmp folder
-def _local_vmrc_dir ver
-  File.join("/tmp", "vmrc-#{Process::UID.eid}-#{ver}")
+def _local_vmrc_dir ver, is64
+  File.join("/tmp", "vmrc-#{Process::UID.eid}-#{ver}-#{is64 ? '64' : '32'}")
 end
 
 def _find_local_vmrc
   ver = $vim.serviceInstance.content.about.version
-  path = File.join(_local_vmrc_dir(ver), 'plugins', 'vmware-vmrc')
+  is64 = `uname -m`.chomp == 'x86_64'
+  path = File.join(_local_vmrc_dir(ver, is64), 'plugins', 'vmware-vmrc')
   File.exists?(path) && path
 end
 
