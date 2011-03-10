@@ -1,6 +1,12 @@
 include RVC::Util
 
-def type name
+opts :type do
+  summary "Display information about a VMODL type"
+  usage "name"
+end
+
+def type args
+  name, = args
   klass = RbVmomi::VIM.type(name) rescue err("invalid type #{name.inspect}")
   q = lambda { |x| x =~ /^xsd:/ ? $' : x }
   if klass < RbVmomi::VIM::DataObject
@@ -27,60 +33,75 @@ def type name
   nil
 end
 
+opts :help do
+  summary "Display this text"
+end
+
+HELP_ORDER = %w(basic vm)
+
 def help
-  puts(<<-EOS)
-list - List all VMs. <id> is the first column.
-on/off/reset/suspend id - VM power operations
-register datastore path - Register a VM already in a datastore
-unregister id - Unregister a VM from hostd
-findvm [datastore] - Display a menu of VMX files to register
-destroy id - Unregister VM and delete its files (DESTRUCTIVE)
-kill id - Power off and destroy a VM (DESTRUCTIVE)
-info id - Information about a VM
-view id - Open a VMRC to this VM
-ip id - Wait for the VM to get an IP, then display it
-ssh id - SSH to this VM
-rvc id - Run rvc against this VM
-gdb id - Run debug-esx against this VM
-ddt id - Run ddt-esx against this VM
-ping id - Ping the VM
-layout id - VM files information
-devices id - List devices
-computers - List compute resources in this datacenter
-datastores - List datastores in this datacenter
-networks - List networks in this datacenter
-answer id choice - Answer a VM question
-connect id label - Connect a virtual device
-disconnect id label - Disconnect a virtual device
-extraConfig [regex] - Display extraConfig options
-setExtraConfig id key=value - Set extraConfig options
-type name - Show the definition of a VMODL type
-soap - Toggle display of SOAP messages
-rc - Reload ~/.rvcrc
-  EOS
+  MODULES.sort_by do |mod_name,mod|
+    HELP_ORDER.index(mod_name) || HELP_ORDER.size
+  end.each do |mod_name,mod|
+    opts = mod.instance_variable_get(:@opts)
+    opts.each do |method_name,method_opts|
+      parser = RVC::OptionParser.new &method_opts
+      aliases = ALIASES.select { |k,v| v == "#{mod_name}.#{method_name}" }.keys
+      aliases_text = aliases.empty? ? '' : " (#{aliases*', '})"
+      puts "#{mod_name}.#{method_name}#{aliases_text}: #{parser.summary?}" if parser.summary?
+    end
+  end
+end
+
+opts :debug do
+  summary "Toggle VMOMI logging to stderr"
 end
 
 def debug
   $vim.debug = !$vim.debug
 end
 
+opts :quit do
+  summary "Exit RVC"
+end
+
 def quit
   exit
+end
+
+opts :rc do
+  summary "Reread ~/.rvcrc"
 end
 
 def rc
   RVC.reload_rc
 end
 
+opts :reload do
+  summary "Reload RVC command modules"
+end
+
 def reload
   RVC.reload_modules
 end
 
-def cd path="/"
+opts :cd do
+  summary "Change directory"
+  usage "path"
+end
+
+def cd args
+  path, = args
   $context.cd path
 end
 
-def ls path='.'
+opts :ls do
+  summary "List objects in a directory"
+  usage "[path]"
+end
+
+def ls args
+  path = args[0] || '.'
   loc = $context.lookup_loc(path)
   obj = loc.obj
   children = obj.ls_children
@@ -125,17 +146,35 @@ def ls path='.'
   end
 end
 
-def info path
+opts :info do
+  summary "Display information about an object"
+  usage "path"
+end  
+
+def info args
+  path, = args
   obj = lookup(path)
   expect obj, VIM::ManagedEntity
   obj.display_info
 end
 
-def destroy *paths
-  progress paths, :Destroy
+opts :destroy do
+  summary "Destroy managed entities"
+  usage "path..."
 end
 
-def mark key, path='.'
+def destroy args
+  progress args, :Destroy
+end
+
+opts :mark do
+  summary "Save a path for later use"
+  usage "key [path]"
+end
+
+def mark args
+  key, path, = args
+  path ||= '.'
   err "invalid mark name" unless key =~ /^\w+$/
   $context.mark key, $context.lookup_loc(path)
 end

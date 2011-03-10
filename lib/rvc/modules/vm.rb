@@ -5,26 +5,48 @@ def _vm(path)
 end
 
 opts :on do
-  text "Power on VMs"
+  summary "Power on VMs"
+  usage "path..."
 end
 
-def on *paths
-  progress paths, :PowerOnVM
+def on args
+  progress args, :PowerOnVM
 end
 
-def off *paths
-  progress paths, :PowerOffVM
+opts :off do
+  summary "Power off VMs"
+  usage "path..."
 end
 
-def reset *paths
-  progress paths, :ResetVM
+def off args
+  progress args, :PowerOffVM
 end
 
-def suspend *paths
-  progress paths, :SuspendVM
+opts :reset do
+  summary "Reset VMs"
+  usage "path..."
 end
 
-def register datastore, path
+def reset args
+  progress args, :ResetVM
+end
+
+opts :suspend do
+  summary "Suspend VMs"
+  usage "path..."
+end
+
+def suspend args
+  progress args, :SuspendVM
+end
+
+opts :register do
+  summary "Register a VM already in a datastore"
+  usage "datastore filename"
+end
+
+def register args
+  datastore, path, = args
   path = "#{path}/#{path}.vmx" unless path =~ /\.vmx$/
   ds_path = "[#{datastore}] #{path}"
 
@@ -36,30 +58,59 @@ def register datastore, path
                                       :pool => rp).wait_for_completion
 end
 
-def unregister path
+opts :unregister do
+  summary "Unregister a VM"
+  usage "path"
+end
+
+def unregister args
+  path, = args
   _vm(path).UnregisterVM
 end
 
-def kill *paths
-  on_paths = paths.select { |x| _vm(x).summary.runtime.powerState == 'poweredOn' }
+opts :kill do
+  summary "Power off and destroy VMs"
+  usage "path..."
+end
+
+def kill args
+  on_paths = args.select { |x| _vm(x).summary.runtime.powerState == 'poweredOn' }
   off *on_paths unless on_paths.empty?
   CMD.basic.destroy *paths unless paths.empty?
 end
 
-def answer path, str
+opts :answer do
+  summary "Answer a VM question"
+  usage "path choice"
+end
+
+def answer args
+  path, str, = args
   q = _vm(path).runtime.question or err("no question to answer")
   choice = q.choice.choiceInfo.find { |x| x.label == str }
   err("invalid answer") unless choice
   _vm(path).AnswerVM :questionid => q.path, :answerChoice => choice.key
 end
 
-def layout path
+opts :layout do
+  summary "Display info about VM files"
+  usage "path"
+end
+
+def layout args
+  path, = args
   _vm(path).layoutEx.file.each do |f|
     puts "#{f.type}: #{f.name}"
   end
 end
 
-def devices path
+opts :layout do
+  summary "Display info about VM devices"
+  usage "path"
+end
+
+def devices args
+  path, = args
   devs = _vm(path).config.hardware.device
   devs.each do |dev|
     tags = []
@@ -68,15 +119,34 @@ def devices path
   end
 end
 
-def connect path, label
+opts :connect do
+  summary "Connect a virtual device"
+  usage "path label"
+end
+
+def connect args
+  path, label, = args
   change_device_connectivity path, label, true
 end
 
-def disconnect path, label
+opts :disconnect do
+  summary "Disconnect a virtual device"
+  usage "path label"
+end
+
+def disconnect args
+  path, label, = args
   change_device_connectivity path, label, false
 end
 
-def find datastore_name=nil
+# TODO move to datastore?
+opts :find do
+  summary "Display a menu of VMX files to register"
+  usage "[datastore]"
+end
+
+def find args
+  datastore_name, = args
   if not datastore_name
     datastore_names = $dc.datastore.map(&:name)
     if datastore_names.empty?
@@ -105,22 +175,46 @@ def find datastore_name=nil
                                       :pool => rp).wait_for_completion
 end
 
-def extraConfig path, *args
-  _extraConfig(path, *args.map { |x| /#{x}/ })
+opts :extraConfig do
+  summary "Display extraConfig options"
+  usage "path regex..."
 end
 
-def setExtraConfig path, *args
-  h = Hash[args.map { |x| x.split('=', 2).tap { |a| a << '' if a.size == 1 } }]
+def extraConfig args
+  path, *regexes = args
+  _extraConfig(path, *regexes.map { |x| /#{x}/ })
+end
+
+opts :setExtraConfig do
+  summary "Set extraConfig options"
+  usage "path key=value..."
+end
+
+def setExtraConfig args
+  path, *pairs = args
+  h = Hash[pairs.map { |x| x.split('=', 2).tap { |a| a << '' if a.size == 1 } }]
   _setExtraConfig path, h
 end
 
-def ssh path
+opts :ssh do
+  summary "SSH to a VM"
+  usage "path"
+end
+
+def ssh args
+  path, = args
   ip = vm_ip _vm(path)
   ssh_cmd = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@#{ip}"
   system_fg(ssh_cmd)
 end
 
-def rvc path
+opts :rvc do
+  summary "RVC to a VM"
+  usage "path"
+end
+
+def rvc args
+  path, = args
   ip = vm_ip _vm(path)
 
   env = Hash[%w(RBVMOMI_PASSWORD RBVMOMI_HOST RBVMOMI_USER RBVMOMI_SSL RBVMOMI_PORT
@@ -130,17 +224,29 @@ def rvc path
   system_fg(cmd, env)
 end
 
-def ping path
+opts :ping do
+  summary "Ping a VM"
+  usage "path"
+end
+
+def ping args
+  path, = args
   ip = vm_ip _vm(path)
   system_fg "ping #{ip}"
 end
 
-def ip *paths
-  paths = %w(summary.runtime.powerState summary.guest.ipAddress summary.config.annotation)
+opts :ip do
+  summary "Wait for and display VM IP addresses"
+  usage "path..."
+end
+
+def ip args
+  paths = args
+  props = %w(summary.runtime.powerState summary.guest.ipAddress summary.config.annotation)
 
   filters = paths.map do |path|
     $vim.propertyCollector.CreateFilter :spec => {
-      :propSet => [{ :type => 'VirtualMachine', :all => false, :pathSet => paths }],
+      :propSet => [{ :type => 'VirtualMachine', :all => false, :pathSet => props }],
       :objectSet => [{ :obj => _vm(path) }],
     }, :partialUpdates => false
   end
@@ -165,13 +271,14 @@ ensure
 end
 
 opts :add_net_device do
-  text "Add a network adapter to a virtual machine"
+  summary "Add a network adapter to a virtual machine"
+  usage "path [opts]"
   opt :type, "Adapter type", :default => 'e1000'
   opt :network, "Network to connect to", :default => 'VM Network'
 end
 
-def add_net_device argv, opts
-  path = argv[0] or err("VM path required")
+def add_net_device args, opts
+  path = args[0] or err("VM path required")
   vm = _vm(path)
 
   case opts[:type]
@@ -206,7 +313,13 @@ def _add_net_device path, klass, network
   )
 end
 
-def remove_device path, label
+opts :remove_device do
+  summary "Remove a virtual device"
+  usage "path label"
+end
+
+def remove_device args
+  path, label, = args
   vm = _vm(path)
   dev = vm.config.hardware.device.find { |x| x.deviceInfo.label == label }
   err "no such device" unless dev
@@ -218,12 +331,24 @@ def remove_device path, label
   vm.ReconfigVM_Task(:spec => spec).wait_for_completion
 end
 
-def snapshot path, name
+opts :snapshot do
+  summary "Snapshot a VM"
+  usage "path name"
+end
+
+def snapshot args
+  path, name, = args
   progress [path], :CreateSnapshot, :memory => true, :name => name, :quiesce => false
 end
 
 # TODO make fake folder
-def snapshots path
+opts :snapshots do
+  summary "Display VM snapshot tree"
+  usage "path"
+end
+
+def snapshots args
+  path, = args
   vm = _vm(path)
   _display_snapshot_tree vm.snapshot.rootSnapshotList, 0
 end
@@ -235,6 +360,12 @@ def _display_snapshot_tree nodes, indent
   end
 end
 
-def revert path
+opts :revert do
+  summary "Revert VM to its current snapshot"
+  usage "path"
+end
+
+def revert args
+  path, = args
   progress [path], :RevertToCurrentSnapshot
 end

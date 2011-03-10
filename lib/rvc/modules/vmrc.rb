@@ -20,9 +20,14 @@ def _clear_cached_vmrc
   @cached_vmrc = nil
 end
 
-def view *paths
+opts :view do
+  summary "Spawn a VMRC"
+  usage "paths..."
+end
+
+def view args
   err "VMRC not found" unless _find_vmrc
-  paths.each do |path|
+  args.each do |path|
     obj = lookup path
     expect obj, VIM::VirtualMachine
     moref = obj._ref

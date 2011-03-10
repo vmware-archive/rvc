@@ -2,11 +2,9 @@ include RVC::Util
 
 VNC = ENV['VNC'] || search_path('vinagre') || search_path('tightvnc')
 
-def help
-  puts(<<-EOS)
-vnc view id - Open a VNC to this VM
-vnc off id - Close the VNC port
-  EOS
+opts :view do
+  summary "Spawn a VNC client"
+  usage "path"
 end
 
 def view path
@@ -32,6 +30,11 @@ def view path
     }).wait_for_completion
   end
   vnc_client ip, port, password
+end
+
+opts :off do
+  summary "Close a VM's VNC port"
+  usage "path"
 end
 
 def off path

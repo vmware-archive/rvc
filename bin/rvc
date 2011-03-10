@@ -65,6 +65,7 @@ ALIASES = {
   'destroy' => 'basic.destroy',
   'mark' => 'basic.mark',
   'm' => 'basic.mark',
+  'help' => 'basic.help',
 
   'on' => 'vm.on',
   'off' => 'vm.off',
@@ -96,23 +97,32 @@ def evalcmd str
   when RVC::Context::MARK_REGEX
     CMD.basic.cd cmd
   else
-    cmd = ALIASES[cmd] if ALIASES.member? cmd
-    module_name, cmd, = cmd.split '.'
-    m = MODULES[module_name] or err("invalid module")
-    err "invalid command" unless m.respond_to? cmd.to_sym
-    if opts_block = m.opts_for(cmd.to_sym)
-      parser = Trollop::Parser.new &opts_block
-
-      begin
-        opts = parser.parse args
-      rescue Trollop::HelpNeeded
-        parser.educate
-        return
-      end
-
-      m.send cmd.to_sym, args, opts
+    if cmd.include? '.'
+      module_name, cmd, = cmd.split '.'
+    elsif ALIASES.member? cmd
+      module_name, cmd, = ALIASES[cmd].split '.'
     else
-      m.send cmd.to_sym, *args
+      err "unknown alias #{cmd}"
+    end
+
+    m = MODULES[module_name] or err("unknown module #{module_name}")
+
+    opts_block = m.opts_for(cmd.to_sym)
+    parser = RVC::OptionParser.new &opts_block
+
+    begin
+      opts = parser.parse args
+    rescue Trollop::HelpNeeded
+      parser.educate
+      return
+    end
+
+    if m.method(cmd.to_sym).arity == 0
+      m.send cmd.to_sym
+    elsif m.method(cmd.to_sym).arity == 1
+      m.send cmd.to_sym, parser.leftovers
+    else
+      m.send cmd.to_sym, parser.leftovers, opts
     end
   end
 end
@@ -177,7 +187,7 @@ vim = $vim
 $binding = binding
 persist_ruby = false
 
-CMD.basic.ls
+CMD.basic.ls ['.']
 loop do
 begin
   input = $opts[:cmd].shift || Readline.readline("#{$opts[:host]}#{persist_ruby ? '~' : ":#{$context.display_path}>"} ", false) or break
