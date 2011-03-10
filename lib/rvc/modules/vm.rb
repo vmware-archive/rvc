@@ -213,3 +213,24 @@ def remove_device path, label
   }
   vm.ReconfigVM_Task(:spec => spec).wait_for_completion
 end
+
+def snapshot path, name
+  progress [path], :CreateSnapshot, :memory => true, :name => name, :quiesce => false
+end
+
+# TODO make fake folder
+def snapshots path
+  vm = _vm(path)
+  _display_snapshot_tree vm.snapshot.rootSnapshotList, 0
+end
+
+def _display_snapshot_tree nodes, indent
+  nodes.each do |node|
+    puts "#{' '*indent}#{node.name} #{node.createTime}"
+    _display_snapshot_tree node.childSnapshotList, (indent+1)
+  end
+end
+
+def revert path
+  progress [path], :RevertToCurrentSnapshot
+end
