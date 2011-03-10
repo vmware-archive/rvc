@@ -100,7 +100,20 @@ def evalcmd str
     module_name, cmd, = cmd.split '.'
     m = MODULES[module_name] or err("invalid module")
     err "invalid command" unless m.respond_to? cmd.to_sym
-    m.send cmd.to_sym, *args
+    if opts_block = m.opts_for(cmd.to_sym)
+      parser = Trollop::Parser.new &opts_block
+
+      begin
+        opts = parser.parse args
+      rescue Trollop::HelpNeeded
+        parser.educate
+        return
+      end
+
+      m.send cmd.to_sym, args, opts
+    else
+      m.send cmd.to_sym, *args
+    end
   end
 end
 

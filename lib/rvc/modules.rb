@@ -1,8 +1,21 @@
 module RVC
 
 class CmdModule < Module
+  def initialize
+    @opts = {}
+    super
+  end
+
   def commands
     @commands ||= (public_methods(false) - CmdModule.instance_methods).reject { |x| x.to_s[0..0] == '_' }
+  end
+
+  def opts cmd, &b
+    @opts[cmd] = b
+  end
+
+  def opts_for cmd
+    @opts[cmd]
   end
 end
 

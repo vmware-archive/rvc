@@ -4,6 +4,10 @@ def _vm(path)
   lookup(path).tap { |obj| expect obj, VIM::VirtualMachine }
 end
 
+opts :on do
+  text "Power on VMs"
+end
+
 def on *paths
   progress paths, :PowerOnVM
 end
@@ -160,21 +164,21 @@ ensure
   filters.each(&:DestroyPropertyFilter) if filters
 end
 
-def add_net_device *argv
-  opts = options(argv) do
-    text "Add a network adapter to a virtual machine"
-    opt :type, "Adapter type", :default => 'e1000'
-    opt :network, "Network to connect to", :default => 'VM Network'
-  end
+opts :add_net_device do
+  text "Add a network adapter to a virtual machine"
+  opt :type, "Adapter type", :default => 'e1000'
+  opt :network, "Network to connect to", :default => 'VM Network'
+end
 
+def add_net_device argv, opts
   path = argv[0] or err("VM path required")
   vm = _vm(path)
 
   case opts[:type]
   when 'e1000'
-    add_net_device path, VIM::VirtualE1000, opts[:network]
+    _add_net_device path, VIM::VirtualE1000, opts[:network]
   when 'vmxnet3'
-    add_net_device path, VIM::VirtualVmxnet3, opts[:network]
+    _add_net_device path, VIM::VirtualVmxnet3, opts[:network]
   else err "unknown device"
   end
 end
@@ -185,11 +189,11 @@ def _add_device path, dev
       { :operation => :add, :device => dev },
     ]
   }
-  vm(path).ReconfigVM_Task(:spec => spec).wait_for_completion
+  _vm(path).ReconfigVM_Task(:spec => spec).wait_for_completion
 end
 
 def _add_net_device path, klass, network
-  add_device path, klass.new(
+  _add_device path, klass.new(
     :key => -1,
     :deviceInfo => {
       :summary => network,
