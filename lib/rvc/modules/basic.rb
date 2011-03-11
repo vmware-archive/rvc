@@ -163,8 +163,11 @@ end
 def info args
   path, = args
   obj = lookup(path)
-  expect obj, VIM::ManagedEntity
-  obj.display_info
+  if obj.respond_to? :display_info
+    obj.display_info
+  else
+    puts "class: #{obj.class.name}"
+  end
 end
 
 opts :destroy do
