@@ -39,10 +39,19 @@ class RVC::FakeDatastoreFolder
     "/"
   end
 
+  def search_result_to_object x
+    case x
+    when RbVmomi::VIM::FolderFileInfo
+      RVC::FakeDatastoreFolder.new(@datastore, "#{@path}/#{x.path}")
+    when RbVmomi::VIM::FileInfo
+      RVC::FakeDatastoreFile.new(@datastore, "#{@path}/#{x.path}", x)
+    end
+  end
+
   def ls_children
-    # XXX optimize collect of browser and name
-    results = @datastore.browser.SearchDatastore_Task(
-      datastorePath: "[#{@datastore.name}] #{@path}",
+    browser, ds_name = @datastore.collect :browser, :name
+    results = browser.SearchDatastore_Task(
+      datastorePath: "[#{ds_name}] #{@path}",
       searchSpec: {
         details: {
           fileType: true,
@@ -53,23 +62,29 @@ class RVC::FakeDatastoreFolder
       }
     ).wait_for_completion
 
-    Hash[results.file.map do |x|
-      case x
-      when RbVmomi::VIM::FolderFileInfo
-        [x.path, RVC::FakeDatastoreFolder.new(@datastore, "#{@path}/#{x.path}")]
-      when RbVmomi::VIM::FileInfo
-        [x.path, RVC::FakeDatastoreFile.new(@datastore, "#{@path}/#{x.path}", x)]
-      end
-    end]
+    Hash[results.file.map { |x| [x.path, search_result_to_object(x)] }]
   end
 
   def child_types
     Hash[ls_children.map { |k,v| [k, v.class] }]
   end
 
-  # XXX optimize
   def traverse_one arc
-    ls_children[arc]
+    browser, ds_name = @datastore.collect :browser, :name
+    results = browser.SearchDatastore_Task(
+      datastorePath: "[#{ds_name}] #{@path}",
+      searchSpec: {
+        details: {
+          fileType: true,
+          fileSize: true,
+          fileOwner: false,
+          modification: false
+        },
+        matchPattern: [arc]
+      }
+    ).wait_for_completion
+    return unless results.file.size == 1
+    search_result_to_object results.file[0]
   end
 
   def self.folder?
