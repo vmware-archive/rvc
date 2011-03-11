@@ -53,9 +53,9 @@ def register args
   resource = $dc.hostFolder.childEntity.first
   rp = resource.resourcePool
   puts "using compute resource #{resource.name}"
-  vm = MODES[:vm].cur.RegisterVM_Task(:path => ds_path,
-                                      :asTemplate => false,
-                                      :pool => rp).wait_for_completion
+  vm = $context.cur.RegisterVM_Task(:path => ds_path,
+                                    :asTemplate => false,
+                                    :pool => rp).wait_for_completion
 end
 
 opts :unregister do
@@ -170,9 +170,9 @@ def find args
   rp = resource.resourcePool
   puts "using compute resource #{resource.name}"
 
-  vm = MODES[:vm].cur.RegisterVM_Task(:path => path,
-                                      :asTemplate => false,
-                                      :pool => rp).wait_for_completion
+  vm = $context.cur.RegisterVM_Task(:path => path,
+                                    :asTemplate => false,
+                                    :pool => rp).wait_for_completion
 end
 
 opts :extraConfig do
