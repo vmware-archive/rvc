@@ -44,7 +44,7 @@ class RVC::FakeDatastoreFolder
       searchSpec: {
         details: {
           fileType: true,
-          fileSize: false,
+          fileSize: true,
           fileOwner: false,
           modification: false
         }
@@ -106,5 +106,21 @@ class RVC::FakeDatastoreFile
 
   def parent
     @parent
+  end
+
+  def display_info
+    puts "Datastore File"
+    puts "size: #{@info.fileSize} bytes"
+    case @info
+    when RbVmomi::VIM::VmConfigFileInfo
+      puts "config version: #{@info.configVersion}"
+    when RbVmomi::VIM::VmDiskFileInfo
+      puts "capacity: #{@info.capacityKb} KB"
+      puts "hardware version: #{@info.hardwareVersion}"
+      puts "controller type: #{@info.controllerType}"
+      puts "thin provisioned: #{@info.thin}"
+      puts "type: #{@info.diskType}"
+      puts "extents:\n#{@info.diskExtents.map { |x| "  #{x}" } * "\n"}"
+    end
   end
 end
