@@ -40,6 +40,10 @@ end
 HELP_ORDER = %w(basic vm)
 
 def help
+  puts (<<-EOS)
+Available commands:
+  EOS
+
   MODULES.sort_by do |mod_name,mod|
     HELP_ORDER.index(mod_name) || HELP_ORDER.size
   end.each do |mod_name,mod|
@@ -51,6 +55,11 @@ def help
       puts "#{mod_name}.#{method_name}#{aliases_text}: #{parser.summary?}" if parser.summary?
     end
   end
+
+  puts (<<-EOS)
+
+To see detailed help for a command, use its --help option.
+  EOS
 end
 
 opts :debug do
