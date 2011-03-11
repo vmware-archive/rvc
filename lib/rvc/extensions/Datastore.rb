@@ -22,14 +22,16 @@ class RbVmomi::VIM::Datastore
 
   def ls_children
     {
-      'files' => RVC::FakeDatastoreFolder.new(browser, self, "[#{name}] /"),
+      'files' => RVC::FakeDatastoreFolder.new(self, self, ""),
     }
   end
 end
 
 class RVC::FakeDatastoreFolder
-  def initialize browser, parent, path
-    @browser = browser
+  attr_reader :path, :datastore
+
+  def initialize datastore, parent, path
+    @datastore = datastore
     @parent = parent
     @path = path
   end
@@ -39,8 +41,9 @@ class RVC::FakeDatastoreFolder
   end
 
   def ls_children
-    results = @browser.SearchDatastore_Task(
-      datastorePath: @path,
+    # XXX optimize collect of browser and name
+    results = @datastore.browser.SearchDatastore_Task(
+      datastorePath: "[#{@datastore.name}] #{@path}",
       searchSpec: {
         details: {
           fileType: true,
@@ -54,9 +57,9 @@ class RVC::FakeDatastoreFolder
     Hash[results.file.map do |x|
       case x
       when RbVmomi::VIM::FolderFileInfo
-        [x.path, RVC::FakeDatastoreFolder.new(@browser, self, "#{@path}/#{x.path}")]
+        [x.path, RVC::FakeDatastoreFolder.new(@datastore, self, "#{@path}/#{x.path}")]
       when RbVmomi::VIM::FileInfo
-        [x.path, RVC::FakeDatastoreFile.new(self, x)]
+        [x.path, RVC::FakeDatastoreFile.new(@datastore, self, "#{@path}/#{x.path}", x)]
       end
     end]
   end
@@ -65,6 +68,7 @@ class RVC::FakeDatastoreFolder
     Hash[ls_children.map { |k,v| [k, v.class] }]
   end
 
+  # XXX optimize
   def traverse_one arc
     ls_children[arc]
   end
@@ -76,11 +80,21 @@ class RVC::FakeDatastoreFolder
   def parent
     @parent
   end
+
+  def display_info
+    puts "Datastore Folder"
+    puts "datastore: #{@datastore.name}"
+    puts "path: #{@path}"
+  end
 end
 
 class RVC::FakeDatastoreFile
-  def initialize parent, info
+  attr_reader :path, :datastore
+
+  def initialize datastore, parent, path, info
+    @datastore = datastore
     @parent = parent
+    @path = path
     @info = info
   end
 
@@ -110,6 +124,8 @@ class RVC::FakeDatastoreFile
 
   def display_info
     puts "Datastore File"
+    puts "datastore: #{@datastore.name}"
+    puts "path: #{@path}"
     puts "size: #{@info.fileSize} bytes"
     case @info
     when RbVmomi::VIM::VmConfigFileInfo
