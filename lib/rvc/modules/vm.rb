@@ -75,8 +75,8 @@ end
 
 def kill args
   on_paths = args.select { |x| _vm(x).summary.runtime.powerState == 'poweredOn' }
-  off *on_paths unless on_paths.empty?
-  CMD.basic.destroy *paths unless paths.empty?
+  off on_paths unless on_paths.empty?
+  CMD.basic.destroy args unless args.empty?
 end
 
 opts :answer do
