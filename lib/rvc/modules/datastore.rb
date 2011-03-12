@@ -1,11 +1,10 @@
 opts :download do
   summary "Download a file from a datastore"
-  usage "datastore-path local-path"
+  arg 'datastore-path', "Filename on the datastore"
+  arg 'local-path', "Filename on the local machine"
 end
 
-def download args
-  datastore_path = args[0] or err "datastore path required"
-  local_path = args[1] or err "local path required"
+def download datastore_path, local_path
   file = lookup(datastore_path)
   err "not a datastore file" unless file.is_a? RVC::FakeDatastoreFile
   file.datastore.download file.path, local_path
@@ -13,12 +12,11 @@ end
 
 opts :upload do
   summary "Upload a file to a datastore"
-  usage "local-path datastore-path"
+  arg 'local-path', "Filename on the local machine"
+  arg 'datastore-path', "Filename on the datastore"
 end
 
-def upload args
-  local_path = args[0] or err "local path required"
-  datastore_path = args[1] or err "datastore path required"
+def upload local_path, datastore_path
   datastore_dir_path = File.dirname datastore_path
   dir = lookup(datastore_dir_path)
   err "datastore directory does not exist" unless dir.is_a? RVC::FakeDatastoreFolder

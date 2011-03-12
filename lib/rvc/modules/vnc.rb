@@ -4,7 +4,7 @@ VNC = ENV['VNC'] || search_path('vinagre') || search_path('tightvnc')
 
 opts :view do
   summary "Spawn a VNC client"
-  usage "path"
+  arg :path, 'VirtualMachine'
 end
 
 def view path
@@ -34,7 +34,7 @@ end
 
 opts :off do
   summary "Close a VM's VNC port"
-  usage "path"
+  arg :path, 'VirtualMachine'
 end
 
 def off path

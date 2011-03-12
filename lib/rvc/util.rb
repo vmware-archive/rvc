@@ -51,22 +51,6 @@ module Util
     files
   end
 
-  def _setExtraConfig id, hash
-    cfg = {
-      :extraConfig => hash.map { |k,v| { :key => k, :value => v } },
-    }
-    vm(id).ReconfigVM_Task(:spec => cfg).wait_for_completion
-  end
-
-  def _extraConfig id, *regexes
-    vm(id).config.extraConfig.each do |h|
-      if regexes.empty? or regexes.any? { |r| h[:key] =~ r }
-        puts "#{h[:key]}: #{h[:value]}"
-      end
-    end
-    nil
-  end
-
   def change_device_connectivity id, label, connected
     dev = vm(id).config.hardware.device.find { |x| x.deviceInfo.label == label }
     err "no such device" unless dev

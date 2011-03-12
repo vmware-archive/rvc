@@ -22,7 +22,7 @@ end
 
 opts :view do
   summary "Spawn a VMRC"
-  usage "paths..."
+  arg :path, 'VirtualMachine', :multi => true
 end
 
 def view args

@@ -2,11 +2,10 @@ include RVC::Util
 
 opts :type do
   summary "Display information about a VMODL type"
-  usage "name"
+  arg :name, "VMODL type name"
 end
 
-def type args
-  name, = args
+def type name
   klass = RbVmomi::VIM.type(name) rescue err("invalid type #{name.inspect}")
   q = lambda { |x| x =~ /^xsd:/ ? $' : x }
   if klass < RbVmomi::VIM::DataObject
@@ -49,7 +48,7 @@ Available commands:
   end.each do |mod_name,mod|
     opts = mod.instance_variable_get(:@opts)
     opts.each do |method_name,method_opts|
-      parser = RVC::OptionParser.new &method_opts
+      parser = RVC::OptionParser.new method_name, &method_opts
       aliases = ALIASES.select { |k,v| v == "#{mod_name}.#{method_name}" }.keys
       aliases_text = aliases.empty? ? '' : " (#{aliases*', '})"
       puts "#{mod_name}.#{method_name}#{aliases_text}: #{parser.summary?}" if parser.summary?
@@ -96,21 +95,19 @@ end
 
 opts :cd do
   summary "Change directory"
-  usage "path"
+  arg :path, "Directory to change to"
 end
 
-def cd args
-  path, = args
+def cd path
   $context.cd path
 end
 
 opts :ls do
   summary "List objects in a directory"
-  usage "[path]"
+  arg :path, "Directory to list", :required => false, :default => '.'
 end
 
-def ls args
-  path = args[0] || '.'
+def ls path
   loc = $context.lookup_loc(path)
   obj = loc.obj
   children = obj.ls_children
@@ -157,11 +154,10 @@ end
 
 opts :info do
   summary "Display information about an object"
-  usage "path"
+  arg :path, "Any object"
 end  
 
-def info args
-  path, = args
+def info path
   obj = lookup(path)
   if obj.respond_to? :display_info
     obj.display_info
@@ -172,21 +168,20 @@ end
 
 opts :destroy do
   summary "Destroy managed entities"
-  usage "path..."
+  arg :path, "Managed entities", :multi => true
 end
 
-def destroy args
-  progress args, :Destroy
+def destroy paths
+  progress paths, :Destroy
 end
 
 opts :mark do
   summary "Save a path for later use"
-  usage "key [path]"
+  arg :key, "Name for this mark"
+  arg :path, "Any object", :required => false, :default => '.'
 end
 
-def mark args
-  key, path, = args
-  path ||= '.'
+def mark key, path
   err "invalid mark name" unless key =~ /^\w+$/
   $context.mark key, $context.lookup_loc(path)
 end
