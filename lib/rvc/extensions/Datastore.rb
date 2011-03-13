@@ -29,7 +29,6 @@ end
 
 class RVC::FakeDatastoreFolder
   include RVC::InventoryObject
-  extend RVC::InventoryObject::ClassMethods
 
   attr_reader :path, :datastore
 
@@ -105,7 +104,6 @@ end
 
 class RVC::FakeDatastoreFile
   include RVC::InventoryObject
-  extend RVC::InventoryObject::ClassMethods
 
   attr_reader :path, :datastore
 

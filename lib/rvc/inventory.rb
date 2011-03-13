@@ -11,6 +11,10 @@ module InventoryObject
     end
   end
 
+  def self.included m
+    m.extend ClassMethods
+  end
+
   def display_info
     puts "name: #{name}"
     puts "type: #{self.class.name}"
@@ -39,7 +43,6 @@ end
 
 class FakeFolder
   include RVC::InventoryObject
-  extend RVC::InventoryObject::ClassMethods
 
   def initialize target, method
     @target = target
