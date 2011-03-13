@@ -11,7 +11,7 @@ class RbVmomi::VIM::DistributedVirtualPortgroup
     %w(name config.distributedVirtualSwitch)
   end
 
-  def self.ls_text r
+  def ls_text r
     # XXX optimize
     " (dvpg): <#{r['config.distributedVirtualSwitch'].name}"
   end

@@ -7,14 +7,6 @@ class RbVmomi::VIM::Folder
     RVC::Util.collect_children self, :childEntity
   end
 
-  def self.ls_properties
-    %w(name)
-  end
-
-  def self.ls_text r
-    "/"
-  end
-
   def self.folder?
     true
   end

@@ -38,7 +38,7 @@ class RbVmomi::VIM::VirtualMachine
     %w(name runtime.powerState)
   end
   
-  def self.ls_text r
+  def ls_text r
     ": #{r['runtime.powerState']}"
   end
 

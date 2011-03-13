@@ -3,7 +3,7 @@ class RbVmomi::VIM::ResourcePool
     %w(name config.cpuAllocation config.memoryAllocation)
   end
 
-  def self.ls_text r
+  def ls_text r
     cpuAlloc, memAlloc = r['config.cpuAllocation'], r['config.memoryAllocation']
 
     cpu_shares_text = cpuAlloc.shares.level == 'custom' ? cpuAlloc.shares.shares.to_s : cpuAlloc.shares.level

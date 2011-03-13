@@ -14,7 +14,7 @@ class RbVmomi::VIM::DistributedVirtualSwitch
     %w(name summary.description)
   end
 
-  def self.ls_text r
+  def ls_text r
     " (dvs)"
   end
 end

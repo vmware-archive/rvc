@@ -116,7 +116,7 @@ def ls path
   i = 0
 
   fake_children.each do |name,obj|
-    puts "#{i} #{name}#{obj.ls_text}"
+    puts "#{i} #{name}#{obj.ls_text(nil)}"
     mark_loc = loc.dup.tap { |x| x.push name, obj }
     $context.mark i.to_s, mark_loc
     i += 1
@@ -135,7 +135,7 @@ def ls path
   filteredTypes.each do |x|
     filterSpec.propSet << {
       :type => x.wsdl_name,
-      :pathSet => x.ls_properties,
+      :pathSet => x.ls_properties+%w(name),
     }
   end
 
@@ -143,7 +143,7 @@ def ls path
 
   results.each do |r|
     name = name_map[r.obj]
-    text = r.obj.class.ls_text r
+    text = r.obj.ls_text r
     realname = r['name'] if name != r['name']
     puts "#{i} #{name}#{realname && " [#{realname}]"}#{text}"
     mark_loc = loc.dup.tap { |x| x.push name, r.obj }

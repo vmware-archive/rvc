@@ -13,7 +13,7 @@ class RbVmomi::VIM::Datastore
     %w(name summary.capacity summary.freeSpace)
   end
 
-  def self.ls_text r
+  def ls_text r
     pct_used = 100*(1-(r['summary.freeSpace'].to_f/r['summary.capacity']))
     pct_used_text = "%0.1f%%" % pct_used
     capacity_text = "%0.2fGB" % (r['summary.capacity'].to_f/10**9)
@@ -28,15 +28,14 @@ class RbVmomi::VIM::Datastore
 end
 
 class RVC::FakeDatastoreFolder
+  include RVC::InventoryObject
+  extend RVC::InventoryObject::ClassMethods
+
   attr_reader :path, :datastore
 
   def initialize datastore, path
     @datastore = datastore
     @path = path
-  end
-
-  def ls_text
-    "/"
   end
 
   def search_result_to_object x
@@ -63,10 +62,6 @@ class RVC::FakeDatastoreFolder
     ).wait_for_completion
 
     Hash[results.file.map { |x| [x.path, search_result_to_object(x)] }]
-  end
-
-  def child_types
-    Hash[ls_children.map { |k,v| [k, v.class] }]
   end
 
   def traverse_one arc
@@ -109,32 +104,15 @@ class RVC::FakeDatastoreFolder
 end
 
 class RVC::FakeDatastoreFile
+  include RVC::InventoryObject
+  extend RVC::InventoryObject::ClassMethods
+
   attr_reader :path, :datastore
 
   def initialize datastore, path, info
     @datastore = datastore
     @path = path
     @info = info
-  end
-
-  def ls_text
-    ""
-  end
-
-  def ls_children
-    {}
-  end
-
-  def child_types
-    {}
-  end
-
-  def traverse_one arc
-    nil
-  end
-
-  def self.folder?
-    false
   end
 
   def parent

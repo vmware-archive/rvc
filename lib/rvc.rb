@@ -1,3 +1,4 @@
+require 'rvc/inventory'
 require 'rvc/modules'
 require 'rvc/util'
 require 'rvc/path'
