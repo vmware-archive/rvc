@@ -42,7 +42,7 @@ class RbVmomi::VIM::VirtualMachine
     ": #{r['runtime.powerState']}"
   end
 
-  def ls_children
+  def children
     host, resourcePool = collect *%w(runtime.host resourcePool)
     {
       'host' => host,

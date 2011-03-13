@@ -110,7 +110,7 @@ end
 def ls path
   loc = $context.lookup_loc(path)
   obj = loc.obj
-  children = obj.ls_children
+  children = obj.children
   name_map = children.invert
   children, fake_children = children.partition { |k,v| v.is_a? VIM::ManagedEntity }
   i = 0

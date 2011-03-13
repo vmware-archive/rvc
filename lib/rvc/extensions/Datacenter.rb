@@ -1,5 +1,5 @@
 class RbVmomi::VIM::Datacenter
-  def ls_children
+  def children
     vmFolder, datastoreFolder, networkFolder, hostFolder =
       collect *%w(vmFolder datastoreFolder networkFolder hostFolder)
     {

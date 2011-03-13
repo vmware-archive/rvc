@@ -25,14 +25,14 @@ module InventoryObject
   end
 
   def child_types
-    ls_children.map { |k,v| [k, v.class] }
+    children.map { |k,v| [k, v.class] }
   end
 
   def traverse_one arc
-    ls_children[arc]
+    children[arc]
   end
 
-  def ls_children
+  def children
     {}
   end
 
@@ -49,7 +49,7 @@ class FakeFolder
     @method = method
   end
 
-  def ls_children
+  def children
     @target.send @method
   end
 

@@ -17,7 +17,7 @@ class RbVmomi::VIM::ComputeResource
   end
 
   # TODO add datastore, network
-  def ls_children
+  def children
     hosts, resourcePool = collect *%w(host resourcePool)
     {
       'host' => hosts[0],

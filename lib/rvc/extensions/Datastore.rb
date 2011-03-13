@@ -20,7 +20,7 @@ class RbVmomi::VIM::Datastore
     ": #{capacity_text} #{pct_used_text}"
   end
 
-  def ls_children
+  def children
     {
       'files' => RVC::FakeDatastoreFolder.new(self, ""),
     }
@@ -46,7 +46,7 @@ class RVC::FakeDatastoreFolder
     end
   end
 
-  def ls_children
+  def children
     browser, ds_name = @datastore.collect :browser, :name
     results = browser.SearchDatastore_Task(
       datastorePath: "[#{ds_name}] #{@path}",

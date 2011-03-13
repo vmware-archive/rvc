@@ -11,7 +11,7 @@ class RbVmomi::VIM::HostSystem
     " (host): cpu #{numCpuPkgs}*#{numCpuCores}*#{"%.2f" % (cpuMhz.to_f/1000)} GHz, memory #{"%.2f" % (memorySize/10**9)} GB"
   end
 
-  def ls_children
+  def children
     {
       'vms' => RVC::FakeFolder.new(self, :ls_vms),
       'datastores' => RVC::FakeFolder.new(self, :ls_datastores),

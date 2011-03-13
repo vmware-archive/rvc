@@ -3,7 +3,7 @@ class RbVmomi::VIM::Folder
     @soap.searchIndex.FindChild :entity => self, :name => arc
   end
 
-  def ls_children
+  def children
     RVC::Util.collect_children self, :childEntity
   end
 
