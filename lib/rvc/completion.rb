@@ -5,7 +5,7 @@ module Completion
   Cache = TTLCache.new 10
 
   Completor = lambda do |word|
-    Readline.completion_append_character = nil
+    Readline.completion_append_character = '/'
     return unless word
 
     candidates = if Readline.respond_to? :line_buffer
@@ -19,10 +19,6 @@ module Completion
     end
 
     candidates += mark_candidates(word)
-        
-    if candidates.length == 1 && candidates[0][-1..-1] != '/'
-      Readline.completion_append_character = ' '
-    end
     candidates
   end
 
@@ -45,8 +41,7 @@ module Completion
     els.unshift '' if absolute
     Cache[cur, :children].
       select { |k,v| k =~ /^#{Regexp.escape(last)}/ }.
-      map { |k,v| v.class.folder? ? "#{k}/" : k }.
-      map { |x| (els+[x])*'/' }
+      map { |k,v| (els+[k])*'/' }
   end
 
   def self.mark_candidates word
