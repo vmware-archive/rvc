@@ -24,10 +24,6 @@ module InventoryObject
     self.class.folder? ? '/' : ''
   end
 
-  def child_types
-    children.map { |k,v| [k, v.class] }
-  end
-
   def traverse_one arc
     children[arc]
   end
@@ -59,6 +55,15 @@ class FakeFolder
 
   def parent
     @target
+  end
+
+  def eql? x
+    @target == x.instance_variable_get(:@target) &&
+      @method == x.instance_variable_get(:@method)
+  end
+
+  def hash
+    @target.hash ^ @method.hash
   end
 end
 

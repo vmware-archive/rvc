@@ -100,6 +100,15 @@ class RVC::FakeDatastoreFolder
     puts "datastore: #{@datastore.name}"
     puts "path: #{@path}"
   end
+
+  def eql? x
+    @datastore == x.instance_variable_get(:@datastore) &&
+      @path == x.instance_variable_get(:@path)
+  end
+
+  def hash
+    @datastore.hash ^ @path.hash
+  end
 end
 
 class RVC::FakeDatastoreFile

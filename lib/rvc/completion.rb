@@ -1,5 +1,9 @@
+require 'rvc/ttl_cache'
+
 module RVC
 module Completion
+  Cache = TTLCache.new 10
+
   Completor = lambda do |word|
     Readline.completion_append_character = nil
     return unless word
@@ -39,9 +43,9 @@ module Completion
     found_loc = $context.traverse(base_loc, els) or return []
     cur = found_loc.obj
     els.unshift '' if absolute
-    cur.child_types.
+    Cache[cur, :children].
       select { |k,v| k =~ /^#{Regexp.escape(last)}/ }.
-      map { |k,v| v.folder? ? "#{k}/" : k }.
+      map { |k,v| v.class.folder? ? "#{k}/" : k }.
       map { |x| (els+[x])*'/' }
   end
 
