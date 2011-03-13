@@ -66,6 +66,9 @@ ALIASES = {
   'mark' => 'basic.mark',
   'm' => 'basic.mark',
   'help' => 'basic.help',
+  'exit' => 'basic.quit',
+  'quit' => 'basic.quit',
+  'q' => 'basic.quit',
 
   'on' => 'vm.on',
   'off' => 'vm.off',
