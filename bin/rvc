@@ -35,6 +35,7 @@ EOS
   opt :user, "username", :short => 'u', :type => :string, :default => ENV['RBVMOMI_USER']
   opt :password, "password", :short => 'p', :type => :string, :default => ENV['RBVMOMI_PASSWORD']
   opt :path, "SOAP endpoint path", :short => :none, :default => (ENV['RBVMOMI_PATH'] || '/sdk')
+  opt :folder, "Initial directory", :short => 'F', :default => ENV['RVC_FOLDER'], :type => :string
 
   opt :cmd, "command to evaluate", :short => 'c', :multi => true, :type => :string
 end
@@ -196,7 +197,7 @@ loop do
 end
 
 $context = RVC::Context.new $vim.rootFolder
-#$context.cd("/vm/#{$opts[:folder]}") XXX
+$context.cd($opts[:folder]) if $opts[:folder]
 
 Readline.completion_proc = RVC::Completion::Completor
 history_fn = "#{ENV['HOME']}/.rvc-history"

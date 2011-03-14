@@ -1,5 +1,5 @@
-re-add folder command line option
 fix use of $dc
 add commands for more entities
 add fake subfolders for more entities
+allow host field to be a URI, remove most connection args
 globbing?
