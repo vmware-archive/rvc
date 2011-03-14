@@ -162,13 +162,30 @@ def prompt_password
   end
 end
 
+def prompt_insecure
+  answer = Readline.readline "SSL certificate verification failed. Connect anyway? (y/n) "
+  answer == 'yes' or answer == 'y'
+end
+
 ## main
+
+username_given = $opts[:user] != nil
+password_given = $opts[:password] != nil
 
 loop do
   begin
-    $opts[:user] = prompt_username unless $opts[:user_given]
-    $opts[:password] = prompt_password unless $opts[:password_given]
-    $vim = RbVmomi.connect $opts
+    $opts[:user] = prompt_username unless username_given
+    $opts[:password] = prompt_password unless password_given
+    loop do
+      begin
+        $vim = RbVmomi.connect $opts
+        break
+      rescue OpenSSL::SSL::SSLError
+        raise if password_given
+        exit 1 unless prompt_insecure
+        $opts[:insecure] = true
+      end
+    end
     break
   rescue RbVmomi::VIM::InvalidLogin
     $stderr.puts $!.message

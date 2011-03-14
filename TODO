@@ -1,4 +1,3 @@
-allow reopening modules
 re-add folder command line option
 fix use of $dc
 add commands for more entities
