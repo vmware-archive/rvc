@@ -4,14 +4,11 @@ VNC = ENV['VNC'] || search_path('vinagre') || search_path('tightvnc')
 
 opts :view do
   summary "Spawn a VNC client"
-  arg :path, 'VirtualMachine'
+  arg :vm, nil, :lookup => VIM::VirtualMachine
 end
 
-def view path
-  vm = lookup(path)
-  expect vm, VIM::VirtualMachine
+def view vm
   ip = reachable_ip vm.runtime.host
-
   extraConfig = vm.config.extraConfig
   already_enabled = extraConfig.find { |x| x.key == 'RemoteDisplay.vnc.enabled' && x.value.downcase == 'true' }
   if already_enabled
@@ -34,12 +31,10 @@ end
 
 opts :off do
   summary "Close a VM's VNC port"
-  arg :path, 'VirtualMachine'
+  arg :vm, nil, :lookup => VIM::VirtualMachine
 end
 
-def off path
-  vm = lookup(path)
-  expect vm, VIM::VirtualMachine
+def off vm
   vm.ReconfigVM_Task(:spec => {
     :extraConfig => [
       { :key => 'RemoteDisplay.vnc.enabled', :value => 'false' },

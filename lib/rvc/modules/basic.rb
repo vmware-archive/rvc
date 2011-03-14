@@ -154,11 +154,10 @@ end
 
 opts :info do
   summary "Display information about an object"
-  arg :path, "Any object"
+  arg :path, nil, :lookup => Object
 end  
 
-def info path
-  obj = lookup(path)
+def info obj
   if obj.respond_to? :display_info
     obj.display_info
   else
@@ -168,11 +167,11 @@ end
 
 opts :destroy do
   summary "Destroy managed entities"
-  arg :path, "Managed entities", :multi => true
+  arg :obj, nil, :lookup => VIM::ManagedEntity, :multi => true
 end
 
-def destroy paths
-  progress paths, :Destroy
+def destroy objs
+  progress objs, :Destroy
 end
 
 opts :mark do

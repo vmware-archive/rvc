@@ -40,23 +40,38 @@ class OptionParser < Trollop::Parser
     opts[:default] = [] if opts[:multi] and opts[:default].nil?
     fail "Multi argument must be the last one" if @seen_multi
     fail "Can't have required argument after optional ones" if opts[:required] and @seen_not_required
-    @args << [name, description, opts[:required], opts[:default], opts[:multi]]
-    text "  #{name}: #{description}"
+    @args << [name, description, opts[:required], opts[:default], opts[:multi], opts[:lookup]]
+    text "  #{name}: " + [description, opts[:lookup]].compact.join(' ')
+  end
+
+  def check_lookup path, klass
+    obj = lookup(path)
+    err "expected #{klass}, got #{obj.class} for path #{path.inspect}" unless obj.is_a? klass
+    obj
   end
 
   def parse argv
     opts = super argv
+
+    @specs.each do |name,spec|
+      next unless klass = spec[:lookup] and path = opts[name]
+      opts[name] = check_lookup path, klass
+    end
+
     argv = leftovers
     args = []
-    @args.each do |name,desc,required,default,multi|
+    @args.each do |name,desc,required,default,multi,lookup_klass|
       if multi
         err "missing argument '#{name}'" if required and argv.empty?
-        args << (argv.empty? ? default : argv.dup)
+        a = (argv.empty? ? default : argv.dup)
+        a.map! { |x| check_lookup x, lookup_klass } if lookup_klass
+        args << a
         argv.clear
       else
         x = argv.shift
         err "missing argument '#{name}'" if required and x.nil?
         x = default if x.nil?
+        x = check_lookup x, lookup_klass if lookup_klass
         args << x
       end
     end
@@ -65,7 +80,7 @@ class OptionParser < Trollop::Parser
   end
 
   def educate
-    arg_texts = @args.map do |name,desc,required,default,multi|
+    arg_texts = @args.map do |name,desc,required,default,multi,lookup_klass|
       text = name
       text = "[#{text}]" if not required
       text = "#{text}..." if multi

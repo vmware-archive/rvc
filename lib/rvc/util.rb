@@ -6,12 +6,6 @@ module Util
     $context.lookup path
   end
 
-  def expect obj, *types
-    unless types.any? { |x| obj.is_a? x }
-      err "unexpected #{obj.class}"
-    end
-  end
-
   def menu items
     items.each_with_index { |x, i| puts "#{i} #{x}" }
     input = Readline.readline("? ", false)
@@ -44,8 +38,7 @@ module Util
     raise UserError.new(msg)
   end
 
-  def progress paths, sym, args={}
-    objs = paths.map { |x| lookup(x) }
+  def progress objs, sym, args={}
     tasks = objs.map { |obj| obj._call :"#{sym}_Task", args }
 
     interested = %w(info.progress info.state info.entityName info.error)
@@ -72,7 +65,7 @@ module Util
         $stdout.flush
       end
     end
-    $stdout.write "\e[#{paths.size}B" if interactive?
+    $stdout.write "\e[#{objs.size}B" if interactive?
     true
   end
 

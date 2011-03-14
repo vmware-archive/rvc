@@ -1,121 +1,105 @@
 include RVC::Util
 
-def _vm(path)
-  lookup(path).tap { |obj| expect obj, VIM::VirtualMachine }
-end
-
 opts :on do
   summary "Power on VMs"
-  arg :path, "VirtualMachine", :multi => true
+  arg :vm, nil, :multi => true, :lookup => VIM::VirtualMachine
 end
 
-def on paths
-  progress paths, :PowerOnVM
+def on vms
+  progress vms, :PowerOnVM
 end
 
 opts :off do
   summary "Power off VMs"
-  arg :path, "VirtualMachine", :multi => true
+  arg :vm, nil, :multi => true, :lookup => VIM::VirtualMachine
 end
 
-def off paths
-  progress paths, :PowerOffVM
+def off vms
+  progress vms, :PowerOffVM
 end
 
 opts :reset do
   summary "Reset VMs"
-  arg :path, "VirtualMachine", :multi => true
+  arg :vm, nil, :multi => true, :lookup => VIM::VirtualMachine
 end
 
-def reset paths
-  progress paths, :ResetVM
+def reset vms
+  progress vms, :ResetVM
 end
 
 opts :suspend do
   summary "Suspend VMs"
-  arg :path, "VirtualMachine", :multi => true
+  arg :vm, nil, :multi => true, :lookup => VIM::VirtualMachine
 end
 
-def suspend paths
-  progress paths, :SuspendVM
+def suspend vms
+  progress vms, :SuspendVM
 end
 
 opts :register do
   summary "Register a VM already in a datastore"
-  arg :path, "RVC path to the VMX file"
-  opt :resource_pool, 'Resource pool', :short => 'R', :type => :string
-  opt :folder, 'VM Folder', :short => 'F', :type => :string, :default => "."
+  arg :file, "RVC path to the VMX file", :lookup => RVC::Datastore::FakeDatastoreFile
+  opt :resource_pool, 'Resource pool', :short => 'R', :type => :string, :lookup => VIM::ResourcePool
+  opt :folder, 'VM Folder', :short => 'F', :default => ".", :lookup => VIM::Folder
 end
 
-def register path, opts
-  vmx_file = lookup(path) or err "VMX file not found"
-  folder = lookup(opts[:folder]) or err "Folder not found"
-
-  if $vim.serviceInstance.content.about.apiType == "HostAgent" or !opts[:resource_pool_given]
-    rp = $vim.rootFolder.childEntity[0].hostFolder.childEntity[0].resourcePool
-  else
-    rp = lookup(opts[:resource_pool]) or err "resource pool not found"
-    if rp.is_a? RbVmomi::VIM::ComputeResource
-      rp = rp.resourcePool
-    end
-  end
-
-  vm = folder.RegisterVM_Task(:path => vmx_file.datastore_path,
-                              :asTemplate => false,
-                              :pool => rp).wait_for_completion
+def register vmx_file, opts
+  rp = opts[:resourcePool] || $vim.rootFolder.childEntity[0].hostFolder.childEntity[0].resourcePool
+  vm = opts[:folder].RegisterVM_Task(:path => vmx_file.datastore_path,
+                                     :asTemplate => false,
+                                     :pool => rp).wait_for_completion
 end
 
 opts :unregister do
   summary "Unregister a VM"
-  arg :path, "VirtualMachine"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
 end
 
-def unregister path
-  _vm(path).UnregisterVM
+def unregister vm
+  vm.UnregisterVM
 end
 
 opts :kill do
   summary "Power off and destroy VMs"
-  arg :path, "VirtualMachine", :multi => true
+  arg :vm, nil, :multi => true, :lookup => VIM::VirtualMachine
 end
 
-def kill paths
-  on_paths = paths.select { |x| _vm(x).summary.runtime.powerState == 'poweredOn' }
-  off on_paths unless on_paths.empty?
-  CMD.basic.destroy args unless args.empty?
+def kill vms
+  on_vms = vms.select { |x| x.summary.runtime.powerState == 'poweredOn' }
+  off on_vms unless on_vms.empty?
+  CMD.basic.destroy vms unless vms.empty?
 end
 
 opts :answer do
   summary "Answer a VM question"
-  arg :path, 'VirtualMachine'
+  arg :vm, nil, :lookup => VIM::VirtualMachine
   arg :choice, "Answer ID"
 end
 
-def answer path, str
-  q = _vm(path).runtime.question or err("no question to answer")
+def answer vm, str
   choice = q.choice.choiceInfo.find { |x| x.label == str }
   err("invalid answer") unless choice
-  _vm(path).AnswerVM :questionid => q.path, :answerChoice => choice.key
+  vm.AnswerVM :questionid => q.path, :answerChoice => choice.key
 end
 
 opts :layout do
   summary "Display info about VM files"
-  arg :path, "VirtualMachine"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
 end
 
-def layout path
-  _vm(path).layoutEx.file.each do |f|
+def layout vm
+  vm.layoutEx.file.each do |f|
     puts "#{f.type}: #{f.name}"
   end
 end
 
 opts :layout do
   summary "Display info about VM devices"
-  arg :path, "VirtualMachine"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
 end
 
-def devices path
-  devs = _vm(path).config.hardware.device
+def devices vm
+  devs = vm.config.hardware.device
   devs.each do |dev|
     tags = []
     tags << (dev.connectable.connected ? :connected : :disconnected) if dev.props.member? :connectable
@@ -125,44 +109,34 @@ end
 
 opts :connect do
   summary "Connect a virtual device"
-  arg :path, "VirtualMachine"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
   arg :label, "Device label"
 end
 
-def connect path, label
-  change_device_connectivity path, label, true
+def connect vm, label
+  change_device_connectivity vm, label, true
 end
 
 opts :disconnect do
   summary "Disconnect a virtual device"
-  arg :path, "VirtualMachine"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
   arg :label, "Device label"
 end
 
-def disconnect args
-  path, label, = args
-  change_device_connectivity path, label, false
+def disconnect vm, label
+  change_device_connectivity vm, label, false
 end
 
 opts :find do
   summary "Display a menu of VMX files to register"
-  arg :datastore, "Path to datastore"
-  opt :resource_pool, 'Resource pool', :short => 'R', :type => :string
-  opt :folder, 'VM Folder', :short => 'F', :type => :string, :default => "."
+  arg :datastore, nil, :lookup => VIM::Datastore
+  opt :resource_pool, nil, :short => 'R', :type => :string, :lookup => VIM::ResourcePool
+  opt :folder, nil, :short => 'F', :type => :string, :default => ".", :lookup => VIM::Folder
 end
 
-def find datastore_path, opts
-  ds = lookup(datastore_path)
-  folder = lookup(opts[:folder]) or err "Folder not found"
-
-  if $vim.serviceInstance.content.about.apiType == "HostAgent" or !opts[:resource_pool_given]
-    rp = $vim.rootFolder.childEntity[0].hostFolder.childEntity[0].resourcePool
-  else
-    rp = lookup(opts[:resource_pool]) or err "resource pool not found"
-    if rp.is_a? RbVmomi::VIM::ComputeResource
-      rp = rp.resourcePool
-    end
-  end
+def find ds, opts
+  folder = opts[:folder]
+  rp = opts[:resourcePool] || $vim.rootFolder.childEntity[0].hostFolder.childEntity[0].resourcePool
 
   paths = find_vmx_files(ds)
   if paths.empty?
@@ -180,34 +154,34 @@ end
 
 opts :extraConfig do
   summary "Display extraConfig options"
-  arg :path, "VirtualMachine"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
   arg :regex, "Regexes to filter keys", :multi => true, :required => false
 end
 
-def extraConfig path, regexes
-  _extraConfig(path, *regexes.map { |x| /#{x}/ })
+def extraConfig vm, regexes
+  _extraConfig(vm, *regexes.map { |x| /#{x}/ })
 end
 
 opts :setExtraConfig do
   summary "Set extraConfig options"
-  arg :path, "VirtualMachine"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
   arg 'key=value', "extraConfig key/value pairs", :multi => true
 end
 
-def setExtraConfig path, pairs
+def setExtraConfig vm, pairs
   h = Hash[pairs.map { |x| x.split('=', 2).tap { |a| a << '' if a.size == 1 } }]
-  _setExtraConfig path, h
+  _setExtraConfig vm, h
 end
 
-def _setExtraConfig id, hash
+def _setExtraConfig vm, hash
   cfg = {
     :extraConfig => hash.map { |k,v| { :key => k, :value => v } },
   }
-  _vm(id).ReconfigVM_Task(:spec => cfg).wait_for_completion
+  vm.ReconfigVM_Task(:spec => cfg).wait_for_completion
 end
 
-def _extraConfig id, *regexes
-  _vm(id).config.extraConfig.each do |h|
+def _extraConfig vm, *regexes
+  vm.config.extraConfig.each do |h|
     if regexes.empty? or regexes.any? { |r| h[:key] =~ r }
       puts "#{h[:key]}: #{h[:value]}"
     end
@@ -217,22 +191,22 @@ end
 
 opts :ssh do
   summary "SSH to a VM"
-  arg :path, "VirtualMachine"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
 end
 
-def ssh path
-  ip = vm_ip _vm(path)
+def ssh vm
+  ip = vm_ip vm
   ssh_cmd = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@#{ip}"
   system_fg(ssh_cmd)
 end
 
 opts :rvc do
   summary "RVC to a VM"
-  arg :path, "VirtualMachine"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
 end
 
-def rvc path
-  ip = vm_ip _vm(path)
+def rvc vm
+  ip = vm_ip vm
 
   env = Hash[%w(RBVMOMI_PASSWORD RBVMOMI_HOST RBVMOMI_USER RBVMOMI_SSL RBVMOMI_PORT
                 RBVMOMI_FOLDER RBVMOMI_DATASTORE RBVMOMI_PATH RBVMOMI_DATACENTER
@@ -243,38 +217,38 @@ end
 
 opts :ping do
   summary "Ping a VM"
-  arg :path, "VirtualMachine"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
 end
 
-def ping path
-  ip = vm_ip _vm(path)
+def ping vm
+  ip = vm_ip vm
   system_fg "ping #{ip}"
 end
 
 opts :ip do
   summary "Wait for and display VM IP addresses"
-  arg :path, "VirtualMachine", :multi => true
+  arg :vm, nil, :lookup => VIM::VirtualMachine, :multi => true
 end
 
-def ip paths
+def ip vms
   props = %w(summary.runtime.powerState summary.guest.ipAddress summary.config.annotation)
 
-  filters = paths.map do |path|
+  filters = vms.map do |vm|
     $vim.propertyCollector.CreateFilter :spec => {
       :propSet => [{ :type => 'VirtualMachine', :all => false, :pathSet => props }],
-      :objectSet => [{ :obj => _vm(path) }],
+      :objectSet => [{ :obj => vm }],
     }, :partialUpdates => false
   end
 
   ver = ''
-  while not paths.empty?
+  while not vms.empty?
     result = $vim.propertyCollector.WaitForUpdates(:version => ver)
     ver = result.version
 
-    paths.reject! do |path|
+    vms.reject! do |vm|
       begin
-        ip = vm_ip(_vm(path))
-        puts "#{_vm(path).name}: #{ip}"
+        ip = vm_ip(vm)
+        puts "#{vm.name}: #{ip}"
         true
       rescue UserError
         false
@@ -287,34 +261,32 @@ end
 
 opts :add_net_device do
   summary "Add a network adapter to a virtual machine"
-  arg :path, "VirtualMachine"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
   opt :type, "Adapter type", :default => 'e1000'
   opt :network, "Network to connect to", :default => 'VM Network'
 end
 
-def add_net_device path, opts
-  vm = _vm(path)
-
+def add_net_device vm, opts
   case opts[:type]
   when 'e1000'
-    _add_net_device path, VIM::VirtualE1000, opts[:network]
+    _add_net_device vm, VIM::VirtualE1000, opts[:network]
   when 'vmxnet3'
-    _add_net_device path, VIM::VirtualVmxnet3, opts[:network]
+    _add_net_device vm, VIM::VirtualVmxnet3, opts[:network]
   else err "unknown device"
   end
 end
 
-def _add_device path, dev
+def _add_device vm, dev
   spec = {
     :deviceChange => [
       { :operation => :add, :device => dev },
     ]
   }
-  _vm(path).ReconfigVM_Task(:spec => spec).wait_for_completion
+  vm.ReconfigVM_Task(:spec => spec).wait_for_completion
 end
 
-def _add_net_device path, klass, network
-  _add_device path, klass.new(
+def _add_net_device vm, klass, network
+  _add_device vm, klass.new(
     :key => -1,
     :deviceInfo => {
       :summary => network,
@@ -329,12 +301,11 @@ end
 
 opts :remove_device do
   summary "Remove a virtual device"
-  arg :path, "VirtualMachine"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
   arg :label, "Device label"
 end
 
-def remove_device path, label
-  vm = _vm(path)
+def remove_device vm, label
   dev = vm.config.hardware.device.find { |x| x.deviceInfo.label == label }
   err "no such device" unless dev
   spec = {
@@ -347,22 +318,21 @@ end
 
 opts :snapshot do
   summary "Snapshot a VM"
-  arg :path, "VirtualMachine"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
   arg :name, "Name of new snapshot"
 end
 
-def snapshot path, name
-  progress [path], :CreateSnapshot, :memory => true, :name => name, :quiesce => false
+def snapshot vm, name
+  progress [vm], :CreateSnapshot, :memory => true, :name => name, :quiesce => false
 end
 
 # TODO make fake folder
 opts :snapshots do
   summary "Display VM snapshot tree"
-  arg :path, "VirtualMachine"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
 end
 
-def snapshots path
-  vm = _vm(path)
+def snapshots vm
   _display_snapshot_tree vm.snapshot.rootSnapshotList, 0
 end
 
@@ -375,11 +345,11 @@ end
 
 opts :revert do
   summary "Revert a VM to its current snapshot"
-  arg :path, "VirtualMachine"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
 end
 
-def revert path
-  progress [path], :RevertToCurrentSnapshot
+def revert vm
+  progress [vm], :RevertToCurrentSnapshot
 end
 
 def find_vmx_files ds

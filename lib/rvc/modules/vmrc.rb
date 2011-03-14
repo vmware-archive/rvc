@@ -22,15 +22,13 @@ end
 
 opts :view do
   summary "Spawn a VMRC"
-  arg :path, 'VirtualMachine', :multi => true
+  arg :vm, nil, :lookup => VIM::VirtualMachine, :multi => true
 end
 
-def view args
+def view vms
   err "VMRC not found" unless _find_vmrc
-  args.each do |path|
-    obj = lookup path
-    expect obj, VIM::VirtualMachine
-    moref = obj._ref
+  vms.each do |vm|
+    moref = vm._ref
     fork do
       ENV['https_proxy'] = ENV['HTTPS_PROXY'] = ''
       $stderr.reopen("#{ENV['HOME']||'.'}/.rvc-vmrc.log", "w")
