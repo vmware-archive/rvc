@@ -5,7 +5,7 @@ module Completion
   Cache = TTLCache.new 10
 
   Completor = lambda do |word|
-    Readline.completion_append_character = '/'
+    Readline.completion_append_character = nil
     return unless word
 
     candidates = if Readline.respond_to? :line_buffer
@@ -19,6 +19,11 @@ module Completion
     end
 
     candidates += mark_candidates(word)
+    if candidates.size == 1 and cmd_candidates(word).member?(candidates[0])
+      Readline.completion_append_character = ' '
+    else
+      Readline.completion_append_character = '/'
+    end
     candidates
   end
 
