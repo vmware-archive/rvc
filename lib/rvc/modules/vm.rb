@@ -381,3 +381,51 @@ end
 def revert path
   progress [path], :RevertToCurrentSnapshot
 end
+
+def find_vmx_files ds
+  datastorePath = "[#{ds.name}] /"
+  searchSpec = {
+    :details => { :fileOwner => false, :fileSize => false, :fileType => true, :modification => false  },
+    :query => [
+      VIM::VmConfigFileQuery()
+    ]
+  }
+  task = ds.browser.SearchDatastoreSubFolders_Task(:datastorePath => datastorePath, :searchSpec => searchSpec)
+
+  results = task.wait_for_completion
+
+  files = []
+  results.each do |result|
+    result.file.each do |file|
+      files << result.folderPath + '/' + file.path
+    end
+  end
+
+  files
+end
+
+def change_device_connectivity id, label, connected
+  dev = vm(id).config.hardware.device.find { |x| x.deviceInfo.label == label }
+  err "no such device" unless dev
+  dev.connectable.connected = connected
+  spec = {
+    :deviceChange => [
+      { :operation => :edit, :device => dev },
+    ]
+  }
+  vm(id).ReconfigVM_Task(:spec => spec).wait_for_completion
+end
+
+def vm_ip vm
+  summary = vm.summary
+
+  err "VM is not powered on" unless summary.runtime.powerState == 'poweredOn'
+
+  ip = if summary.guest.ipAddress and summary.guest.ipAddress != '127.0.0.1'
+    summary.guest.ipAddress
+  elsif note = YAML.load(summary.config.annotation) and note.is_a? Hash and note.member? 'ip'
+    note['ip']
+  else
+    err "no IP known for this VM"
+  end
+end
