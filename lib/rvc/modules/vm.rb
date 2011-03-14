@@ -42,21 +42,27 @@ end
 
 opts :register do
   summary "Register a VM already in a datastore"
-  arg :datastore, "Datastore name" # TODO make a path?
-  arg :filename, "VMX filename"
+  arg :path, "RVC path to the VMX file"
+  opt :resource_pool, 'Resource pool', :short => 'R', :type => :string
+  opt :folder, 'VM Folder', :short => 'F', :type => :string, :default => "."
 end
 
-# XXX no $dc anymore
-def register datastore, path
-  path = "#{path}/#{path}.vmx" unless path =~ /\.vmx$/
-  ds_path = "[#{datastore}] #{path}"
+def register path, opts
+  vmx_file = lookup(path) or err "VMX file not found"
+  folder = lookup(opts[:folder]) or err "Folder not found"
 
-  resource = $dc.hostFolder.childEntity.first
-  rp = resource.resourcePool
-  puts "using compute resource #{resource.name}"
-  vm = $context.cur.RegisterVM_Task(:path => ds_path,
-                                    :asTemplate => false,
-                                    :pool => rp).wait_for_completion
+  if $vim.serviceInstance.content.about.apiType == "HostAgent" or !opts[:resource_pool_given]
+    rp = $vim.rootFolder.childEntity[0].hostFolder.childEntity[0].resourcePool
+  else
+    rp = lookup(opts[:resource_pool]) or err "resource pool not found"
+    if rp.is_a? RbVmomi::VIM::ComputeResource
+      rp = rp.resourcePool
+    end
+  end
+
+  vm = folder.RegisterVM_Task(:path => vmx_file.datastore_path,
+                              :asTemplate => false,
+                              :pool => rp).wait_for_completion
 end
 
 opts :unregister do
@@ -138,25 +144,27 @@ def disconnect args
   change_device_connectivity path, label, false
 end
 
-# TODO move to datastore?
 opts :find do
   summary "Display a menu of VMX files to register"
-  arg :datastore, "Datastore name", :required => false
+  arg :datastore, "Path to datastore"
+  opt :resource_pool, 'Resource pool', :short => 'R', :type => :string
+  opt :folder, 'VM Folder', :short => 'F', :type => :string, :default => "."
 end
 
-# XXX no $dc anymore
-def find datastore_name
-  if not datastore_name
-    datastore_names = $dc.datastore.map(&:name)
-    if datastore_names.empty?
-      puts "no datastores found"
-      return
+def find datastore_path, opts
+  ds = lookup(datastore_path)
+  folder = lookup(opts[:folder]) or err "Folder not found"
+
+  if $vim.serviceInstance.content.about.apiType == "HostAgent" or !opts[:resource_pool_given]
+    rp = $vim.rootFolder.childEntity[0].hostFolder.childEntity[0].resourcePool
+  else
+    rp = lookup(opts[:resource_pool]) or err "resource pool not found"
+    if rp.is_a? RbVmomi::VIM::ComputeResource
+      rp = rp.resourcePool
     end
-    puts "Select a datastore:"
-    datastore_name = menu(datastore_names) or return
   end
 
-  paths = find_vmx_files(datastore_name)
+  paths = find_vmx_files(ds)
   if paths.empty?
     puts "no VMX files found"
     return
@@ -165,13 +173,9 @@ def find datastore_name
   puts "Select a VMX file"
   path = menu(paths) or return
 
-  resource = $dc.hostFolder.childEntity.first
-  rp = resource.resourcePool
-  puts "using compute resource #{resource.name}"
-
-  vm = $context.cur.RegisterVM_Task(:path => path,
-                                    :asTemplate => false,
-                                    :pool => rp).wait_for_completion
+  folder.RegisterVM_Task(:path => path,
+                         :asTemplate => false,
+                         :pool => rp).wait_for_completion
 end
 
 opts :extraConfig do

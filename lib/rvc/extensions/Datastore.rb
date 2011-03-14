@@ -37,6 +37,11 @@ class RVC::FakeDatastoreFolder
     @path = path
   end
 
+  def datastore_path
+    @ds_name ||= @datastore.name
+    "[#{@ds_name}] #{@path}"
+  end
+
   def search_result_to_object x
     case x
     when RbVmomi::VIM::FolderFileInfo
@@ -47,9 +52,8 @@ class RVC::FakeDatastoreFolder
   end
 
   def children
-    browser, ds_name = @datastore.collect :browser, :name
-    results = browser.SearchDatastore_Task(
-      datastorePath: "[#{ds_name}] #{@path}",
+    results = @datastore.browser.SearchDatastore_Task(
+      datastorePath: datastore_path,
       searchSpec: {
         details: {
           fileType: true,
@@ -120,6 +124,11 @@ class RVC::FakeDatastoreFile
     @datastore = datastore
     @path = path
     @info = info
+  end
+
+  def datastore_path
+    @ds_name ||= @datastore.name
+    "[#{@ds_name}] #{@path}"
   end
 
   def parent
