@@ -35,9 +35,6 @@ EOS
   opt :user, "username", :short => 'u', :type => :string, :default => ENV['RBVMOMI_USER']
   opt :password, "password", :short => 'p', :type => :string, :default => ENV['RBVMOMI_PASSWORD']
   opt :path, "SOAP endpoint path", :short => :none, :default => (ENV['RBVMOMI_PATH'] || '/sdk')
-  rbvmomi_datacenter_opt
-  opt :"create-datacenter", 'Create the datacenter if it does not exist', :short => :none
-  rbvmomi_folder_opt
 
   opt :cmd, "command to evaluate", :short => 'c', :multi => true, :type => :string
 end
@@ -47,7 +44,6 @@ if ARGV.length == 0
 elsif ARGV.length == 1
   $opts[:host] = ARGV[0]
 else
-pp ARGV
   Trollop.die("too many arguments")
 end
 
@@ -57,8 +53,6 @@ ENV['RBVMOMI_SSL'] = $opts[:"no-ssl"] ? '0' : '1';
 ENV['RBVMOMI_PATH'] = $opts[:path]
 ENV['RBVMOMI_USER'] = $opts[:user]
 ENV['RBVMOMI_PASSWORD'] = $opts[:password]
-ENV['RBVMOMI_FOLDER'] = $opts[:folder]
-ENV['RBVMOMI_DATACENTER'] = $opts[:datacenter]
 
 ALIASES = {
   'type' => 'basic.type',
@@ -184,20 +178,8 @@ loop do
   end
 end
 
-rootFolder = $vim.rootFolder
-
-$dc = if $opts[:datacenter]
-  rootFolder.traverse $opts[:datacenter], VIM::Datacenter or
-    $opts[:"create-datacenter"] && rootFolder.CreateDatacenter(:name => $opts[:datacenter])
-else
-  rootFolder.childEntity.grep(VIM::Datacenter).first
-end or fail "datacenter not found"
-
-vmRoot, datastoreRoot, hostRoot, networkRoot =
-  $dc.collect(:vmFolder, :datastoreFolder, :hostFolder, :networkFolder)
-
-$context = RVC::Context.new $dc
-$context.cd("/vm/#{$opts[:folder]}")
+$context = RVC::Context.new $vim.rootFolder
+#$context.cd("/vm/#{$opts[:folder]}") XXX
 
 Readline.completion_proc = RVC::Completion::Completor
 history_fn = "#{ENV['HOME']}/.rvc-history"

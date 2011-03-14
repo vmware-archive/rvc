@@ -46,6 +46,7 @@ opts :register do
   arg :filename, "VMX filename"
 end
 
+# XXX no $dc anymore
 def register datastore, path
   path = "#{path}/#{path}.vmx" unless path =~ /\.vmx$/
   ds_path = "[#{datastore}] #{path}"
@@ -143,6 +144,7 @@ opts :find do
   arg :datastore, "Datastore name", :required => false
 end
 
+# XXX no $dc anymore
 def find datastore_name
   if not datastore_name
     datastore_names = $dc.datastore.map(&:name)

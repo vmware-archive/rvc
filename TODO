@@ -1,5 +1,6 @@
+allow reopening modules
+re-add folder command line option
+fix use of $dc
 add commands for more entities
 add fake subfolders for more entities
-implicit '.' path for some commands
-clean up ls_children
 globbing?

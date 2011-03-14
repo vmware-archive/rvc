@@ -43,7 +43,7 @@ class Context
   end
 
   def display_path
-    @loc.path * '/'
+    @loc.path * '/' + '/'
   end
 
   def lookup path

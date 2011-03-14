@@ -26,6 +26,7 @@ module Util
     end
   end
 
+  # XXX no $dc anymore
   def find_vmx_files datastore_name
     ds = $dc.datastore.find { |x| x.name == datastore_name }
     err("datastore not found") unless ds
