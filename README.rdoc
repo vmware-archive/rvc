@@ -1,0 +1,83 @@
+= RVC - Ruby vSphere Console
+
+== Introduction
+
+RVC is a console UI for VMware ESX and VirtualCenter. The vSphere object graph
+is presented as a virtual filesystem, allowing you to navigate and run commands
+against managed entities using familiar shell syntax. RVC doesn't (yet) have
+every feature vSphere Client does, but for common tasks it can be much more
+efficient than clicking through a GUI.
+
+== Installation
+
+    gem install rvc
+
+== Usage
+
+  % rvc 192.168.1.105
+  username: Administrator
+  password:
+  0 dc (datacenter)
+  192.168.1.105:/> cd dc/host/192.168.1.100/
+  192.168.1.105:/dc/host/192.168.1.100/> ls
+  0 host [192.168.1.100] (host): cpu 2*2*2.81 GHz, memory 2.00 GB
+  1 resourcePool [Resources]: cpu 4.35/4.35/normal, mem 0.48/0.48/normal
+  192.168.1.105:/dc/host/192.168.1.100/> ls host/vms/
+  0 foo: poweredOn
+  192.168.1.105:/dc/host/192.168.1.100/> i host/vms/foo
+  name: foo
+  host: dc/host/192.168.1.100/192.168.1.100
+  tools: guestToolsNotRunning
+  VC UUID: 5259d5d2-b767-43c9-db6d-fbf5cc4b6f02
+  power: poweredOn
+  cpus: 1
+  memory: 128 MB
+  nics:
+   Network adapter 1: "VM Network" connected 00:0c:29:c6:5d:2a 
+  192.168.1.105:/dc/host/192.168.1.100/> off host/vms/foo
+  PowerOffVM foo: success
+  192.168.1.105:/dc/host/192.168.1.100/> quit
+
+Enter "help" to see a list of all available commands.
+
+All RVC commands exist in modules, and may optionally have aliases. For
+example, the command to power off a VM is actually "vm.off", since it exists in
+the "vm" module, but since it is a common operation it has been aliased to
+"off".
+
+== Features
+
+=== Tab-completion
+
+Commands and paths can be tab completed in the usual fashion. This is currently
+unsupported if the text being completed contains whitespace.
+
+=== Marks
+
+  192.168.1.105:/> mark a dc/vm/foo
+  192.168.1.105:/> on ~a
+  PowerOnVM foo: success
+  192.168.1.105:/> off ~a
+  PowerOffVM foo: success
+
+Marks allow you to save a path for later use. Refer to a mark by prefixing its
+name with a tilde. The "ls" command automatically creates numeric marks for
+each object listed; these are the numbers in the first column. As a special
+case, you don't need to use a tilde with numeric marks. The "cd" command
+automatically creates the mark "~~" pointing to the previous directory. If a
+mark reference is input instead of a command then RVC will cd to the marked
+object. Thus, "~~" is a convenient way to toggle between two directories.
+
+=== Ruby mode
+
+Beginning an input line with "/" causes RVC to treat it as Ruby code and eval
+it. This gives you direct access to the underlying RbVmomi library. If the line
+"//" is input then RVC will toggle between shell and Ruby mode.
+
+Marks can be easily used in Ruby mode since there are magic variables with the
+same names. Since some marks, like numeric ones, aren't valid variable names,
+they also exist with a "_" prefix.
+
+== Extensibility
+
+RVC is designed to let users easily add commands they need.
