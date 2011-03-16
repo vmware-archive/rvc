@@ -3,6 +3,8 @@ require 'trollop'
 module RVC
 
 class OptionParser < Trollop::Parser
+  attr_reader :applicable
+
   def initialize cmd, &b
     @cmd = cmd
     @summary = nil
@@ -10,6 +12,7 @@ class OptionParser < Trollop::Parser
     @has_options = false
     @seen_not_required = false
     @seen_multi = false
+    @applicable = Set.new
     super &b
   end
 
@@ -24,6 +27,7 @@ class OptionParser < Trollop::Parser
 
   def opt name, *a
     super
+    @applicable << @specs[name][:lookup] if @specs[name][:lookup]
     @has_options = true unless name == :help
   end
 
@@ -40,6 +44,7 @@ class OptionParser < Trollop::Parser
     opts[:default] = [] if opts[:multi] and opts[:default].nil?
     fail "Multi argument must be the last one" if @seen_multi
     fail "Can't have required argument after optional ones" if opts[:required] and @seen_not_required
+    @applicable << opts[:lookup] if opts[:lookup]
     @args << [name, description, opts[:required], opts[:default], opts[:multi], opts[:lookup]]
     text "  #{name}: " + [description, opts[:lookup]].compact.join(' ')
   end

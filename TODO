@@ -1,3 +1,4 @@
+fix adding commands in .rvcrc
 add commands for more entities
 add fake subfolders for more entities
 allow host field to be a URI, remove most connection args
