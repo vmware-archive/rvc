@@ -40,6 +40,12 @@ EOS
   opt :cmd, "command to evaluate", :short => 'c', :multi => true, :type => :string
 end
 
+$opts.merge! {
+  path: = '/sdk',
+  ns: 'urn:vim25',
+  rev: '4.0',
+}
+
 if ARGV.length == 0
   Trollop.die("must specify host") unless $opts[:host]
 elsif ARGV.length == 1
@@ -147,10 +153,6 @@ def self.method_missing sym, *a
   end
 end
 
-def prompt_username
-  Readline.readline "username: "
-end
-
 def prompt_password
   system "stty -echo"
   $stdout.write "password: "
@@ -169,17 +171,21 @@ def prompt_insecure
 end
 
 ## main
+$vim = RbVmomi::VIM.new($opts)
+rev = $vim.serviceContent.about.apiVersion
+$vim.rev = [rev, '4.1'].min
+$isVC = $vim.serviceContent.about.apiType == "VirtualCenter"
+$opts[:user] = $isVC ? 'Administrator' : 'root' unless $opts[:user]
 
-username_given = $opts[:user] != nil
 password_given = $opts[:password] != nil
 
 loop do
   begin
-    $opts[:user] = prompt_username unless username_given
     $opts[:password] = prompt_password unless password_given
     loop do
       begin
-        $vim = RbVmomi.connect $opts
+        $vim.serviceContent.sessionManager.Login :userName => $opts[:user],
+                                                 :password => $opts[:password]
         break
       rescue OpenSSL::SSL::SSLError
         raise if password_given
@@ -190,7 +196,7 @@ loop do
     break
   rescue RbVmomi::VIM::InvalidLogin
     $stderr.puts $!.message
-    exit 1 if $opts[:password_given]
+    exit 1 if password_given
   rescue Errno::EHOSTUNREACH
     abort $!.message
   end
