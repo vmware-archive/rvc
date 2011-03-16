@@ -23,43 +23,39 @@ $opts = Trollop.options do
 Ruby vSphere Console.
 
 Usage:
-       rvc [options] [hostname]
+       rvc [options] [username[:password]@]hostname[:path]
 
 where [options] are:
 EOS
 
-  opt :host, "host", :type => :string, :short => 'o', :default => ENV['RBVMOMI_HOST']
-  opt :port, "port", :type => :int, :short => :none, :default => (ENV.member?('RBVMOMI_PORT') ? ENV['RBVMOMI_PORT'].to_i : 443)
-  opt :"no-ssl", "don't use ssl", :short => :none, :default => (ENV['RBVMOMI_SSL'] == '0')
   opt :insecure, "don't verify ssl certificate", :short => 'k', :default => (ENV['RBVMOMI_INSECURE'] == '1')
-  opt :user, "username", :short => 'u', :type => :string, :default => ENV['RBVMOMI_USER']
-  opt :password, "password", :short => 'p', :type => :string, :default => ENV['RBVMOMI_PASSWORD']
-  opt :path, "SOAP endpoint path", :short => :none, :default => (ENV['RBVMOMI_PATH'] || '/sdk')
   opt :folder, "Initial directory", :short => 'F', :default => ENV['RVC_FOLDER'], :type => :string
-
   opt :cmd, "command to evaluate", :short => 'c', :multi => true, :type => :string
 end
 
-$opts.merge! {
-  path: = '/sdk',
-  ns: 'urn:vim25',
-  rev: '4.0',
-}
+Trollop.die "1 argument expected" unless ARGV.length == 1
 
-if ARGV.length == 0
-  Trollop.die("must specify host") unless $opts[:host]
-elsif ARGV.length == 1
-  $opts[:host] = ARGV[0]
-else
-  Trollop.die("too many arguments")
-end
+HOSTNAME_REGEX = %r{
+  ^
+  (
+    (?<username>[^@:]+)
+    (:
+     (?<password>[^@]*)
+    )?
+    @
+  )?
+  (?<host>[^@:]+)
+  (:(?<path>.*))?
+  $
+}x
 
-ENV['RBVMOMI_HOST'] = $opts[:host]
-ENV['RBVMOMI_PORT'] = $opts[:port].to_s
-ENV['RBVMOMI_SSL'] = $opts[:"no-ssl"] ? '0' : '1';
-ENV['RBVMOMI_PATH'] = $opts[:path]
-ENV['RBVMOMI_USER'] = $opts[:user]
-ENV['RBVMOMI_PASSWORD'] = $opts[:password]
+match = HOSTNAME_REGEX.match ARGV[0]
+Trollop.die "invalid hostname" unless match
+
+username = match[:username] || ENV['RBVMOMI_USER']
+password = match[:password] || ENV['RBVMOMI_PASSWORD']
+host = match[:host]
+path = match[:path]
 
 ALIASES = {
   'type' => 'basic.type',
@@ -136,23 +132,6 @@ def evalcmd str
   end
 end
 
-def self.method_missing sym, *a
-  str = sym.to_s
-  if a.empty?
-    if MODULES.member? str
-      MODULES[str]
-    elsif $context.marks.member?(str)
-      $context.marks[str].obj
-    elsif str[0..0] == '_' && $context.marks.member?(str[1..-1])
-      $context.marks[str[1..-1]].obj
-    else
-      super
-    end
-  else
-    super
-  end
-end
-
 def prompt_password
   system "stty -echo"
   $stdout.write "password: "
@@ -170,40 +149,47 @@ def prompt_insecure
   answer == 'yes' or answer == 'y'
 end
 
-## main
-$vim = RbVmomi::VIM.new($opts)
-rev = $vim.serviceContent.about.apiVersion
-$vim.rev = [rev, '4.1'].min
-$isVC = $vim.serviceContent.about.apiType == "VirtualCenter"
-$opts[:user] = $isVC ? 'Administrator' : 'root' unless $opts[:user]
-
-password_given = $opts[:password] != nil
-
+## connect
 loop do
   begin
-    $opts[:password] = prompt_password unless password_given
-    loop do
-      begin
-        $vim.serviceContent.sessionManager.Login :userName => $opts[:user],
-                                                 :password => $opts[:password]
-        break
-      rescue OpenSSL::SSL::SSLError
-        raise if password_given
-        exit 1 unless prompt_insecure
-        $opts[:insecure] = true
-      end
-    end
+    $vim = RbVmomi::VIM.new host: host,
+                            port: 443,
+                            path: '/sdk',
+                            ns: 'urn:vim25',
+                            rev: '4.0',
+                            ssl: true,
+                            insecure: $opts[:insecure]
     break
-  rescue RbVmomi::VIM::InvalidLogin
-    $stderr.puts $!.message
-    exit 1 if password_given
-  rescue Errno::EHOSTUNREACH
+  rescue OpenSSL::SSL::SSLError
+    exit 1 unless prompt_insecure
+    $opts[:insecure] = true
+  rescue Errno::EHOSTUNREACH, SocketError
     abort $!.message
   end
 end
 
+# negotiate API version
+rev = $vim.serviceContent.about.apiVersion
+$vim.rev = [rev, '4.1'].min
+$isVC = $vim.serviceContent.about.apiType == "VirtualCenter"
+
+# authenticate
+username = $isVC ? 'Administrator' : 'root' unless username
+password_given = password != nil
+loop do
+  begin
+    password = prompt_password unless password_given
+    $vim.serviceContent.sessionManager.Login userName: username,
+                                             password: password
+    break
+  rescue RbVmomi::VIM::InvalidLogin
+    $stderr.puts $!.message
+    exit 1 if password_given
+  end
+end
+
 $context = RVC::Context.new $vim.rootFolder
-$context.cd($opts[:folder]) if $opts[:folder]
+$context.cd(path) if path
 
 Readline.completion_proc = RVC::Completion::Completor
 history_fn = "#{ENV['HOME']}/.rvc-history"
@@ -224,10 +210,27 @@ vim = $vim
 $binding = binding
 persist_ruby = false
 
+def self.method_missing sym, *a
+  str = sym.to_s
+  if a.empty?
+    if MODULES.member? str
+      MODULES[str]
+    elsif $context.marks.member?(str)
+      $context.marks[str].obj
+    elsif str[0..0] == '_' && $context.marks.member?(str[1..-1])
+      $context.marks[str[1..-1]].obj
+    else
+      super
+    end
+  else
+    super
+  end
+end
+
 CMD.basic.ls '.'
 loop do
 begin
-  input = $opts[:cmd].shift || Readline.readline("#{$opts[:host]}#{persist_ruby ? '~' : ":#{$context.display_path}>"} ", false) or break
+  input = $opts[:cmd].shift || Readline.readline("#{host}#{persist_ruby ? '~' : ":#{$context.display_path}>"} ", false) or break
   input = input.strip
   next if input.empty?
   if input == '//'
