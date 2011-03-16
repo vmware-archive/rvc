@@ -34,14 +34,19 @@ end
 
 opts :help do
   summary "Display this text"
+  arg :path, "Limit commands to those applicable to the given object", :required => false
 end
 
 HELP_ORDER = %w(basic vm)
 
-def help
-  puts (<<-EOS)
-Available commands:
-  EOS
+def help path
+  obj = lookup(path) if path
+
+  if obj
+    puts "Relevant commands for #{obj.class}:"
+  else
+    puts "All commands:"
+  end
 
   MODULES.sort_by do |mod_name,mod|
     HELP_ORDER.index(mod_name) || HELP_ORDER.size
@@ -49,16 +54,20 @@ Available commands:
     opts = mod.instance_variable_get(:@opts)
     opts.each do |method_name,method_opts|
       parser = RVC::OptionParser.new method_name, &method_opts
+      next unless obj.nil? or parser.applicable.any? { |x| obj.is_a? x }
       aliases = ALIASES.select { |k,v| v == "#{mod_name}.#{method_name}" }.keys
       aliases_text = aliases.empty? ? '' : " (#{aliases*', '})"
       puts "#{mod_name}.#{method_name}#{aliases_text}: #{parser.summary?}" if parser.summary?
     end
   end
 
-  puts (<<-EOS)
+  if not obj
+    puts (<<-EOS)
 
 To see detailed help for a command, use its --help option.
-  EOS
+To show only commands relevant to a specific object, use "help /path/to/object".
+    EOS
+  end
 end
 
 opts :debug do

@@ -38,7 +38,7 @@ end
 
 opts :register do
   summary "Register a VM already in a datastore"
-  arg :file, "RVC path to the VMX file", :lookup => RVC::Datastore::FakeDatastoreFile
+  arg :file, "RVC path to the VMX file", :lookup => VIM::Datastore::FakeDatastoreFile
   opt :resource_pool, 'Resource pool', :short => 'R', :type => :string, :lookup => VIM::ResourcePool
   opt :folder, 'VM Folder', :short => 'F', :default => ".", :lookup => VIM::Folder
 end

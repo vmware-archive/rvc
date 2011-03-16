@@ -22,12 +22,12 @@ class RbVmomi::VIM::Datastore
 
   def children
     {
-      'files' => RVC::FakeDatastoreFolder.new(self, ""),
+      'files' => FakeDatastoreFolder.new(self, ""),
     }
   end
 end
 
-class RVC::FakeDatastoreFolder
+class RbVmomi::VIM::Datastore::FakeDatastoreFolder
   include RVC::InventoryObject
 
   attr_reader :path, :datastore
@@ -45,9 +45,9 @@ class RVC::FakeDatastoreFolder
   def search_result_to_object x
     case x
     when RbVmomi::VIM::FolderFileInfo
-      RVC::FakeDatastoreFolder.new(@datastore, "#{@path}/#{x.path}")
+      RbVmomi::VIM::Datastore::FakeDatastoreFolder.new(@datastore, "#{@path}/#{x.path}")
     when RbVmomi::VIM::FileInfo
-      RVC::FakeDatastoreFile.new(@datastore, "#{@path}/#{x.path}", x)
+      RbVmomi::VIM::Datastore::FakeDatastoreFile.new(@datastore, "#{@path}/#{x.path}", x)
     end
   end
 
@@ -95,7 +95,7 @@ class RVC::FakeDatastoreFolder
       @datastore
     else
       parent_path = els[0...-1].join '/'
-      RVC::FakeDatastoreFolder.new(@datastore, parent_path)
+      RbVmomi::VIM::Datastore::FakeDatastoreFolder.new(@datastore, parent_path)
     end
   end
 
@@ -115,7 +115,7 @@ class RVC::FakeDatastoreFolder
   end
 end
 
-class RVC::FakeDatastoreFile
+class RbVmomi::VIM::Datastore::FakeDatastoreFile
   include RVC::InventoryObject
 
   attr_reader :path, :datastore
@@ -134,7 +134,7 @@ class RVC::FakeDatastoreFile
   def parent
     els = path.split '/'
     parent_path = els[0...-1].join '/'
-    RVC::FakeDatastoreFolder.new(@datastore, parent_path)
+    RbVmomi::VIM::Datastore::FakeDatastoreFolder.new(@datastore, parent_path)
   end
 
   def display_info
