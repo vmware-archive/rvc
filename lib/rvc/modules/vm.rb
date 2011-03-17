@@ -93,7 +93,7 @@ def layout vm
   end
 end
 
-opts :layout do
+opts :devices do
   summary "Display info about VM devices"
   arg :vm, nil, :lookup => VIM::VirtualMachine
 end
@@ -103,7 +103,7 @@ def devices vm
   devs.each do |dev|
     tags = []
     tags << (dev.connectable.connected ? :connected : :disconnected) if dev.props.member? :connectable
-    puts "#{dev.deviceInfo.label}: #{dev.deviceInfo.summary}; #{tags * ' '}"
+    puts "#{dev.deviceInfo.label} (#{dev.class}): #{dev.deviceInfo.summary}; #{tags * ' '}"
   end
 end
 
