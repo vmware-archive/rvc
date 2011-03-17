@@ -53,13 +53,13 @@ class RbVmomi::VIM::Datastore::FakeDatastoreFolder
 
   def children
     results = @datastore.browser.SearchDatastore_Task(
-      datastorePath: datastore_path,
-      searchSpec: {
-        details: {
-          fileType: true,
-          fileSize: true,
-          fileOwner: false,
-          modification: false
+      :datastorePath => datastore_path,
+      :searchSpec => {
+        :details => {
+          :fileType => true,
+          :fileSize => true,
+          :fileOwner => false,
+          :modification => false
         }
       }
     ).wait_for_completion
@@ -70,15 +70,15 @@ class RbVmomi::VIM::Datastore::FakeDatastoreFolder
   def traverse_one arc
     browser, ds_name = @datastore.collect :browser, :name
     results = browser.SearchDatastore_Task(
-      datastorePath: "[#{ds_name}] #{@path}",
-      searchSpec: {
-        details: {
-          fileType: true,
-          fileSize: true,
-          fileOwner: false,
-          modification: false
+      :datastorePath => "[#{ds_name}] #{@path}",
+      :searchSpec => {
+        :details => {
+          :fileType => true,
+          :fileSize => true,
+          :fileOwner => false,
+          :modification => false
         },
-        matchPattern: [arc]
+        :matchPattern => [arc]
       }
     ).wait_for_completion
     return unless results.file.size == 1

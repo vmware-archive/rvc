@@ -50,7 +50,7 @@ module Util
           if state == 'running'
             text = "#{sym} #{entityName}: #{state} "
             progress = props['info.progress']
-            barlen = Curses.cols - text.size - 2
+            barlen = terminal_columns - text.size - 2
             progresslen = ((progress||0)*barlen)/100
             progress_bar = "[#{'=' * progresslen}#{' ' * (barlen-progresslen)}]"
             $stdout.write "\e[K#{text}#{progress_bar}\n"
@@ -69,8 +69,17 @@ module Util
     true
   end
 
+  def terminal_columns
+    begin
+      require 'curses'
+      Curses.cols
+    rescue LoadError
+      80
+    end
+  end
+
   def interactive?
-    Curses.cols > 0
+    terminal_columns > 0
   end
 
   def tcsetpgrp pgrp=Process.getpgrp

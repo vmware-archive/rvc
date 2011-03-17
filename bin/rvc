@@ -1,5 +1,4 @@
 #!/usr/bin/env ruby
-require 'curses'
 require 'readline'
 require 'pp'
 require 'trollop'
@@ -37,25 +36,25 @@ Trollop.die "1 argument expected" unless ARGV.length == 1
 
 HOSTNAME_REGEX = %r{
   ^
-  (
-    (?<username>[^@:]+)
-    (:
-     (?<password>[^@]*)
+  (?:
+    ([^@:]+)
+    (?::
+     ([^@]*)
     )?
     @
   )?
-  (?<host>[^@:]+)
-  (:(?<path>.*))?
+  ([^@:]+)
+  (?::(.*))?
   $
 }x
 
 match = HOSTNAME_REGEX.match ARGV[0]
 Trollop.die "invalid hostname" unless match
 
-username = match[:username] || ENV['RBVMOMI_USER']
-password = match[:password] || ENV['RBVMOMI_PASSWORD']
-host = match[:host]
-path = match[:path]
+username = match[1] || ENV['RBVMOMI_USER']
+password = match[2] || ENV['RBVMOMI_PASSWORD']
+host = match[3]
+path = match[4]
 
 ALIASES = {
   'type' => 'basic.type',
@@ -125,7 +124,7 @@ def evalcmd str
     end
 
     if parser.has_options?
-      m.send cmd.to_sym, *args, opts
+      m.send cmd.to_sym, *(args + [opts])
     else
       m.send cmd.to_sym, *args
     end
@@ -152,13 +151,13 @@ end
 ## connect
 loop do
   begin
-    $vim = RbVmomi::VIM.new host: host,
-                            port: 443,
-                            path: '/sdk',
-                            ns: 'urn:vim25',
-                            rev: '4.0',
-                            ssl: true,
-                            insecure: $opts[:insecure]
+    $vim = RbVmomi::VIM.new :host => host,
+                            :port => 443,
+                            :path => '/sdk',
+                            :ns => 'urn:vim25',
+                            :rev => '4.0',
+                            :ssl => true,
+                            :insecure => $opts[:insecure]
     break
   rescue OpenSSL::SSL::SSLError
     exit 1 unless prompt_insecure
@@ -179,8 +178,8 @@ password_given = password != nil
 loop do
   begin
     password = prompt_password unless password_given
-    $vim.serviceContent.sessionManager.Login userName: username,
-                                             password: password
+    $vim.serviceContent.sessionManager.Login :userName => username,
+                                             :password => password
     break
   rescue RbVmomi::VIM::InvalidLogin
     $stderr.puts $!.message
