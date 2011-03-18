@@ -147,6 +147,10 @@ def self.method_missing sym, *a
   end
 end
 
+def this
+  $context.cur
+end
+
 def prompt_username
   Readline.readline "username: "
 end
