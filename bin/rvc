@@ -56,6 +56,12 @@ password = match[2] || ENV['RBVMOMI_PASSWORD']
 host = match[3]
 path = match[4]
 
+$auth = {
+  :host => host,
+  :username => username,
+  :password => password,
+}
+
 ALIASES = {
   'type' => 'basic.type',
   'debug' => 'basic.debug',

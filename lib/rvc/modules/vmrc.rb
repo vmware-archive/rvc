@@ -32,8 +32,9 @@ def view vms
     fork do
       ENV['https_proxy'] = ENV['HTTPS_PROXY'] = ''
       $stderr.reopen("#{ENV['HOME']||'.'}/.rvc-vmrc.log", "w")
+      $stderr.puts Time.now
       Process.setpgrp
-      exec _find_vmrc, '-M', moref, '-h', $opts[:host], '-u', $opts[:user], '-p', $opts[:password]
+      exec _find_vmrc, '-M', moref, '-h', $auth[:host], '-u', $auth[:username], '-p', $auth[:password]
     end
   end
 end
