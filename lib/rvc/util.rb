@@ -6,6 +6,13 @@ module Util
     $context.lookup path
   end
 
+  def lookup! path, type
+    lookup(path).tap do |obj|
+      err "Not found: #{path.inspect}" unless path
+      err "Expected #{type} but got #{obj.class} at #{path.inspect}" unless obj.is_a? type
+    end
+  end
+
   def menu items
     items.each_with_index { |x, i| puts "#{i} #{x}" }
     input = Readline.readline("? ", false)

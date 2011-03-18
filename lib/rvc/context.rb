@@ -51,15 +51,16 @@ class Context
   end
 
   def cd path
-    new_loc = lookup_loc(path) or return
+    new_loc = lookup_loc(path) or return false
     mark '~', @loc
     @loc = new_loc
+    true
   end
 
   def lookup_loc path
     els, absolute, trailing_slash = Path.parse path
     base_loc = absolute ? Location.new(@root) : @loc
-    traverse(base_loc, els) or err("not found")
+    traverse(base_loc, els)
   end
 
   def traverse base_loc, els

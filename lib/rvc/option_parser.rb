@@ -49,18 +49,12 @@ class OptionParser < Trollop::Parser
     text "  #{name}: " + [description, opts[:lookup]].compact.join(' ')
   end
 
-  def check_lookup path, klass
-    obj = lookup(path)
-    err "expected #{klass}, got #{obj.class} for path #{path.inspect}" unless obj.is_a? klass
-    obj
-  end
-
   def parse argv
     opts = super argv
 
     @specs.each do |name,spec|
       next unless klass = spec[:lookup] and path = opts[name]
-      opts[name] = check_lookup path, klass
+      opts[name] = lookup! path, klass
     end
 
     argv = leftovers
@@ -69,14 +63,14 @@ class OptionParser < Trollop::Parser
       if multi
         err "missing argument '#{name}'" if required and argv.empty?
         a = (argv.empty? ? default : argv.dup)
-        a.map! { |x| check_lookup x, lookup_klass } if lookup_klass
+        a.map! { |x| lookup! x, lookup_klass } if lookup_klass
         args << a
         argv.clear
       else
         x = argv.shift
         err "missing argument '#{name}'" if required and x.nil?
         x = default if x.nil?
-        x = check_lookup x, lookup_klass if lookup_klass
+        x = lookup! x, lookup_klass if lookup_klass
         args << x
       end
     end

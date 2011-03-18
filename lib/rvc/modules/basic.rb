@@ -108,7 +108,7 @@ opts :cd do
 end
 
 def cd path
-  $context.cd path
+  $context.cd(path) or err "Not found: #{path.inspect}"
 end
 
 opts :ls do
@@ -117,7 +117,7 @@ opts :ls do
 end
 
 def ls path
-  loc = $context.lookup_loc(path)
+  loc = $context.lookup_loc(path) or err "Not found: #{path.inspect}"
   obj = loc.obj
   children = obj.children
   name_map = children.invert
@@ -191,5 +191,21 @@ end
 
 def mark key, path
   err "invalid mark name" unless key =~ /^\w+$/
-  $context.mark key, $context.lookup_loc(path)
+  obj = $context.lookup_loc(path) or err "Not found: #{path.inspect}" 
+  $context.mark key, obj
+end
+
+opts :mv do
+  summary "Move/rename an entity"
+  arg :src, "Source path"
+  arg :dst, "Destination path"
+end
+
+def mv src, dst
+  src_dir = File.dirname(src)
+  dst_dir = File.dirname(dst)
+  err "cross-directory mv not yet supported" unless src_dir == dst_dir
+  dst_name = File.basename(dst)
+  obj = lookup(src)
+  obj.Rename_Task(:newName => dst_name).wait_for_completion
 end
