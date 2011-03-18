@@ -36,6 +36,107 @@ def suspend vms
   progress vms, :SuspendVM
 end
 
+opts :create do
+  summary "Create a new VM"
+  arg :name, "Name"
+  opt :pool, nil, :short => 'p', :type => :string, :lookup => VIM::ResourcePool
+  opt :host, nil, :short => 'h', :type => :string, :lookup => VIM::HostSystem
+  opt :datastore, nil, :short => 'd', :type => :string, :lookup => VIM::Datastore
+end
+
+def create name, opts
+  err "must specify resource pool (--pool)" unless opts[:pool]
+  err "must specify datastore (--datastore)" unless opts[:datastore]
+  vmFolder = lookup!(File.dirname(name), VIM::Folder)
+  datastore_path = "[#{opts[:datastore].name}]"
+  config = {
+    :name => File.basename(name),
+    :guestId => 'otherGuest',
+    :files => { :vmPathName => datastore_path },
+    :numCPUs => 1,
+    :memoryMB => 128,
+    :deviceChange => [
+      {
+        :operation => :add,
+        :device => VIM.VirtualLsiLogicController(
+          :key => 1000,
+          :busNumber => 0,
+          :sharedBus => :noSharing
+        )
+      }, {
+        :operation => :add,
+        :fileOperation => :create,
+        :device => VIM.VirtualDisk(
+          :key => 0,
+          :backing => VIM.VirtualDiskFlatVer2BackingInfo(
+            :fileName => datastore_path,
+            :diskMode => :persistent,
+            :thinProvisioned => true
+          ),
+          :controllerKey => 1000,
+          :unitNumber => 0,
+          :capacityInKB => 4000000
+        )
+      }, {
+        :operation => :add,
+        :device => VIM.VirtualCdrom(
+          :key => 0,
+          :connectable => {
+            :allowGuestControl => true,
+            :connected => true,
+            :startConnected => true,
+          },
+          :backing => VIM.VirtualCdromIsoBackingInfo(
+            :fileName => datastore_path,
+          ),
+          :controllerKey => 200,
+          :unitNumber => 0
+        )
+      }, {
+        :operation => :add,
+        :device => VIM.VirtualE1000(
+          :key => 0,
+          :deviceInfo => {
+            :label => 'Network Adapter 1',
+            :summary => 'VM Network'
+          },
+          :backing => VIM.VirtualEthernetCardNetworkBackingInfo(
+            :deviceName => 'VM Network'
+          ),
+          :addressType => 'generated'
+        )
+      }
+    ],
+  }
+  vmFolder.CreateVM_Task(:config => config,
+                         :pool => opts[:pool],
+                         :host => opts[:host]).wait_for_completion
+end
+
+opts :insert_cdrom do
+  summary "Put a disc in a virtual CDROM drive"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  arg :iso, "Path to the ISO image on a datastore", :lookup => VIM::Datastore::FakeDatastoreFile
+end
+
+def insert_cdrom vm, iso
+  device = vm.config.hardware.device.grep(VIM::VirtualCdrom)[0]
+  err "No virtual CDROM drive found" unless device
+
+  device.backing = VIM.VirtualCdromIsoBackingInfo(:fileName => iso.datastore_path)
+
+  spec = {
+    :deviceChange => [
+      {
+        :operation => :edit,
+        :device => device
+      }
+    ]
+  }
+  
+  vm.ReconfigVM_Task(:spec => spec)
+end
+
 opts :register do
   summary "Register a VM already in a datastore"
   arg :file, "RVC path to the VMX file", :lookup => VIM::Datastore::FakeDatastoreFile
