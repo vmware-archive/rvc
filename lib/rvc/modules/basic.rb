@@ -193,3 +193,18 @@ def mark key, path
   err "invalid mark name" unless key =~ /^\w+$/
   $context.mark key, $context.lookup_loc(path)
 end
+
+opts :mv do
+  summary "Move/rename an entity"
+  arg :src, "Source path"
+  arg :dst, "Destination path"
+end
+
+def mv src, dst
+  src_dir = File.dirname(src)
+  dst_dir = File.dirname(dst)
+  err "cross-directory mv not yet supported" unless src_dir == dst_dir
+  dst_name = File.basename(dst)
+  obj = lookup(src)
+  obj.Rename_Task(:newName => dst_name).wait_for_completion
+end

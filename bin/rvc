@@ -64,6 +64,7 @@ ALIASES = {
   'ls' => 'basic.ls',
   'info' => 'basic.info',
   'i' => 'basic.info',
+  'mv' => 'basic.mv',
   'destroy' => 'basic.destroy',
   'mark' => 'basic.mark',
   'm' => 'basic.mark',
