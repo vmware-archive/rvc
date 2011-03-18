@@ -45,12 +45,20 @@ module Util
     raise UserError.new(msg)
   end
 
+  def single_connection objs
+    conns = objs.map { |x| x._connection rescue nil }.compact.uniq
+    err "No connections" if conns.size == 0
+    err "Objects span multiple connections" if conns.size > 1
+    conns[0]
+  end
+
   def progress objs, sym, args={}
+    connection = single_connection objs
     tasks = objs.map { |obj| obj._call :"#{sym}_Task", args }
 
     interested = %w(info.progress info.state info.entityName info.error)
 
-    $vim.serviceInstance.wait_for_multiple_tasks interested, tasks do |h|
+    connection.serviceInstance.wait_for_multiple_tasks interested, tasks do |h|
       if interactive?
         h.each do |task,props|
           state, entityName = props['info.state'], props['info.entityName']
@@ -130,7 +138,7 @@ module Util
       ]
     }
 
-    results = $vim.propertyCollector.RetrieveProperties(:specSet => [spec])
+    results = obj._connection.propertyCollector.RetrieveProperties(:specSet => [spec])
 
     Hash[results.map { |r| [r['name'], r.obj] }]
   end

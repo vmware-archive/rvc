@@ -75,7 +75,9 @@ opts :debug do
 end
 
 def debug
-  $vim.debug = !$vim.debug
+  $connections.each do |name,conn|
+    conn.debug = !conn.debug
+  end
 end
 
 opts :quit do
@@ -148,7 +150,8 @@ def ls path
     }
   end
 
-  results = $vim.propertyCollector.RetrieveProperties(:specSet => [filterSpec])
+  connection = single_connection(children.map { |k,v| v })
+  results = connection.propertyCollector.RetrieveProperties(:specSet => [filterSpec])
 
   results.each do |r|
     name = name_map[r.obj]

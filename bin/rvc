@@ -22,45 +22,17 @@ $opts = Trollop.options do
 Ruby vSphere Console.
 
 Usage:
-       rvc [options] [username[:password]@]hostname[:path]
+       rvc [options] [username[:password]@]hostname
 
 where [options] are:
 EOS
 
   opt :insecure, "don't verify ssl certificate", :short => 'k', :default => (ENV['RBVMOMI_INSECURE'] == '1')
-  opt :folder, "Initial directory", :short => 'F', :default => ENV['RVC_FOLDER'], :type => :string
+  opt :path, "Initial directory", :short => :none, :default => ENV['RVC_PATH'], :type => :string
   opt :cmd, "command to evaluate", :short => 'c', :multi => true, :type => :string
 end
 
 Trollop.die "1 argument expected" unless ARGV.length == 1
-
-HOSTNAME_REGEX = %r{
-  ^
-  (?:
-    ([^@:]+)
-    (?::
-     ([^@]*)
-    )?
-    @
-  )?
-  ([^@:]+)
-  (?::(.*))?
-  $
-}x
-
-match = HOSTNAME_REGEX.match ARGV[0]
-Trollop.die "invalid hostname" unless match
-
-username = match[1] || ENV['RBVMOMI_USER']
-password = match[2] || ENV['RBVMOMI_PASSWORD']
-host = match[3]
-path = match[4]
-
-$auth = {
-  :host => host,
-  :username => username,
-  :password => password,
-}
 
 ALIASES = {
   'type' => 'basic.type',
@@ -142,81 +114,26 @@ def this
   $context.cur
 end
 
-def prompt_password
-  system "stty -echo"
-  $stdout.write "password: "
-  $stdout.flush
-  begin
-    ($stdin.gets||exit(1)).chomp
-  ensure
-    system "stty echo"
-    puts
-  end
+RVC.reload_modules false
+RVC.reload_rc
+
+$connections = {}
+
+begin
+  CMD.vim.connect ARGV[0], :insecure => $opts[:insecure]
+rescue UserError
+  puts $!.message
+  exit 1
 end
 
-def prompt_insecure
-  answer = Readline.readline "SSL certificate verification failed. Connect anyway? (y/n) "
-  answer == 'yes' or answer == 'y'
-end
-
-## connect
-loop do
-  begin
-    $vim = RbVmomi::VIM.new :host => host,
-                            :port => 443,
-                            :path => '/sdk',
-                            :ns => 'urn:vim25',
-                            :rev => '4.0',
-                            :ssl => true,
-                            :insecure => $opts[:insecure]
-    break
-  rescue OpenSSL::SSL::SSLError
-    exit 1 unless prompt_insecure
-    $opts[:insecure] = true
-  rescue Errno::EHOSTUNREACH, SocketError
-    abort $!.message
-  end
-end
-
-# negotiate API version
-rev = $vim.serviceContent.about.apiVersion
-$vim.rev = [rev, '4.1'].min
-$isVC = $vim.serviceContent.about.apiType == "VirtualCenter"
-
-# authenticate
-username = $isVC ? 'Administrator' : 'root' unless username
-password_given = password != nil
-loop do
-  begin
-    password = prompt_password unless password_given
-    $vim.serviceContent.sessionManager.Login :userName => username,
-                                             :password => password
-    break
-  rescue RbVmomi::VIM::InvalidLogin
-    $stderr.puts $!.message
-    exit 1 if password_given
-  end
-end
-
-$context = RVC::Context.new $vim.rootFolder
-$context.cd(path) if path
+$context = RVC::Context.new RVC::RootNode.new
+$context.cd($opts[:path]) if $opts[:path]
 
 Readline.completion_proc = RVC::Completion::Completor
 history_fn = "#{ENV['HOME']}/.rvc-history"
 IO.foreach(history_fn) { |l| Readline::HISTORY << l.chomp } rescue puts "Welcome to RVC. Try the 'help' command."
 history = File.open(history_fn, 'a')
 
-RVC.reload_modules false
-RVC.reload_rc
-
-Thread.new do
-  while true
-    sleep 600
-    $vim.serviceInstance.RetrieveServiceContent
-  end
-end
-
-vim = $vim
 $binding = binding
 persist_ruby = false
 
@@ -240,7 +157,7 @@ end
 CMD.basic.ls '.'
 loop do
 begin
-  input = $opts[:cmd].shift || Readline.readline("#{host}#{persist_ruby ? '~' : ":#{$context.display_path}>"} ", false) or break
+  input = $opts[:cmd].shift || Readline.readline("#{$context.display_path}#{persist_ruby ? '~' : '>'} ", false) or break
   input = input.strip
   next if input.empty?
   if input == '//'

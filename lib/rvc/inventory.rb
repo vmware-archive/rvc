@@ -67,4 +67,43 @@ class FakeFolder
   end
 end
 
+class RootNode
+  include RVC::InventoryObject
+
+  def children
+    Hash[$connections.map do |name,conn|
+      [name, ConnectionNode.new(conn,self)]
+    end]
+  end
+
+  def parent
+    nil
+  end
+
+  def self.folder?
+    true
+  end
+end
+
+class ConnectionNode
+  include RVC::InventoryObject
+
+  def initialize connection, parent
+    @connection = connection
+    @parent = parent
+  end
+
+  def children
+    @connection.rootFolder.children
+  end
+
+  def parent
+    @parent
+  end
+
+  def self.folder?
+    true
+  end
+end
+
 end

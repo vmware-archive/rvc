@@ -145,7 +145,7 @@ opts :register do
 end
 
 def register vmx_file, opts
-  rp = opts[:resourcePool] || $vim.rootFolder.childEntity[0].hostFolder.childEntity[0].resourcePool
+  rp = opts[:resourcePool] || opts[:folder]._connection.rootFolder.childEntity[0].hostFolder.childEntity[0].resourcePool
   vm = opts[:folder].RegisterVM_Task(:path => vmx_file.datastore_path,
                                      :asTemplate => false,
                                      :pool => rp).wait_for_completion
@@ -237,7 +237,7 @@ end
 
 def find ds, opts
   folder = opts[:folder]
-  rp = opts[:resourcePool] || $vim.rootFolder.childEntity[0].hostFolder.childEntity[0].resourcePool
+  rp = opts[:resourcePool] || opts[:folder]._connection.rootFolder.childEntity[0].hostFolder.childEntity[0].resourcePool
 
   paths = find_vmx_files(ds)
   if paths.empty?
@@ -333,9 +333,10 @@ end
 
 def ip vms
   props = %w(summary.runtime.powerState summary.guest.ipAddress summary.config.annotation)
+  connection = single_connection vms
 
   filters = vms.map do |vm|
-    $vim.propertyCollector.CreateFilter :spec => {
+    connection.propertyCollector.CreateFilter :spec => {
       :propSet => [{ :type => 'VirtualMachine', :all => false, :pathSet => props }],
       :objectSet => [{ :obj => vm }],
     }, :partialUpdates => false
@@ -343,7 +344,7 @@ def ip vms
 
   ver = ''
   while not vms.empty?
-    result = $vim.propertyCollector.WaitForUpdates(:version => ver)
+    result = connection.propertyCollector.WaitForUpdates(:version => ver)
     ver = result.version
 
     vms.reject! do |vm|

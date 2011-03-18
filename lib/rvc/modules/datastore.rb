@@ -37,7 +37,7 @@ def mkdir datastore_path
   ds = dir.datastore
   dc = ds.path.find { |o,x| o.is_a? RbVmomi::VIM::Datacenter }[0]
   name = "#{dir.datastore_path}/#{File.basename(datastore_path)}"
-  $vim.serviceContent.fileManager.MakeDirectory :name => name,
-                                                :datacenter => dc,
-                                                :createParentDirectories => false
+  dc._connection.serviceContent.fileManager.MakeDirectory :name => name,
+                                                          :datacenter => dc,
+                                                          :createParentDirectories => false
 end
