@@ -80,8 +80,6 @@ def connect uri, opts
   conn_name = "#{conn_name}:1" if $connections.member? conn_name
   conn_name.succ! while $connections.member? conn_name
 
-  puts "Created connection #{conn_name}." unless $connections.empty?
-
   $connections[conn_name] = vim
 end
 

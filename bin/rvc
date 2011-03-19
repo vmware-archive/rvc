@@ -32,7 +32,7 @@ EOS
   opt :cmd, "command to evaluate", :short => 'c', :multi => true, :type => :string
 end
 
-Trollop.die "1 argument expected" unless ARGV.length == 1
+Trollop.die "At least 1 argument expected." unless ARGV.length >= 1
 
 ALIASES = {
   'type' => 'basic.type',
@@ -119,11 +119,14 @@ RVC.reload_rc
 
 $connections = {}
 
-begin
-  CMD.vim.connect ARGV[0], :insecure => $opts[:insecure]
-rescue UserError
-  puts $!.message
-  exit 1
+ARGV.each do |uri|
+  begin
+    puts "Connecting to #{uri}..." if ARGV.size > 1
+    CMD.vim.connect uri, :insecure => $opts[:insecure]
+  rescue UserError
+    puts "Failed to connect to #{uri}: #{$!.message}"
+    exit 1
+  end
 end
 
 $context = RVC::Context.new RVC::RootNode.new
