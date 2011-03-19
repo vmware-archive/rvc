@@ -113,4 +113,11 @@ class ContextTest < Test::Unit::TestCase
     loc = @context.lookup_loc "7"
     assert_equal nil, loc
   end
+
+  def test_cd
+    assert_equal false, @context.cd("nonexistent")
+    assert_equal [['', Root]], @context.loc.stack
+    assert_equal true, @context.cd("a")
+    assert_equal [['', Root], ['a', NodeA]], @context.loc.stack
+  end
 end
