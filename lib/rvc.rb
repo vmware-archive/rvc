@@ -1,3 +1,4 @@
+require 'rbvmomi'
 require 'rvc/inventory'
 require 'rvc/modules'
 require 'rvc/util'

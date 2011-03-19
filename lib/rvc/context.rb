@@ -1,6 +1,8 @@
 module RVC
 
 class Location
+  attr_reader :stack
+
   def initialize root
     @stack = [['', root]]
   end
