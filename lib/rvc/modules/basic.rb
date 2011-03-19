@@ -166,7 +166,7 @@ end
 
 opts :info do
   summary "Display information about an object"
-  arg :path, nil, :lookup => Object
+  arg :path, nil, :lookup => RVC::InventoryObject
 end  
 
 def info obj

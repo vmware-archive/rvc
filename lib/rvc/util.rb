@@ -8,7 +8,7 @@ module Util
 
   def lookup! path, type
     lookup(path).tap do |obj|
-      err "Not found: #{path.inspect}" unless path
+      err "Not found: #{path.inspect}" unless obj
       err "Expected #{type} but got #{obj.class} at #{path.inspect}" unless obj.is_a? type
     end
   end

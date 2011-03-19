@@ -16,8 +16,7 @@ module InventoryObject
   end
 
   def display_info
-    puts "name: #{name}"
-    puts "type: #{self.class.name}"
+    puts "class: #{self.class.name}"
   end
 
   def ls_text r
