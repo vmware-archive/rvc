@@ -1,5 +1,13 @@
 require 'rvc/ttl_cache'
 
+unless Readline.respond_to? :line_buffer
+  begin
+    require 'readline_line_buffer'
+  rescue LoadError
+    $stderr.puts "Install the \"bond\" gem for better tab completion."
+  end
+end
+
 module RVC
 module Completion
   Cache = TTLCache.new 10
