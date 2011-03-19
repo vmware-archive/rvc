@@ -87,7 +87,7 @@ def create name, opts
             :startConnected => true,
           },
           :backing => VIM.VirtualCdromIsoBackingInfo(
-            :fileName => datastore_path,
+            :fileName => datastore_path
           ),
           :controllerKey => 200,
           :unitNumber => 0
