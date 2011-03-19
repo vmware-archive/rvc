@@ -5,11 +5,16 @@ module Completion
   Cache = TTLCache.new 10
 
   Completor = lambda do |word|
-    Readline.completion_append_character = nil
     return unless word
+    line = Readline.line_buffer if Readline.respond_to? :line_buffer
+    append_char, candidates = RVC::Completion.complete word, line
+    Readline.completion_append_character = append_char
+    candidates
+  end
 
-    candidates = if Readline.respond_to? :line_buffer
-      if Readline.line_buffer[' ']
+  def self.complete word, line
+    candidates = if line
+      if line[' ']
         child_candidates(word)
       else
         cmd_candidates(word)
@@ -19,12 +24,14 @@ module Completion
     end
 
     candidates += mark_candidates(word)
+
     if candidates.size == 1 and cmd_candidates(word).member?(candidates[0])
-      Readline.completion_append_character = ' '
+      append_char = ' '
     else
-      Readline.completion_append_character = '/'
+      append_char = '/'
     end
-    candidates
+
+    return append_char, candidates
   end
 
   def self.cmd_candidates word
