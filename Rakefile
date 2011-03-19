@@ -20,6 +20,7 @@ Rake::TestTask.new do |t|
   t.libs << "test"
   t.test_files = FileList['test/test_*.rb']
   t.verbose = true
+  t.ruby_opts << "-rubygems"
 end
  
 begin
@@ -29,6 +30,7 @@ begin
     rcov.pattern    = 'test/test_*.rb'
     rcov.output_dir = 'coverage'
     rcov.verbose    = true
+    rcov.libs << "test"
     rcov.rcov_opts << '--exclude "gems/*"'
   end
 rescue LoadError

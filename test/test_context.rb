@@ -1,16 +1,6 @@
 require 'test/unit'
 require 'rvc'
-
-class FixtureNode
-  include RVC::InventoryObject
-  attr_accessor :parent
-  attr_reader :children
-
-  def initialize children={}
-    @children = children
-    @children.each { |k,v| v.parent = self }
-  end
-end
+require 'inventory_fixtures'
 
 class ContextTest < Test::Unit::TestCase
   NodeB = FixtureNode.new
