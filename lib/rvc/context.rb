@@ -56,10 +56,6 @@ class Context
     new_loc = lookup_loc(path) or return false
     mark '~', @loc
     @loc = new_loc
-    dc_loc = @loc.dup
-    dc_loc.pop while dc_loc.obj and not dc_loc.obj.is_a? VIM::Datacenter
-    dc_loc = nil if dc_loc.obj == nil
-    mark '', dc_loc
     true
   end
 

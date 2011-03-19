@@ -111,6 +111,10 @@ end
 
 def cd path
   $context.cd(path) or err "Not found: #{path.inspect}"
+  dc_loc = $context.loc.dup
+  dc_loc.pop while dc_loc.obj and not dc_loc.obj.is_a? VIM::Datacenter
+  dc_loc = nil if dc_loc.obj == nil
+  $context.mark '', dc_loc
 end
 
 opts :ls do
