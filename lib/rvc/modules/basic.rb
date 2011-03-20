@@ -115,6 +115,7 @@ def cd path
   dc_loc.pop while dc_loc.obj and not dc_loc.obj.is_a? VIM::Datacenter
   dc_loc = nil if dc_loc.obj == nil
   $context.mark '', dc_loc
+  $context.marks.delete_if { |k,v| k =~ /^\d+$/ }
 end
 
 opts :ls do
