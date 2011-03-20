@@ -3,10 +3,10 @@ require 'rvc'
 require 'inventory_fixtures'
 
 class ContextTest < Test::Unit::TestCase
-  NodeB = FixtureNode.new
-  NodeC = FixtureNode.new
-  NodeA = FixtureNode.new('b' => NodeB, 'c' => NodeC)
-  Root = FixtureNode.new('a' => NodeA)
+  NodeB = FixtureNode.new 'B'
+  NodeC = FixtureNode.new 'C'
+  NodeA = FixtureNode.new('A', 'b' => NodeB, 'c' => NodeC)
+  Root = FixtureNode.new('ROOT', 'a' => NodeA)
 
   def setup
     @context = RVC::Context.new Root
