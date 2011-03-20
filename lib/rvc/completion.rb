@@ -1,3 +1,4 @@
+require 'readline'
 require 'rvc/ttl_cache'
 
 unless Readline.respond_to? :line_buffer
