@@ -5,6 +5,8 @@ opts :type do
   arg :name, "VMODL type name"
 end
 
+rvc_alias :type
+
 def type name
   klass = RbVmomi::VIM.type(name) rescue err("invalid type #{name.inspect}")
   q = lambda { |x| x =~ /^xsd:/ ? $' : x }
@@ -32,10 +34,13 @@ def type name
   nil
 end
 
+
 opts :help do
   summary "Display this text"
   arg :path, "Limit commands to those applicable to the given object", :required => false
 end
+
+rvc_alias :help
 
 HELP_ORDER = %w(basic vm)
 
@@ -70,9 +75,12 @@ To show only commands relevant to a specific object, use "help /path/to/object".
   end
 end
 
+
 opts :debug do
   summary "Toggle VMOMI logging to stderr"
 end
+
+rvc_alias :debug
 
 def debug
   $connections.each do |name,conn|
@@ -80,43 +88,61 @@ def debug
   end
 end
 
+
 opts :quit do
   summary "Exit RVC"
 end
+
+rvc_alias :quit
+rvc_alias :quit, :exit
+rvc_alias :quit, :q
 
 def quit
   exit
 end
 
+
 opts :rc do
   summary "Reread ~/.rvcrc"
 end
+
+rvc_alias :rc
 
 def rc
   RVC.reload_rc
 end
 
+
 opts :reload do
   summary "Reload RVC command modules"
 end
 
+rvc_alias :reload
+
 def reload
   RVC.reload_modules
 end
+
 
 opts :cd do
   summary "Change directory"
   arg :path, "Directory to change to"
 end
 
+rvc_alias :cd
+
 def cd path
   $context.cd(path) or err "Not found: #{path.inspect}"
 end
+
 
 opts :ls do
   summary "List objects in a directory"
   arg :path, "Directory to list", :required => false, :default => '.'
 end
+
+rvc_alias :ls
+rvc_alias :ls, :l
 
 def ls path
   loc = $context.lookup_loc(path) or err "Not found: #{path.inspect}"
@@ -164,10 +190,14 @@ def ls path
   end
 end
 
+
 opts :info do
   summary "Display information about an object"
-  arg :path, nil, :lookup => RVC::InventoryObject
+  arg :path, nil, :lookup => Object
 end  
+
+rvc_alias :info
+rvc_alias :info, :i
 
 def info obj
   if obj.respond_to? :display_info
@@ -177,14 +207,18 @@ def info obj
   end
 end
 
+
 opts :destroy do
   summary "Destroy managed entities"
   arg :obj, nil, :lookup => VIM::ManagedEntity, :multi => true
 end
 
+rvc_alias :destroy
+
 def destroy objs
   progress objs, :Destroy
 end
+
 
 opts :mark do
   summary "Save a path for later use"
@@ -192,17 +226,23 @@ opts :mark do
   arg :path, "Any object", :required => false, :default => '.'
 end
 
+rvc_alias :mark
+rvc_alias :mark, :m
+
 def mark key, path
   err "invalid mark name" unless key =~ /^\w+$/
   obj = $context.lookup_loc(path) or err "Not found: #{path.inspect}" 
   $context.mark key, obj
 end
 
+
 opts :mv do
   summary "Move/rename an entity"
   arg :src, "Source path"
   arg :dst, "Destination path"
 end
+
+rvc_alias :mv
 
 def mv src, dst
   src_dir = File.dirname(src)

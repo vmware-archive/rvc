@@ -16,10 +16,14 @@ def _find_vmrc vm
   _find_local_vmrc(vm) || search_path('vmrc')
 end
 
+
 opts :view do
   summary "Spawn a VMRC"
   arg :vm, nil, :lookup => VIM::VirtualMachine, :multi => true
 end
+
+rvc_alias :view
+rvc_alias :view, :v
 
 def view vms
   vms.each do |vm|
