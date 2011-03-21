@@ -30,7 +30,7 @@ end
 class Context
   attr_reader :root, :loc, :marks
 
-  MARK_REGEX = /^~(?:([\d\w]+|~))$/
+  MARK_REGEX = /^~(?:([\d\w]*|~))$/
 
   def initialize root
     @root = root
@@ -54,6 +54,10 @@ class Context
     new_loc = lookup_loc(path) or return false
     mark '~', @loc
     @loc = new_loc
+    dc_loc = @loc.dup
+    dc_loc.pop while dc_loc.obj and not dc_loc.obj.is_a? VIM::Datacenter
+    dc_loc = nil if dc_loc.obj == nil
+    mark '', dc_loc
     true
   end
 
@@ -74,7 +78,8 @@ class Context
         loc.push(el, loc.obj.parent) unless loc.obj == @root
       when MARK_REGEX
         return unless i == 0
-        loc = @marks[$1].dup or return
+        loc = @marks[$1] or return
+        loc = loc.dup
       else
         # XXX check for ambiguous child
         if i == 0 and el =~ /^\d+$/ and @marks.member? el
@@ -89,7 +94,11 @@ class Context
   end
 
   def mark key, loc
-    @marks[key] = loc
+    if loc == nil
+      @marks.delete key
+    else
+      @marks[key] = loc
+    end
   end
 end
 
