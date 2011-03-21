@@ -114,6 +114,14 @@ def this
   $context.cur
 end
 
+def dc
+  $context.lookup("~")
+end
+
+def conn
+  (dc || return)._connection
+end
+
 RVC.reload_modules false
 RVC.reload_rc
 
