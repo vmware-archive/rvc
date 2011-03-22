@@ -25,7 +25,12 @@ class RbVmomi::VIM::Datastore
   def children
     {
       'files' => FakeDatastoreFolder.new(self, ""),
+      'vms' => RVC::FakeFolder.new(self, :children_vms)
     }
+  end
+
+  def children_vms
+    RVC::Util.collect_children self, :vm
   end
 end
 
