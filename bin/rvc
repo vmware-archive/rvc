@@ -34,7 +34,6 @@ end
 Trollop.die "At least 1 argument expected." unless ARGV.length >= 1
 
 RVC.reload_modules false
-RVC.reload_rc
 
 $connections = {}
 

@@ -50,9 +50,4 @@ def self.reload_modules verbose=true
   end
 end
 
-def self.reload_rc
-  rcfile = "#{ENV['HOME']}/.rvcrc"
-  load rcfile if File.exists? rcfile
-end
-
 end

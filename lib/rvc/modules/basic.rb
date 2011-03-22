@@ -81,17 +81,6 @@ def quit
 end
 
 
-opts :rc do
-  summary "Reread ~/.rvcrc"
-end
-
-rvc_alias :rc
-
-def rc
-  RVC.reload_rc
-end
-
-
 opts :reload do
   summary "Reload RVC command modules"
 end
