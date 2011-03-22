@@ -25,12 +25,18 @@ class RbVmomi::VIM::Datastore
   def children
     {
       'files' => FakeDatastoreFolder.new(self, ""),
-      'vms' => RVC::FakeFolder.new(self, :children_vms)
+      'vms' => RVC::FakeFolder.new(self, :children_vms),
+      'hosts' => RVC::FakeFolder.new(self, :children_hosts),
     }
   end
 
   def children_vms
     RVC::Util.collect_children self, :vm
+  end
+
+  def children_hosts
+    # XXX optimize
+    Hash[host.map(&:key).map { |x| [x.name, x] }]
   end
 end
 
