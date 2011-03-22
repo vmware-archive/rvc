@@ -133,6 +133,7 @@ rvc_alias :cd
 
 def cd path
   $context.cd(path) or err "Not found: #{path.inspect}"
+  $context.marks.delete_if { |k,v| k =~ /^\d+$/ }
 end
 
 
