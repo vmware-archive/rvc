@@ -53,7 +53,11 @@ def connect uri, opts
   isVC = vim.serviceContent.about.apiType == "VirtualCenter"
 
   # authenticate
-  username = isVC ? 'Administrator' : 'root' unless username
+  if username == nil
+    username = isVC ? 'Administrator' : 'root'
+    puts "Using default username #{username.inspect}."
+  end
+
   password_given = password != nil
   loop do
     begin
