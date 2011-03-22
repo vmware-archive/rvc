@@ -52,19 +52,20 @@ module Util
     conns[0]
   end
 
-  # XXX split out progress bar
-  def progress objs, sym, args={}
-    connection = single_connection objs
-    tasks = objs.map { |obj| obj._call :"#{sym}_Task", args }
+  def tasks objs, sym, args={}
+    progress(objs.map { |obj| obj._call :"#{sym}_Task", args })
+  end
 
-    interested = %w(info.progress info.state info.entityName info.error)
-
+  def progress tasks
+    interested = %w(info.progress info.state info.entityName info.error info.name)
+    connection = single_connection tasks
     connection.serviceInstance.wait_for_multiple_tasks interested, tasks do |h|
       if interactive?
         h.each do |task,props|
-          state, entityName = props['info.state'], props['info.entityName']
+          state, entityName, name = props['info.state'], props['info.entityName'], props['info.name']
+          name = $` if name =~ /_Task$/
           if state == 'running'
-            text = "#{sym} #{entityName}: #{state} "
+            text = "#{name} #{entityName}: #{state} "
             progress = props['info.progress']
             barlen = terminal_columns - text.size - 2
             progresslen = ((progress||0)*barlen)/100
@@ -72,16 +73,16 @@ module Util
             $stdout.write "\e[K#{text}#{progress_bar}\n"
           elsif state == 'error'
             error = props['info.error']
-            $stdout.write "\e[K#{sym} #{entityName}: #{error.fault.class.wsdl_name}: #{error.localizedMessage}\n"
+            $stdout.write "\e[K#{name} #{entityName}: #{error.fault.class.wsdl_name}: #{error.localizedMessage}\n"
           else
-            $stdout.write "\e[K#{sym} #{entityName}: #{state}\n"
+            $stdout.write "\e[K#{name} #{entityName}: #{state}\n"
           end
         end
         $stdout.write "\e[#{h.size}A"
         $stdout.flush
       end
     end
-    $stdout.write "\e[#{objs.size}B" if interactive?
+    $stdout.write "\e[#{tasks.size}B" if interactive?
     true
   end
 

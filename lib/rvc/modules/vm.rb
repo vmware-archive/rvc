@@ -8,7 +8,7 @@ end
 rvc_alias :on
 
 def on vms
-  progress vms, :PowerOnVM
+  tasks vms, :PowerOnVM
 end
 
 
@@ -20,7 +20,7 @@ end
 rvc_alias :off
 
 def off vms
-  progress vms, :PowerOffVM
+  tasks vms, :PowerOffVM
 end
 
 
@@ -33,7 +33,7 @@ rvc_alias :reset
 rvc_alias :reset, :r
 
 def reset vms
-  progress vms, :ResetVM
+  tasks vms, :ResetVM
 end
 
 
@@ -46,7 +46,7 @@ rvc_alias :suspend
 rvc_alias :suspend, :s
 
 def suspend vms
-  progress vms, :SuspendVM
+  tasks vms, :SuspendVM
 end
 
 
@@ -466,7 +466,7 @@ opts :snapshot do
 end
 
 def snapshot vm, name
-  progress [vm], :CreateSnapshot, :memory => true, :name => name, :quiesce => false
+  tasks [vm], :CreateSnapshot, :memory => true, :name => name, :quiesce => false
 end
 
 
@@ -494,21 +494,21 @@ opts :revert do
 end
 
 def revert vm
-  progress [vm], :RevertToCurrentSnapshot
+  tasks [vm], :RevertToCurrentSnapshot
 end
 
 
 opts :migrate do
   summary "Migrate a VM"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
+  arg :vm, nil, :lookup => VIM::VirtualMachine, :multi => true
   opt :pool, nil, :short => 'p', :type => :string, :lookup => VIM::ResourcePool
   opt :host, nil, :short => 'h', :type => :string, :lookup => VIM::HostSystem
 end
 
-def migrate vm, opts
-  progress [vm], :MigrateVM, :pool => opts[:pool],
-                             :host => opts[:host],
-                             :priority => :defaultPriority
+def migrate vms, opts
+  tasks vms, :MigrateVM, :pool => opts[:pool],
+                         :host => opts[:host],
+                         :priority => :defaultPriority
 end
 
 

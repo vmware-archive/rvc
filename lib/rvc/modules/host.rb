@@ -5,5 +5,5 @@ opts :reboot do
 end
 
 def reboot hosts, opts
-  progress hosts, :RebootHost, :force => opts[:force]
+  tasks hosts, :RebootHost, :force => opts[:force]
 end

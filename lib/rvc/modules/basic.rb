@@ -200,7 +200,7 @@ end
 rvc_alias :destroy
 
 def destroy objs
-  progress objs, :Destroy
+  tasks objs, :Destroy
 end
 
 
