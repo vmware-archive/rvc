@@ -498,6 +498,20 @@ def revert vm
 end
 
 
+opts :migrate do
+  summary "Migrate a VM"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :pool, nil, :short => 'p', :type => :string, :lookup => VIM::ResourcePool
+  opt :host, nil, :short => 'h', :type => :string, :lookup => VIM::HostSystem
+end
+
+def migrate vm, opts
+  progress [vm], :MigrateVM, :pool => opts[:pool],
+                             :host => opts[:host],
+                             :priority => :defaultPriority
+end
+
+
 def find_vmx_files ds
   datastorePath = "[#{ds.name}] /"
   searchSpec = {
