@@ -90,7 +90,7 @@ class Shell
   def eval_ruby input
     result = @ruby_context.do_eval input
     if input =~ /\#$/
-      CMD.basic.type result.class.wsdl_name
+      introspect_object result
     else
       pp result
     end
@@ -99,6 +99,56 @@ class Shell
 
   def prompt
     "#{$context.display_path}#{@persist_ruby ? '~' : '>'} "
+  end
+
+  def introspect_object obj
+    case obj
+    when RbVmomi::VIM::DataObject, RbVmomi::VIM::ManagedObject
+      introspect_class obj.class
+    when Array
+      klasses = obj.map(&:class).uniq
+      if klasses.size == 0
+        puts "Array"
+      elsif klasses.size == 1
+        $stdout.write "Array of "
+        introspect_class klasses[0]
+      else
+        counts = Hash.new 0
+        obj.each { |o| counts[o.class] += 1 }
+        puts "Array of:"
+        counts.each { |k,c| puts "  #{k}: #{c}" }
+        puts
+        $stdout.write "Common ancestor: "
+        introspect_class klasses.map(&:ancestors).inject(&:&)[0]
+      end
+    else
+      puts obj.class
+    end
+  end
+
+  def introspect_class klass
+    q = lambda { |x| x =~ /^xsd:/ ? $' : x }
+    if klass < RbVmomi::VIM::DataObject
+      puts "Data Object #{klass}"
+      klass.full_props_desc.each do |desc|
+        puts " #{desc['name']}: #{q[desc['wsdl_type']]}#{desc['is-array'] ? '[]' : ''}"
+      end
+    elsif klass < RbVmomi::VIM::ManagedObject
+      puts "Managed Object #{klass}"
+      puts
+      puts "Properties:"
+      klass.full_props_desc.each do |desc|
+        puts " #{desc['name']}: #{q[desc['wsdl_type']]}#{desc['is-array'] ? '[]' : ''}"
+      end
+      puts
+      puts "Methods:"
+      klass.full_methods_desc.sort_by(&:first).each do |name,desc|
+        params = desc['params']
+        puts " #{name}(#{params.map { |x| "#{x['name']} : #{q[x['wsdl_type'] || 'void']}#{x['is-array'] ? '[]' : ''}" } * ', '}) : #{q[desc['result']['wsdl_type'] || 'void']}"
+      end
+    else
+      puts klass
+    end
   end
 end
 

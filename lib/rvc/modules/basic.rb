@@ -8,29 +8,8 @@ end
 rvc_alias :type
 
 def type name
-  klass = RbVmomi::VIM.type(name) rescue err("invalid type #{name.inspect}")
-  q = lambda { |x| x =~ /^xsd:/ ? $' : x }
-  if klass < RbVmomi::VIM::DataObject
-    puts "Data Object #{klass}"
-    klass.full_props_desc.each do |desc|
-      puts " #{desc['name']}: #{q[desc['wsdl_type']]}#{desc['is-array'] ? '[]' : ''}"
-    end
-  elsif klass < RbVmomi::VIM::ManagedObject
-    puts "Managed Object #{klass}"
-    puts
-    puts "Properties:"
-    klass.full_props_desc.each do |desc|
-      puts " #{desc['name']}: #{q[desc['wsdl_type']]}#{desc['is-array'] ? '[]' : ''}"
-    end
-    puts
-    puts "Methods:"
-    klass.full_methods_desc.sort_by(&:first).each do |name,desc|
-      params = desc['params']
-      puts " #{name}(#{params.map { |x| "#{x['name']} : #{q[x['wsdl_type'] || 'void']}#{x['is-array'] ? '[]' : ''}" } * ', '}) : #{q[desc['result']['wsdl_type'] || 'void']}"
-    end
-  else
-    err("cannot introspect type #{klass}")
-  end
+  klass = RbVmomi::VIM.type(name) rescue err("#{name.inspect} is not a VMODL type.")
+  $shell.introspect_class klass
   nil
 end
 

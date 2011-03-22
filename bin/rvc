@@ -56,17 +56,17 @@ history_fn = "#{ENV['HOME']}/.rvc-history"
 IO.foreach(history_fn) { |l| Readline::HISTORY << l.chomp } rescue puts "Welcome to RVC. Try the 'help' command."
 history = File.open(history_fn, 'a')
 
-shell = RVC::Shell.new
+$shell = RVC::Shell.new
 
 CMD.basic.ls '.'
 
 while true
   begin
-    input = $opts[:cmd].shift || Readline.readline(shell.prompt, false) or break
+    input = $opts[:cmd].shift || Readline.readline($shell.prompt, false) or break
     input = input.strip
     next if input.empty?
     (history.puts input; Readline::HISTORY << input) unless input == Readline::HISTORY.to_a[-1]
-    shell.eval_input input
+    $shell.eval_input input
   rescue Interrupt
     puts
   end
