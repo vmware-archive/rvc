@@ -28,7 +28,8 @@ class CmdModule < Module
   end
 end
 
-BULTIN_MODULE_PATH = [File.expand_path(File.join(File.dirname(__FILE__), 'modules'))]
+BULTIN_MODULE_PATH = [File.expand_path(File.join(File.dirname(__FILE__), 'modules')),
+                      File.join(ENV['HOME'], ".rvc")]
 ENV_MODULE_PATH = (ENV['RVC_MODULE_PATH'] || '').split ':'
 
 def self.reload_modules verbose=true
