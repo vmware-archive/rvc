@@ -1,3 +1,5 @@
+# Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
+
 class RbVmomi::VIM::HostSystem
   def self.ls_properties
     %w(name summary.hardware.memorySize summary.hardware.cpuModel

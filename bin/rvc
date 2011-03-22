@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
 require 'readline'
 require 'pp'
 require 'trollop'

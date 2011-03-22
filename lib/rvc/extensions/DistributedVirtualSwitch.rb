@@ -1,3 +1,5 @@
+# Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
+
 class RbVmomi::VIM::DistributedVirtualSwitch
   def display_info
     config, = collect(:config)

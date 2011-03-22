@@ -1,3 +1,5 @@
+# Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
+
 class RbVmomi::VIM::DistributedVirtualPortgroup
   def display_info
     config, = collect(:config)

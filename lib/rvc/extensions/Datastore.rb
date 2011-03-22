@@ -1,3 +1,5 @@
+# Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
+
 class RbVmomi::VIM::Datastore
   def display_info
     s, info, = collect :summary, :info

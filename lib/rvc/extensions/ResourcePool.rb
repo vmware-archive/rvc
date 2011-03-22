@@ -1,3 +1,5 @@
+# Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
+
 class RbVmomi::VIM::ResourcePool
   def self.ls_properties
     %w(name config.cpuAllocation config.memoryAllocation)

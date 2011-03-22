@@ -1,3 +1,5 @@
+# Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
+
 require 'rbvmomi'
 require 'rvc/inventory'
 require 'rvc/modules'

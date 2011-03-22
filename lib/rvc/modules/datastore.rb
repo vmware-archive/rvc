@@ -1,3 +1,5 @@
+# Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
+
 opts :download do
   summary "Download a file from a datastore"
   arg 'datastore-path', "Filename on the datastore"

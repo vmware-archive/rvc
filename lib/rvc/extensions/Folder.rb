@@ -1,3 +1,5 @@
+# Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
+
 class RbVmomi::VIM::Folder
   def traverse_one arc
     @soap.searchIndex.FindChild :entity => self, :name => arc

@@ -1,3 +1,5 @@
+# Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
+
 class RbVmomi::VIM::VirtualMachine
   def display_info
     config, runtime, guest = collect :config, :runtime, :guest

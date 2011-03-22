@@ -1,3 +1,5 @@
+# Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
+
 include RVC::Util
 
 VNC = ENV['VNC'] || search_path('vinagre') || search_path('tightvnc')

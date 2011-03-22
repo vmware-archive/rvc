@@ -1,3 +1,5 @@
+# Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
+
 require 'readline'
 require 'rvc/ttl_cache'
 

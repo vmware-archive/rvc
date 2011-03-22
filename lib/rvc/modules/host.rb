@@ -1,3 +1,5 @@
+# Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
+
 opts :reboot do
   summary "Reboot a host"
   arg :host, nil, :lookup => VIM::HostSystem, :multi => true
