@@ -20,10 +20,15 @@ class RbVmomi::VIM::ResourcePool
   def children
     {
       'vms' => RVC::FakeFolder.new(self, :children_vms),
+      'pools' => RVC::FakeFolder.new(self, :children_pools),
     }
   end
 
   def children_vms
     RVC::Util.collect_children self, :vm
+  end
+
+  def children_pools
+    RVC::Util.collect_children self, :resourcePool
   end
 end
