@@ -16,4 +16,14 @@ class RbVmomi::VIM::ResourcePool
       memAlloc.reservation/1000.0, memAlloc.limit/1000.0, mem_shares_text,
     ]
   end
+
+  def children
+    {
+      'vms' => RVC::FakeFolder.new(self, :children_vms),
+    }
+  end
+
+  def children_vms
+    RVC::Util.collect_children self, :vm
+  end
 end
