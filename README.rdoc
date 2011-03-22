@@ -49,8 +49,8 @@ the "vm" module, but since it is a common operation it has been aliased to
 
 === Tab-completion
 
-Commands and paths can be tab completed in the usual fashion. This is currently
-unsupported if the text being completed contains whitespace.
+Commands and paths can be tab completed in the usual fashion. Whitespace must
+be escaped with a backslash.
 
 === Marks
 
@@ -78,6 +78,23 @@ Marks can be easily used in Ruby mode since there are magic variables with the
 same names. Since some marks, like numeric ones, aren't valid variable names,
 they also exist with a "_" prefix.
 
+The methods "this", "conn", and "dc" are provided in Ruby mode, returning the
+current object, connection, and datacenter respectively. The connection object
+is an instance of RbVmomi::VIM.
+
+=== VMODL introspection
+
+The "type" command can be used to display the properties and methods of a VMODL
+class. For example: "type Datacenter".
+
+In Ruby mode, a '#' at the end of the input line will display the output of the
+"type" command for the resulting object's class. This is very useful for
+exploring the vSphere API.
+
 == Extensibility
 
-RVC is designed to let users easily add commands they need.
+RVC is designed to let users easily add commands they need. You can create a
+command module, or add to an existing one, by adding a Ruby file to ~/.rvc or
+any directory on the RVC_MODULE_PATH environment variable. The syntax of a user
+command module is the same as those built-in to RVC, so see the
+"lib/rvc/modules" directory for examples.
