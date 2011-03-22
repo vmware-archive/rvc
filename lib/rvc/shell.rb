@@ -44,8 +44,6 @@ class Shell
           puts "#{$!.class}: #{$!.message}"
         end
       end
-    rescue Interrupt
-      puts
     rescue Exception
       puts "#{$!.class}: #{$!.message}"
       puts $!.backtrace * "\n"

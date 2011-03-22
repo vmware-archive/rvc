@@ -61,9 +61,13 @@ shell = RVC::Shell.new
 CMD.basic.ls '.'
 
 while true
-  input = $opts[:cmd].shift || Readline.readline(shell.prompt, false) or break
-  input = input.strip
-  next if input.empty?
-  (history.puts input; Readline::HISTORY << input) unless input == Readline::HISTORY.to_a[-1]
-  shell.eval_input input
+  begin
+    input = $opts[:cmd].shift || Readline.readline(shell.prompt, false) or break
+    input = input.strip
+    next if input.empty?
+    (history.puts input; Readline::HISTORY << input) unless input == Readline::HISTORY.to_a[-1]
+    shell.eval_input input
+  rescue Interrupt
+    puts
+  end
 end
