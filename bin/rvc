@@ -14,7 +14,6 @@ include RVC::Util
 
 Thread.abort_on_exception = true
 
-MODULES = {}
 CMD = Module.new
 
 $opts = Trollop.options do
@@ -33,86 +32,6 @@ EOS
 end
 
 Trollop.die "At least 1 argument expected." unless ARGV.length >= 1
-
-ALIASES = {
-  'type' => 'basic.type',
-  'debug' => 'basic.debug',
-  'rc' => 'basic.rc',
-  'reload' => 'basic.reload',
-  'cd' => 'basic.cd',
-  'ls' => 'basic.ls',
-  'info' => 'basic.info',
-  'i' => 'basic.info',
-  'mv' => 'basic.mv',
-  'destroy' => 'basic.destroy',
-  'mark' => 'basic.mark',
-  'm' => 'basic.mark',
-  'help' => 'basic.help',
-  'exit' => 'basic.quit',
-  'quit' => 'basic.quit',
-  'q' => 'basic.quit',
-
-  'on' => 'vm.on',
-  'off' => 'vm.off',
-  'reset' => 'vm.reset',
-  'r' => 'vm.reset',
-  'suspend' => 'vm.suspend',
-  's' => 'vm.suspend',
-  'kill' => 'vm.kill',
-  'k' => 'vm.kill',
-  'ping' => 'vm.ping',
-  'view' => 'vmrc.view',
-  'v' => 'vmrc.view',
-  'V' => 'vnc.view',
-  'ssh' => 'vm.ssh'
-}
-
-
-## internal
-
-def tokenize str
-  Shellwords.shellwords(str)
-end
-
-def evalcmd str
-  cmd, *args = tokenize str
-  return unless cmd
-  err "invalid command" unless cmd.is_a? String
-  case cmd
-  when RVC::Context::MARK_REGEX
-    CMD.basic.cd cmd
-  else
-    if cmd.include? '.'
-      module_name, cmd, = cmd.split '.'
-    elsif ALIASES.member? cmd
-      module_name, cmd, = ALIASES[cmd].split '.'
-    else
-      err "unknown alias #{cmd}"
-    end
-
-    m = MODULES[module_name] or err("unknown module #{module_name}")
-
-    opts_block = m.opts_for(cmd.to_sym)
-    parser = RVC::OptionParser.new cmd, &opts_block
-
-    begin
-      args, opts = parser.parse args
-    rescue Trollop::HelpNeeded
-      parser.educate
-      return
-    end
-
-    if parser.has_options?
-      m.send cmd.to_sym, *(args + [opts])
-    else
-      m.send cmd.to_sym, *args
-    end
-  end
-end
-
-def this
-  $context.cur
-end
 
 RVC.reload_modules false
 RVC.reload_rc
@@ -137,78 +56,18 @@ history_fn = "#{ENV['HOME']}/.rvc-history"
 IO.foreach(history_fn) { |l| Readline::HISTORY << l.chomp } rescue puts "Welcome to RVC. Try the 'help' command."
 history = File.open(history_fn, 'a')
 
-$binding = binding
-persist_ruby = false
-
-def self.method_missing sym, *a
-  str = sym.to_s
-  if a.empty?
-    if MODULES.member? str
-      MODULES[str]
-    elsif $context.marks.member?(str)
-      $context.marks[str].obj
-    elsif str[0..0] == '_' && $context.marks.member?(str[1..-1])
-      $context.marks[str[1..-1]].obj
-    else
-      super
-    end
-  else
-    super
-  end
-end
+shell = RVC::Shell.new
 
 CMD.basic.ls '.'
-loop do
-begin
-  input = $opts[:cmd].shift || Readline.readline("#{$context.display_path}#{persist_ruby ? '~' : '>'} ", false) or break
-  input = input.strip
-  next if input.empty?
-  if input == '//'
-    persist_ruby = !persist_ruby
-    next
-  end
 
-  (history.puts input; Readline::HISTORY << input) unless input == Readline::HISTORY.to_a[-1]
-
-  if input[0..0] == '!'
-    system_fg input[1..-1]
-    next
+while true
+  begin
+    input = $opts[:cmd].shift || Readline.readline(shell.prompt, false) or break
+    input = input.strip
+    next if input.empty?
+    (history.puts input; Readline::HISTORY << input) unless input == Readline::HISTORY.to_a[-1]
+    shell.eval_input input
+  rescue Interrupt
+    puts
   end
-
-  ruby = persist_ruby
-  if input =~ /^\//
-    input = $'
-    ruby = !ruby
-  end
-
-  if ruby
-    result = eval(input, $binding)
-    if input =~ /\#$/
-      CMD.basic.type result.class.wsdl_name
-    else
-      pp result
-    end
-  else
-    evalcmd input
-  end
-rescue SystemExit, IOError
-  raise
-rescue UserError, RuntimeError, RbVmomi::Fault
-  if ruby
-    puts "#{$!.class}: #{$!.message}"
-    puts $!.backtrace * "\n"
-  else
-    case $!
-    when RbVmomi::Fault, UserError
-      puts $!.message
-    else
-      puts "#{$!.class}: #{$!.message}"
-    end
-  end
-rescue Interrupt
-  puts
-rescue Exception
-  puts "#{$!.class}: #{$!.message}"
-  puts $!.backtrace * "\n"
-end
 end

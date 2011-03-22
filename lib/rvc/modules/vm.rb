@@ -5,36 +5,50 @@ opts :on do
   arg :vm, nil, :multi => true, :lookup => VIM::VirtualMachine
 end
 
+rvc_alias :on
+
 def on vms
   progress vms, :PowerOnVM
 end
+
 
 opts :off do
   summary "Power off VMs"
   arg :vm, nil, :multi => true, :lookup => VIM::VirtualMachine
 end
 
+rvc_alias :off
+
 def off vms
   progress vms, :PowerOffVM
 end
+
 
 opts :reset do
   summary "Reset VMs"
   arg :vm, nil, :multi => true, :lookup => VIM::VirtualMachine
 end
 
+rvc_alias :reset
+rvc_alias :reset, :r
+
 def reset vms
   progress vms, :ResetVM
 end
+
 
 opts :suspend do
   summary "Suspend VMs"
   arg :vm, nil, :multi => true, :lookup => VIM::VirtualMachine
 end
 
+rvc_alias :suspend
+rvc_alias :suspend, :s
+
 def suspend vms
   progress vms, :SuspendVM
 end
+
 
 opts :create do
   summary "Create a new VM"
@@ -113,6 +127,7 @@ def create name, opts
                          :host => opts[:host]).wait_for_completion
 end
 
+
 opts :insert_cdrom do
   summary "Put a disc in a virtual CDROM drive"
   arg :vm, nil, :lookup => VIM::VirtualMachine
@@ -151,6 +166,7 @@ def register vmx_file, opts
                                      :pool => rp).wait_for_completion
 end
 
+
 opts :unregister do
   summary "Unregister a VM"
   arg :vm, nil, :lookup => VIM::VirtualMachine
@@ -160,16 +176,21 @@ def unregister vm
   vm.UnregisterVM
 end
 
+
 opts :kill do
   summary "Power off and destroy VMs"
   arg :vm, nil, :multi => true, :lookup => VIM::VirtualMachine
 end
+
+rvc_alias :kill
+rvc_alias :kill, :k
 
 def kill vms
   on_vms = vms.select { |x| x.summary.runtime.powerState == 'poweredOn' }
   off on_vms unless on_vms.empty?
   CMD.basic.destroy vms unless vms.empty?
 end
+
 
 opts :answer do
   summary "Answer a VM question"
@@ -183,6 +204,7 @@ def answer vm, str
   vm.AnswerVM :questionid => q.path, :answerChoice => choice.key
 end
 
+
 opts :layout do
   summary "Display info about VM files"
   arg :vm, nil, :lookup => VIM::VirtualMachine
@@ -193,6 +215,7 @@ def layout vm
     puts "#{f.type}: #{f.name}"
   end
 end
+
 
 opts :devices do
   summary "Display info about VM devices"
@@ -208,6 +231,7 @@ def devices vm
   end
 end
 
+
 opts :connect do
   summary "Connect a virtual device"
   arg :vm, nil, :lookup => VIM::VirtualMachine
@@ -218,6 +242,7 @@ def connect vm, label
   change_device_connectivity vm, label, true
 end
 
+
 opts :disconnect do
   summary "Disconnect a virtual device"
   arg :vm, nil, :lookup => VIM::VirtualMachine
@@ -227,6 +252,7 @@ end
 def disconnect vm, label
   change_device_connectivity vm, label, false
 end
+
 
 opts :find do
   summary "Display a menu of VMX files to register"
@@ -253,6 +279,7 @@ def find ds, opts
                          :pool => rp).wait_for_completion
 end
 
+
 opts :extraConfig do
   summary "Display extraConfig options"
   arg :vm, nil, :lookup => VIM::VirtualMachine
@@ -262,6 +289,7 @@ end
 def extraConfig vm, regexes
   _extraConfig(vm, *regexes.map { |x| /#{x}/ })
 end
+
 
 opts :setExtraConfig do
   summary "Set extraConfig options"
@@ -273,6 +301,7 @@ def setExtraConfig vm, pairs
   h = Hash[pairs.map { |x| x.split('=', 2).tap { |a| a << '' if a.size == 1 } }]
   _setExtraConfig vm, h
 end
+
 
 def _setExtraConfig vm, hash
   cfg = {
@@ -290,16 +319,20 @@ def _extraConfig vm, *regexes
   nil
 end
 
+
 opts :ssh do
   summary "SSH to a VM"
   arg :vm, nil, :lookup => VIM::VirtualMachine
 end
+
+rvc_alias :ssh
 
 def ssh vm
   ip = vm_ip vm
   ssh_cmd = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@#{ip}"
   system_fg(ssh_cmd)
 end
+
 
 opts :rvc do
   summary "RVC to a VM"
@@ -316,15 +349,19 @@ def rvc vm
   system_fg(cmd, env)
 end
 
+
 opts :ping do
   summary "Ping a VM"
   arg :vm, nil, :lookup => VIM::VirtualMachine
 end
 
+rvc_alias :ping
+
 def ping vm
   ip = vm_ip vm
   system_fg "ping #{ip}"
 end
+
 
 opts :ip do
   summary "Wait for and display VM IP addresses"
@@ -361,6 +398,7 @@ ensure
   filters.each(&:DestroyPropertyFilter) if filters
 end
 
+
 opts :add_net_device do
   summary "Add a network adapter to a virtual machine"
   arg :vm, nil, :lookup => VIM::VirtualMachine
@@ -377,6 +415,7 @@ def add_net_device vm, opts
   else err "unknown device"
   end
 end
+
 
 def _add_device vm, dev
   spec = {
@@ -401,6 +440,7 @@ def _add_net_device vm, klass, network
   )
 end
 
+
 opts :remove_device do
   summary "Remove a virtual device"
   arg :vm, nil, :lookup => VIM::VirtualMachine
@@ -418,6 +458,7 @@ def remove_device vm, label
   vm.ReconfigVM_Task(:spec => spec).wait_for_completion
 end
 
+
 opts :snapshot do
   summary "Snapshot a VM"
   arg :vm, nil, :lookup => VIM::VirtualMachine
@@ -427,6 +468,7 @@ end
 def snapshot vm, name
   progress [vm], :CreateSnapshot, :memory => true, :name => name, :quiesce => false
 end
+
 
 # TODO make fake folder
 opts :snapshots do
@@ -445,6 +487,7 @@ def _display_snapshot_tree nodes, indent
   end
 end
 
+
 opts :revert do
   summary "Revert a VM to its current snapshot"
   arg :vm, nil, :lookup => VIM::VirtualMachine
@@ -453,6 +496,21 @@ end
 def revert vm
   progress [vm], :RevertToCurrentSnapshot
 end
+
+
+opts :migrate do
+  summary "Migrate a VM"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :pool, nil, :short => 'p', :type => :string, :lookup => VIM::ResourcePool
+  opt :host, nil, :short => 'h', :type => :string, :lookup => VIM::HostSystem
+end
+
+def migrate vm, opts
+  progress [vm], :MigrateVM, :pool => opts[:pool],
+                             :host => opts[:host],
+                             :priority => :defaultPriority
+end
+
 
 def find_vmx_files ds
   datastorePath = "[#{ds.name}] /"

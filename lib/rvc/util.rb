@@ -52,6 +52,7 @@ module Util
     conns[0]
   end
 
+  # XXX split out progress bar
   def progress objs, sym, args={}
     connection = single_connection objs
     tasks = objs.map { |obj| obj._call :"#{sym}_Task", args }

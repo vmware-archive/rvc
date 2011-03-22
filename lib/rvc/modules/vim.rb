@@ -73,8 +73,8 @@ def connect uri, opts
     end
   end
 
-  # XXX remove
-  vim.define_singleton_method(:_auth) { { :host => host, :username => username, :password => password } }
+  # Stash the address we used to connect so VMRC can use it.
+  vim.define_singleton_method(:_host) { host }
 
   conn_name = host.dup
   conn_name = "#{conn_name}:1" if $connections.member? conn_name

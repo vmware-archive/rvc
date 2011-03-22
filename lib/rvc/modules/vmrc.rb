@@ -16,25 +16,29 @@ def _find_vmrc vm
   _find_local_vmrc(vm) || search_path('vmrc')
 end
 
+
 opts :view do
   summary "Spawn a VMRC"
   arg :vm, nil, :lookup => VIM::VirtualMachine, :multi => true
 end
 
+rvc_alias :view
+rvc_alias :view, :v
+
 def view vms
   vms.each do |vm|
     err "VMRC not found" unless vmrc = _find_vmrc(vm)
     moref = vm._ref
-    auth = vm._connection._auth
+    ticket = vm._connection.serviceInstance.content.sessionManager.AcquireCloneTicket
+    host = vm._connection._host
     fork do
       ENV['https_proxy'] = ENV['HTTPS_PROXY'] = ''
       $stderr.reopen("#{ENV['HOME']||'.'}/.rvc-vmrc.log", "w")
       $stderr.puts Time.now
       Process.setpgrp
       exec vmrc, '-M', moref,
-                 '-h', auth[:host],
-                 '-u', auth[:username],
-                 '-p', auth[:password]
+                 '-h', host,
+                 '-p', ticket
     end
   end
 end

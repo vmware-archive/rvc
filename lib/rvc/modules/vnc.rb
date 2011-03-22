@@ -7,6 +7,8 @@ opts :view do
   arg :vm, nil, :lookup => VIM::VirtualMachine
 end
 
+rvc_alias :view, :V
+
 def view vm
   ip = reachable_ip vm.runtime.host
   extraConfig = vm.config.extraConfig
@@ -29,6 +31,7 @@ def view vm
   vnc_client ip, port, password
 end
 
+
 opts :off do
   summary "Close a VM's VNC port"
   arg :vm, nil, :lookup => VIM::VirtualMachine
@@ -43,6 +46,7 @@ def off vm
     ]
   }).wait_for_completion
 end
+
 
 private
 
