@@ -91,6 +91,12 @@ In Ruby mode, a '#' at the end of the input line will display the output of the
 "type" command for the resulting object's class. This is very useful for
 exploring the vSphere API.
 
+=== Multiple connections
+
+RVC can connect to more than one ESX or VC server at the same time. Simply add
+more hosts to the command line, or use the command "vim.connect". Each
+connection is represented by a top-level node in the virtual filesystem.
+
 == Extensibility
 
 RVC is designed to let users easily add commands they need. You can create a
