@@ -104,3 +104,11 @@ command module, or add to an existing one, by adding a Ruby file to ~/.rvc or
 any directory on the RVC_MODULE_PATH environment variable. The syntax of a user
 command module is the same as those built-in to RVC, so see the
 "lib/rvc/modules" directory for examples.
+
+If you create a generically useful RVC command, please consider sending in a
+patch so everyone can use it.
+
+== Development
+
+Send patches to rlane@vmware.com, or fork the project on GitHub and send me a
+pull request.
