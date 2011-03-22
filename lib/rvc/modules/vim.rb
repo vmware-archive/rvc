@@ -18,6 +18,8 @@ opts :connect do
   opt :insecure, "don't verify ssl certificate", :short => 'k', :default => (ENV['RBVMOMI_INSECURE'] == '1')
 end
 
+rvc_alias :connect
+
 def connect uri, opts
   match = URI_REGEX.match uri
   Trollop.die "invalid hostname" unless match

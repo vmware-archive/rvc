@@ -225,3 +225,15 @@ def mv src, dst
   obj = lookup(src)
   obj.Rename_Task(:newName => dst_name).wait_for_completion
 end
+
+
+opts :disconnect do
+  summary "Disconnect from a server"
+  arg :connection, nil, :type => :string, :lookup => RbVmomi::VIM
+end
+
+rvc_alias :disconnect
+
+def disconnect connection
+  $connections.delete_if { |k,v| v == connection }
+end

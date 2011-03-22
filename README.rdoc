@@ -94,7 +94,7 @@ exploring the vSphere API.
 === Multiple connections
 
 RVC can connect to more than one ESX or VC server at the same time. Simply add
-more hosts to the command line, or use the command "vim.connect". Each
+more hosts to the command line, or use the command "connect". Each
 connection is represented by a top-level node in the virtual filesystem.
 
 == Extensibility
