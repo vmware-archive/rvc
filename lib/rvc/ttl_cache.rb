@@ -9,8 +9,9 @@ class TTLCache
   end
 
   def [] obj, sym, *args
+    @cache.delete_if { |k,v| v.time + @ttl < Time.now }
     key = [obj,sym,*args]
-    if e = @cache[key] and e.time > Time.now - @ttl
+    if e = @cache[key]
       e.value
     else
       value = obj.send(sym, *args)
