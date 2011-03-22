@@ -70,9 +70,7 @@ class RootNode
   include RVC::InventoryObject
 
   def children
-    Hash[$connections.map do |name,conn|
-      [name, ConnectionNode.new(conn,self)]
-    end]
+    $connections
   end
 
   def parent
@@ -82,27 +80,26 @@ class RootNode
   def self.folder?
     true
   end
+
+  def pretty_print pp
+    pp.text "Root"
+  end
 end
 
-class ConnectionNode
+end
+
+class RbVmomi::VIM
   include RVC::InventoryObject
 
-  def initialize connection, parent
-    @connection = connection
-    @parent = parent
-  end
-
   def children
-    @connection.rootFolder.children
+    rootFolder.children
   end
 
   def parent
-    @parent
+    $context.root
   end
 
   def self.folder?
     true
   end
-end
-
 end
