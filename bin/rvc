@@ -36,6 +36,8 @@ Trollop.die "At least 1 argument expected." unless ARGV.length >= 1
 RVC.reload_modules false
 
 $connections = {}
+$context = RVC::Context.new RVC::RootNode.new
+$shell = RVC::Shell.new
 
 ARGV.each do |uri|
   begin
@@ -47,15 +49,16 @@ ARGV.each do |uri|
   end
 end
 
-$context = RVC::Context.new RVC::RootNode.new
-$context.cd($opts[:path]) if $opts[:path]
-
 RVC::Completion.install
 history_fn = "#{ENV['HOME']}/.rvc-history"
 IO.foreach(history_fn) { |l| Readline::HISTORY << l.chomp } rescue puts "Welcome to RVC. Try the 'help' command."
 history = File.open(history_fn, 'a')
 
-$shell = RVC::Shell.new
+if $opts[:path]
+  $context.cd $opts[:path]
+elsif ARGV.size == 1
+  $context.cd $connections.keys.first
+end
 
 CMD.basic.ls '.'
 
