@@ -9,6 +9,7 @@ opts :view do
   arg :vm, nil, :lookup => VIM::VirtualMachine
 end
 
+rvc_alias :view, :vnc
 rvc_alias :view, :V
 
 def view vm

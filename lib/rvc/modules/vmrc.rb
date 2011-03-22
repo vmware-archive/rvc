@@ -25,6 +25,7 @@ opts :view do
 end
 
 rvc_alias :view
+rvc_alias :view, :vmrc
 rvc_alias :view, :v
 
 def view vms
