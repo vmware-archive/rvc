@@ -1,12 +1,9 @@
 require 'readline'
 require 'rvc/ttl_cache'
 
-unless Readline.respond_to? :line_buffer
-  begin
-    require 'readline_line_buffer'
-  rescue LoadError
-    $stderr.puts "Install the \"bond\" gem for better tab completion."
-  end
+begin
+  require 'rvc/readline-ffi'
+rescue Exception
 end
 
 module RVC
@@ -19,6 +16,22 @@ module Completion
     append_char, candidates = RVC::Completion.complete word, line
     Readline.completion_append_character = append_char
     candidates
+  end
+
+  def self.install
+    unless Readline.respond_to? :line_buffer and
+           Readline.respond_to? :char_is_quoted=
+      $stderr.puts "Install the \"ffi\" gem for better tab completion."
+    end
+
+    if Readline.respond_to? :char_is_quoted=
+      Readline.completer_word_break_characters = " \t\n\"'"
+      Readline.completer_quote_characters = "\"\\"
+      is_quoted = lambda { |str,i| i > 0 && str[i-1] == '\\' && !is_quoted[str,i-1] }
+      Readline.char_is_quoted = is_quoted
+    end
+
+    Readline.completion_proc = Completor
   end
 
   def self.complete word, line
@@ -56,14 +69,16 @@ module Completion
   def self.child_candidates word
     els, absolute, trailing_slash = Path.parse word
     last = trailing_slash ? '' : (els.pop || '')
+    els.map! { |x| x.gsub '\\', '' }
     base_loc = absolute ? Location.new($context.root) : $context.loc
     found_loc = $context.traverse(base_loc, els) or return []
     cur = found_loc.obj
     els.unshift '' if absolute
     children = Cache[cur, :children] rescue []
     children.
-      select { |k,v| k =~ /^#{Regexp.escape(last)}/ }.
-      map { |k,v| (els+[k])*'/' }
+      select { |k,v| k.gsub(' ', '\\ ') =~ /^#{Regexp.escape(last)}/ }.
+      map { |k,v| (els+[k])*'/' }.
+      map { |x| x.gsub ' ', '\\ ' }
   end
 
   def self.mark_candidates word

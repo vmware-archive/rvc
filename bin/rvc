@@ -51,7 +51,7 @@ end
 $context = RVC::Context.new RVC::RootNode.new
 $context.cd($opts[:path]) if $opts[:path]
 
-Readline.completion_proc = RVC::Completion::Completor
+RVC::Completion.install
 history_fn = "#{ENV['HOME']}/.rvc-history"
 IO.foreach(history_fn) { |l| Readline::HISTORY << l.chomp } rescue puts "Welcome to RVC. Try the 'help' command."
 history = File.open(history_fn, 'a')
