@@ -60,7 +60,8 @@ module Completion
     found_loc = $context.traverse(base_loc, els) or return []
     cur = found_loc.obj
     els.unshift '' if absolute
-    Cache[cur, :children].
+    children = Cache[cur, :children] rescue []
+    children.
       select { |k,v| k =~ /^#{Regexp.escape(last)}/ }.
       map { |k,v| (els+[k])*'/' }
   end
