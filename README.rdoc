@@ -68,6 +68,10 @@ automatically creates the mark "~~" pointing to the previous directory. If a
 mark reference is input instead of a command then RVC will cd to the marked
 object. Thus, "~~" is a convenient way to toggle between two directories.
 
+When the working directory is a descendant of a Datacenter object, the mark "~"
+refers to the Datacenter. For example "~/datastore" is a convenient way to get
+the datastore folder of the current datacenter.
+
 === Ruby mode
 
 Beginning an input line with "/" causes RVC to treat it as Ruby code and eval
