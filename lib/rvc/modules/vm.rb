@@ -55,9 +55,9 @@ end
 opts :create do
   summary "Create a new VM"
   arg :name, "Name"
-  opt :pool, nil, :short => 'p', :type => :string, :lookup => VIM::ResourcePool
-  opt :host, nil, :short => 'h', :type => :string, :lookup => VIM::HostSystem
-  opt :datastore, nil, :short => 'd', :type => :string, :lookup => VIM::Datastore
+  opt :pool, "Resource pool", :short => 'p', :type => :string, :lookup => VIM::ResourcePool
+  opt :host, "Host", :short => 'h', :type => :string, :lookup => VIM::HostSystem
+  opt :datastore, "Datastore", :short => 'd', :type => :string, :lookup => VIM::Datastore
 end
 
 def create name, opts
@@ -259,8 +259,8 @@ end
 opts :find do
   summary "Display a menu of VMX files to register"
   arg :datastore, nil, :lookup => VIM::Datastore
-  opt :resource_pool, nil, :short => 'R', :type => :string, :lookup => VIM::ResourcePool
-  opt :folder, nil, :short => 'F', :type => :string, :default => ".", :lookup => VIM::Folder
+  opt :resource_pool, "Resource pool", :short => 'R', :type => :string, :lookup => VIM::ResourcePool
+  opt :folder, "Folder to register in", :short => 'F', :type => :string, :default => ".", :lookup => VIM::Folder
 end
 
 def find ds, opts
@@ -503,8 +503,8 @@ end
 opts :migrate do
   summary "Migrate a VM"
   arg :vm, nil, :lookup => VIM::VirtualMachine, :multi => true
-  opt :pool, nil, :short => 'p', :type => :string, :lookup => VIM::ResourcePool
-  opt :host, nil, :short => 'h', :type => :string, :lookup => VIM::HostSystem
+  opt :pool, "Resource pool", :short => 'p', :type => :string, :lookup => VIM::ResourcePool
+  opt :host, "Host", :short => 'h', :type => :string, :lookup => VIM::HostSystem
 end
 
 def migrate vms, opts
