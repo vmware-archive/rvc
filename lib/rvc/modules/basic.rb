@@ -243,3 +243,17 @@ rvc_alias :disconnect
 def disconnect connection
   $shell.connections.delete_if { |k,v| v == connection }
 end
+
+
+opts :mkdir do
+  summary "Create a folder"
+  arg :path, "Folder to create", :type => :string
+end
+
+rvc_alias :mkdir
+
+# TODO dispatch to datastore.mkdir if path is in a datastore
+def mkdir path
+  parent = lookup! File.dirname(path), RbVmomi::VIM::Folder
+  parent.CreateFolder(:name => File.basename(path))
+end
