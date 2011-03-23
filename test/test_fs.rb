@@ -18,7 +18,7 @@ class FSTest < Test::Unit::TestCase
 
   def test_new
     assert_equal Root, @context.cur
-    assert_equal "/", @context.display_path
+    assert_equal "", @context.display_path
     assert_equal 0, @context.marks.size
     assert_equal [''], @context.loc.path
     assert_equal [['', Root]], @context.loc.stack
