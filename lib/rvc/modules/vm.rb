@@ -162,7 +162,7 @@ opts :register do
 end
 
 def register vmx_file, opts
-  rp = opts[:resourcePool] || opts[:folder]._connection.rootFolder.childEntity[0].hostFolder.childEntity[0].resourcePool
+  rp = opts[:resource_pool] || opts[:folder]._connection.rootFolder.childEntity[0].hostFolder.childEntity[0].resourcePool
   vm = opts[:folder].RegisterVM_Task(:path => vmx_file.datastore_path,
                                      :asTemplate => false,
                                      :pool => rp).wait_for_completion
@@ -265,7 +265,7 @@ end
 
 def find ds, opts
   folder = opts[:folder]
-  rp = opts[:resourcePool] || opts[:folder]._connection.rootFolder.childEntity[0].hostFolder.childEntity[0].resourcePool
+  rp = opts[:resource_pool] || opts[:folder]._connection.rootFolder.childEntity[0].hostFolder.childEntity[0].resourcePool
 
   paths = find_vmx_files(ds)
   if paths.empty?
@@ -531,7 +531,7 @@ def find_vmx_files ds
   files = []
   results.each do |result|
     result.file.each do |file|
-      files << result.folderPath + '/' + file.path
+      files << result.folderPath + file.path
     end
   end
 
