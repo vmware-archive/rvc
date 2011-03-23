@@ -32,7 +32,7 @@ EOS
   opt :cmd, "command to evaluate", :short => 'c', :multi => true, :type => :string
 end
 
-Trollop.die "At least 1 argument expected." unless ARGV.length >= 1
+Trollop.die "At least 1 argument expected" unless ARGV.length >= 1
 
 RVC.reload_modules false
 
