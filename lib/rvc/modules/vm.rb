@@ -341,6 +341,8 @@ opts :rvc do
   arg :vm, nil, :lookup => VIM::VirtualMachine
 end
 
+rvc_alias :rvc
+
 def rvc vm
   ip = vm_ip vm
 
