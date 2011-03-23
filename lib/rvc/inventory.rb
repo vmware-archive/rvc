@@ -72,7 +72,7 @@ class RootNode
   include RVC::InventoryObject
 
   def children
-    $connections
+    $shell.connections
   end
 
   def parent
@@ -98,7 +98,7 @@ class RbVmomi::VIM
   end
 
   def parent
-    $context.root
+    $shell.fs.root
   end
 
   def self.folder?

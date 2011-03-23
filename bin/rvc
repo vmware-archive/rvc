@@ -36,8 +36,6 @@ Trollop.die "At least 1 argument expected." unless ARGV.length >= 1
 
 RVC.reload_modules false
 
-$connections = {}
-$context = RVC::Context.new RVC::RootNode.new
 $shell = RVC::Shell.new
 
 ARGV.each do |uri|
@@ -56,9 +54,9 @@ IO.foreach(history_fn) { |l| Readline::HISTORY << l.chomp } rescue puts "Welcome
 history = File.open(history_fn, 'a')
 
 if $opts[:path]
-  $context.cd $opts[:path]
+  $shell.fs.cd $opts[:path]
 elsif ARGV.size == 1
-  $context.cd $connections.keys.first
+  $shell.fs.cd $shell.connections.keys.first
 end
 
 CMD.basic.ls '.'

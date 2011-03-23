@@ -72,8 +72,8 @@ module Completion
     els, absolute, trailing_slash = Path.parse word
     last = trailing_slash ? '' : (els.pop || '')
     els.map! { |x| x.gsub '\\', '' }
-    base_loc = absolute ? Location.new($context.root) : $context.loc
-    found_loc = $context.traverse(base_loc, els) or return []
+    base_loc = absolute ? Location.new($shell.fs.root) : $shell.fs.loc
+    found_loc = $shell.fs.traverse(base_loc, els) or return []
     cur = found_loc.obj
     els.unshift '' if absolute
     children = Cache[cur, :children] rescue []
@@ -86,7 +86,7 @@ module Completion
   def self.mark_candidates word
     return [] unless word.empty? || word[0..0] == '~'
     prefix_regex = /^#{Regexp.escape(word[1..-1] || '')}/
-    $context.marks.keys.sort.grep(prefix_regex).map { |x| "~#{x}" }
+    $shell.fs.marks.keys.sort.grep(prefix_regex).map { |x| "~#{x}" }
   end
 end
 end

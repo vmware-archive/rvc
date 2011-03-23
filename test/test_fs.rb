@@ -2,14 +2,14 @@ require 'test/unit'
 require 'rvc'
 require 'inventory_fixtures'
 
-class ContextTest < Test::Unit::TestCase
+class FSTest < Test::Unit::TestCase
   NodeB = FixtureNode.new 'B'
   NodeC = FixtureNode.new 'C'
   NodeA = FixtureNode.new('A', 'b' => NodeB, 'c' => NodeC)
   Root = FixtureNode.new('ROOT', 'a' => NodeA)
 
   def setup
-    @context = RVC::Context.new Root
+    @context = RVC::FS.new Root
   end
 
   def teardown

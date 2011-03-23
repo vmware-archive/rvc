@@ -102,12 +102,12 @@ end
 rvc_alias :cd
 
 def cd path
-  $context.cd(path) or err "Not found: #{path.inspect}"
-  dc_loc = $context.loc.dup
+  $shell.fs.cd(path) or err "Not found: #{path.inspect}"
+  dc_loc = $shell.fs.loc.dup
   dc_loc.pop while dc_loc.obj and not dc_loc.obj.is_a? VIM::Datacenter
   dc_loc = nil if dc_loc.obj == nil
-  $context.mark '', dc_loc
-  $context.marks.delete_if { |k,v| k =~ /^\d+$/ }
+  $shell.fs.mark '', dc_loc
+  $shell.fs.marks.delete_if { |k,v| k =~ /^\d+$/ }
 end
 
 
@@ -120,7 +120,7 @@ rvc_alias :ls
 rvc_alias :ls, :l
 
 def ls path
-  loc = $context.lookup_loc(path) or err "Not found: #{path.inspect}"
+  loc = $shell.fs.lookup_loc(path) or err "Not found: #{path.inspect}"
   obj = loc.obj
   children = obj.children
   name_map = children.invert
@@ -130,7 +130,7 @@ def ls path
   fake_children.each do |name,obj|
     puts "#{i} #{name}#{obj.ls_text(nil)}"
     mark_loc = loc.dup.tap { |x| x.push name, obj }
-    $context.mark i.to_s, mark_loc
+    $shell.fs.mark i.to_s, mark_loc
     i += 1
   end
 
@@ -160,7 +160,7 @@ def ls path
     realname = r['name'] if name != r['name']
     puts "#{i} #{name}#{realname && " [#{realname}]"}#{text}"
     mark_loc = loc.dup.tap { |x| x.push name, r.obj }
-    $context.mark i.to_s, mark_loc
+    $shell.fs.mark i.to_s, mark_loc
     i += 1
   end
 end
@@ -206,8 +206,8 @@ rvc_alias :mark, :m
 
 def mark key, path
   err "invalid mark name" unless key =~ /^\w+$/
-  obj = $context.lookup_loc(path) or err "Not found: #{path.inspect}" 
-  $context.mark key, obj
+  obj = $shell.fs.lookup_loc(path) or err "Not found: #{path.inspect}" 
+  $shell.fs.mark key, obj
 end
 
 

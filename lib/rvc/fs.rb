@@ -31,7 +31,7 @@ class Location
   end
 end
 
-class Context
+class FS
   attr_reader :root, :loc, :marks
 
   MARK_REGEX = /^~(?:([\d\w]*|~))$/

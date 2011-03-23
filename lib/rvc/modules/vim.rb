@@ -85,10 +85,10 @@ def connect uri, opts
   vim.define_singleton_method(:_host) { host }
 
   conn_name = host.dup
-  conn_name = "#{conn_name}:1" if $connections.member? conn_name
-  conn_name.succ! while $connections.member? conn_name
+  conn_name = "#{conn_name}:1" if $shell.connections.member? conn_name
+  conn_name.succ! while $shell.connections.member? conn_name
 
-  $connections[conn_name] = vim
+  $shell.connections[conn_name] = vim
 end
 
 def prompt_password

@@ -3,10 +3,13 @@
 module RVC
 
 class Shell
+  attr_reader :fs, :connections
 
   def initialize
     @persist_ruby = false
-    @ruby_context = RubyEvalContext.new
+    @fs = RVC::FS.new RVC::RootNode.new
+    @ruby_evaluator = RubyEvaluator.new @fs
+    @connections = {}
   end
 
   def eval_input input
@@ -57,7 +60,7 @@ class Shell
     return unless cmd
     err "invalid command" unless cmd.is_a? String
     case cmd
-    when RVC::Context::MARK_REGEX
+    when RVC::FS::MARK_REGEX
       CMD.basic.cd cmd
     else
       if cmd.include? '.'
@@ -90,7 +93,7 @@ class Shell
   end
 
   def eval_ruby input
-    result = @ruby_context.do_eval input
+    result = @ruby_evaluator.do_eval input
     if input =~ /\#$/
       introspect_object result
     else
@@ -100,7 +103,7 @@ class Shell
   end
 
   def prompt
-    "#{$context.display_path}#{@persist_ruby ? '~' : '>'} "
+    "#{@fs.display_path}#{@persist_ruby ? '~' : '>'} "
   end
 
   def introspect_object obj
@@ -154,9 +157,10 @@ class Shell
   end
 end
 
-class RubyEvalContext
-  def initialize
+class RubyEvaluator
+  def initialize fs
     @binding = binding
+    @fs = fs
   end
 
   def do_eval input
@@ -164,11 +168,11 @@ class RubyEvalContext
   end
 
   def this
-    $context.cur
+    @fs.cur
   end
 
   def dc
-    $context.lookup("~")
+    @fs.lookup("~")
   end
 
   def conn
@@ -180,10 +184,10 @@ class RubyEvalContext
     if a.empty?
       if MODULES.member? str
         MODULES[str]
-      elsif $context.marks.member?(str)
-        $context.marks[str].obj
-      elsif str[0..0] == '_' && $context.marks.member?(str[1..-1])
-        $context.marks[str[1..-1]].obj
+      elsif @fs.marks.member?(str)
+        @fs.marks[str].obj
+      elsif str[0..0] == '_' && @fs.marks.member?(str[1..-1])
+        @fs.marks[str[1..-1]].obj
       else
         super
       end

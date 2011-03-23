@@ -5,7 +5,7 @@ module Util
   extend self
 
   def lookup path
-    $context.lookup path
+    $shell.fs.lookup path
   end
 
   def lookup! path, type
