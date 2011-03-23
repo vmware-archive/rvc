@@ -64,7 +64,7 @@ end
 rvc_alias :debug
 
 def debug
-  $connections.each do |name,conn|
+  $shell.connections.each do |name,conn|
     conn.debug = !conn.debug
   end
 end
@@ -237,5 +237,5 @@ end
 rvc_alias :disconnect
 
 def disconnect connection
-  $connections.delete_if { |k,v| v == connection }
+  $shell.connections.delete_if { |k,v| v == connection }
 end
