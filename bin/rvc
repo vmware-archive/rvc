@@ -54,9 +54,9 @@ IO.foreach(history_fn) { |l| Readline::HISTORY << l.chomp } rescue puts "Welcome
 history = File.open(history_fn, 'a')
 
 if $opts[:path]
-  $shell.fs.cd $opts[:path]
+  CMD.basic.cd $opts[:path]
 elsif ARGV.size == 1
-  $shell.fs.cd $shell.connections.keys.first
+  CMD.basic.cd $shell.connections.keys.first
 end
 
 CMD.basic.ls '.'
