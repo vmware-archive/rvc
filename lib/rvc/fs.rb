@@ -34,7 +34,7 @@ end
 class FS
   attr_reader :root, :loc, :marks
 
-  MARK_REGEX = /^~(?:([\d\w]*|~))$/
+  MARK_REGEX = /^~(?:([\d\w]*|~|@))$/
 
   def initialize root
     @root = root

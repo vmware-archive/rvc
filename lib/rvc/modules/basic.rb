@@ -103,11 +103,15 @@ rvc_alias :cd
 
 def cd path
   $shell.fs.cd(path) or err "Not found: #{path.inspect}"
-  dc_loc = $shell.fs.loc.dup
-  dc_loc.pop while dc_loc.obj and not dc_loc.obj.is_a? VIM::Datacenter
-  dc_loc = nil if dc_loc.obj == nil
-  $shell.fs.mark '', dc_loc
+  $shell.fs.mark '', find_ancestor_loc(RbVmomi::VIM::Datacenter)
+  $shell.fs.mark '@', find_ancestor_loc(RbVmomi::VIM)
   $shell.fs.marks.delete_if { |k,v| k =~ /^\d+$/ }
+end
+
+def find_ancestor_loc klass
+  dc_loc = $shell.fs.loc.dup
+  dc_loc.pop while dc_loc.obj and not dc_loc.obj.is_a? klass
+  dc_loc.obj ? dc_loc : nil
 end
 
 

@@ -176,7 +176,7 @@ class RubyEvaluator
   end
 
   def conn
-    (dc || return)._connection
+    @fs.lookup("~@")
   end
 
   def method_missing sym, *a
