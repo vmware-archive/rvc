@@ -29,6 +29,7 @@ EOS
 
   opt :insecure, "don't verify ssl certificate", :short => 'k', :default => (ENV['RBVMOMI_INSECURE'] == '1')
   opt :path, "Initial directory", :short => :none, :default => ENV['RVC_PATH'], :type => :string
+  opt :create_directory, "Create the initial directory if it doesn't exist", :short => :none
   opt :cmd, "command to evaluate", :short => 'c', :multi => true, :type => :string
 end
 
@@ -54,7 +55,14 @@ IO.foreach(history_fn) { |l| Readline::HISTORY << l.chomp } rescue puts "Welcome
 history = File.open(history_fn, 'a')
 
 if $opts[:path]
-  CMD.basic.cd $opts[:path]
+  begin
+    CMD.basic.cd $opts[:path]
+  rescue UserError
+    raise unless $opts[:create_directory]
+    parent_path = File.dirname($opts[:path])
+    lookup(parent_path).CreateFolder(:name => File.basename($opts[:path]))
+    CMD.basic.cd $opts[:path]
+  end
 elsif ARGV.size == 1
   CMD.basic.cd $shell.connections.keys.first
 end
