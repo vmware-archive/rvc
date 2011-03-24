@@ -4,12 +4,14 @@ module RVC
 
 class Shell
   attr_reader :fs, :connections
+  attr_accessor :debug
 
   def initialize
     @persist_ruby = false
     @fs = RVC::FS.new RVC::RootNode.new
     @ruby_evaluator = RubyEvaluator.new @fs
     @connections = {}
+    @debug = false
   end
 
   def eval_input input
@@ -38,7 +40,7 @@ class Shell
     rescue SystemExit, IOError
       raise
     rescue UserError, RuntimeError, RbVmomi::Fault
-      if ruby
+      if ruby or debug
         puts "#{$!.class}: #{$!.message}"
         puts $!.backtrace * "\n"
       else
