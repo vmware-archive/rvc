@@ -1,7 +1,5 @@
 # Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
 
-include RVC::Util
-
 opts :on do
   summary "Power on VMs"
   arg :vm, nil, :multi => true, :lookup => VIM::VirtualMachine

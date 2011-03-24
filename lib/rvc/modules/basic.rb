@@ -1,7 +1,5 @@
 # Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
 
-include RVC::Util
-
 opts :type do
   summary "Display information about a VMODL type"
   arg :name, "VMODL type name"

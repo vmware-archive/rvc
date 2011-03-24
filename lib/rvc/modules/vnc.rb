@@ -1,7 +1,5 @@
 # Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
 
-include RVC::Util
-
 VNC = ENV['VNC'] || search_path('vinagre') || search_path('tightvnc')
 
 opts :view do
@@ -50,8 +48,6 @@ def off vm
   }).wait_for_completion
 end
 
-
-private
 
 def reachable_ip host
   ips = host.config.network.vnic.map { |x| x.spec.ip.ipAddress } # TODO optimize

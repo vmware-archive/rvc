@@ -5,7 +5,7 @@ module RVC
 ALIASES = {}
 MODULES = {}
 
-class CmdModule < Module
+class CmdModule
   def initialize module_name
     @module_name = module_name
     @opts = {}

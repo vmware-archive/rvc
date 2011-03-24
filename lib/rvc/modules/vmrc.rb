@@ -1,7 +1,5 @@
 # Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
 
-include RVC::Util
-
 # TODO windows tmp folder
 def _local_vmrc_dir ver, is64
   File.join("/tmp", "vmrc-#{Process::UID.eid}-#{ver}-#{is64 ? '64' : '32'}")
