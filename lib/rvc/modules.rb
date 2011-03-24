@@ -13,7 +13,7 @@ class CmdModule < Module
   end
 
   def commands
-    @commands ||= (public_methods(false) - CmdModule.instance_methods).reject { |x| x.to_s[0..0] == '_' }
+    @opts.keys
   end
 
   def opts cmd, &b
