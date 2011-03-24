@@ -1,3 +1,5 @@
+# Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
+
 opts :create do
   summary "Create a resource pool"
   arg :name, "Name of the new resource pool."
