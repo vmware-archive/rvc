@@ -516,6 +516,32 @@ def migrate vms, opts
 end
 
 
+opts :clone do
+  summary "Clone a VM"
+  arg :src, nil, :lookup => VIM::VirtualMachine
+  arg :dst, "Path to new VM"
+  opt :pool, "Resource pool", :short => 'p', :type => :string, :lookup => VIM::ResourcePool
+  opt :host, "Host", :short => 'h', :type => :string, :lookup => VIM::HostSystem
+  opt :template, "Create a template"
+  opt :powerOn, "Power on VM after clone"
+end
+
+def clone src, dst, opts
+  folder = lookup! File.dirname(dst), VIM::Folder
+  task = src.CloneVM_Task(:folder => folder,
+                          :name => File.basename(dst),
+                          :spec => {
+                            :location => {
+                              :host => opts[:host],
+                              :pool => opts[:pool],
+                            },
+                            :template => opts[:template],
+                            :powerOn => opts[:powerOn],
+                          })
+  progress [task]
+end
+
+
 def find_vmx_files ds
   datastorePath = "[#{ds.name}] /"
   searchSpec = {
