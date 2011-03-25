@@ -1,19 +1,17 @@
 # Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
 
-# TODO windows tmp folder
-def _local_vmrc_dir ver, is64
-  File.join("/tmp", "vmrc-#{Process::UID.eid}-#{ver}-#{is64 ? '64' : '32'}")
-end
+require 'tmpdir'
 
-def _find_local_vmrc vm
-  ver = vm._connection.serviceInstance.content.about.version
-  is64 = `uname -m`.chomp == 'x86_64'
-  path = File.join(_local_vmrc_dir(ver, is64), 'plugins', 'vmware-vmrc')
+VMRC_NAME = "vmware-vmrc-linux-x86-3.0.0"
+VMRC_URL = "https://github.com/downloads/vmware/rvc/#{VMRC_NAME}.1.tar.bz2"
+
+def find_local_vmrc
+  path = File.join(Dir.tmpdir, VMRC_NAME, 'plugins', 'vmware-vmrc')
   File.exists?(path) && path
 end
 
-def _find_vmrc vm
-  _find_local_vmrc(vm) || search_path('vmrc')
+def find_vmrc
+  find_local_vmrc || search_path('vmrc')
 end
 
 
@@ -27,8 +25,8 @@ rvc_alias :view, :vmrc
 rvc_alias :view, :v
 
 def view vms
+  err "VMRC not found" unless vmrc = find_vmrc
   vms.each do |vm|
-    err "VMRC not found" unless vmrc = _find_vmrc(vm)
     moref = vm._ref
     ticket = vm._connection.serviceInstance.content.sessionManager.AcquireCloneTicket
     host = vm._connection._host
@@ -42,4 +40,14 @@ def view vms
                  '-p', ticket
     end
   end
+end
+
+opts :install do
+  summary "Install VMRC"
+end
+
+def install
+  puts "Installing VMRC..."
+  system "curl -L #{VMRC_URL} | tar -xj -C #{Dir.tmpdir}" or err("VMRC installation failed")
+  puts "VMRC was installed successfully."
 end
