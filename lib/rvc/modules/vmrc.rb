@@ -3,7 +3,8 @@
 require 'tmpdir'
 
 VMRC_NAME = "vmware-vmrc-linux-x86-3.0.0"
-VMRC_URL = "https://github.com/downloads/vmware/rvc/#{VMRC_NAME}.1.tar.bz2"
+VMRC_PKGVER = 1
+VMRC_URL = "https://github.com/downloads/vmware/rvc/#{VMRC_NAME}.#{VMRC_PKGVER}.tar.bz2"
 
 def find_local_vmrc
   path = File.join(Dir.tmpdir, VMRC_NAME, 'plugins', 'vmware-vmrc')
