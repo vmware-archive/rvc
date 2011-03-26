@@ -57,7 +57,7 @@ def help path
     opts.each do |method_name,method_opts|
       parser = RVC::OptionParser.new method_name, &method_opts
       next unless obj.nil? or parser.applicable.any? { |x| obj.is_a? x }
-      aliases = ALIASES.select { |k,v| v == "#{mod_name}.#{method_name}" }.keys
+      aliases = ALIASES.select { |k,v| v == "#{mod_name}.#{method_name}" }.map(&:first)
       aliases_text = aliases.empty? ? '' : " (#{aliases*', '})"
       puts "#{mod_name}.#{method_name}#{aliases_text}: #{parser.summary?}" if parser.summary?
     end
