@@ -10,7 +10,7 @@ begin
     gem.add_dependency 'rbvmomi', '>= 1.2.2'
     gem.add_dependency 'trollop', '>= 1.16.2'
     gem.add_dependency 'backports', '>= 1.18.2'
-    gem.add_dependency 'ffi', '>= 1.0.7'
+    #gem.add_dependency 'ffi', '>= 1.0.7'
   end
 rescue LoadError
   puts "Jeweler not available. Install it with: gem install jeweler"
