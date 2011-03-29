@@ -51,8 +51,10 @@ def view vms
     host = vm._connection._host
     fork do
       ENV['https_proxy'] = ENV['HTTPS_PROXY'] = ''
-      $stderr.reopen("#{ENV['HOME']||'.'}/.rvc-vmrc.log", "w")
+      $stderr.reopen("#{ENV['HOME']||'.'}/.rvc-vmrc.log", "a")
       $stderr.puts Time.now
+      $stderr.puts "Using VMRC #{vmrc}"
+      $stderr.flush
       Process.setpgrp
       exec vmrc, '-M', moref,
                  '-h', host,
