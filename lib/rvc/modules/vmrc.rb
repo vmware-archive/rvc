@@ -24,6 +24,8 @@ VMRC_NAME = "vmware-vmrc-linux-x86-3.0.0"
 VMRC_PKGVER = 1
 VMRC_URL = "https://github.com/downloads/vmware/rvc/#{VMRC_NAME}.#{VMRC_PKGVER}.tar.bz2"
 
+CURL = ENV['CURL'] || 'curl'
+
 def find_local_vmrc
   path = File.join(Dir.tmpdir, VMRC_NAME, 'plugins', 'vmware-vmrc')
   File.exists?(path) && path
@@ -69,6 +71,6 @@ end
 
 def install
   puts "Installing VMRC..."
-  system "curl -L #{VMRC_URL} | tar -xj -C #{Dir.tmpdir}" or err("VMRC installation failed")
+  system "#{CURL} -L #{VMRC_URL} | tar -xj -C #{Dir.tmpdir}" or err("VMRC installation failed")
   puts "VMRC was installed successfully."
 end
