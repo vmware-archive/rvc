@@ -70,3 +70,25 @@ def evacuate src, dsts, opts
 
   progress tasks
 end
+
+
+opts :enter_maintenance_mode do
+  summary "Put hosts into maintenance mode"
+  arg :host, nil, :lookup => VIM::HostSystem, :multi => true
+  opt :timeout, "Timeout", :default => 0
+end
+
+def enter_maintenance_mode hosts, opts
+  tasks hosts, :EnterMaintenanceMode, :timeout => opts[:timeout]
+end
+
+
+opts :exit_maintenance_mode do
+  summary "Take hosts out of maintenance mode"
+  arg :host, nil, :lookup => VIM::HostSystem, :multi => true
+  opt :timeout, "Timeout", :default => 0
+end
+
+def exit_maintenance_mode hosts, opts
+  tasks hosts, :ExitMaintenanceMode, :timeout => opts[:timeout]
+end
