@@ -27,3 +27,46 @@ end
 def reboot hosts, opts
   tasks hosts, :RebootHost, :force => opts[:force]
 end
+
+
+opts :evacuate do
+  summary "vMotion all VMs away from this host (experimental)"
+  arg :src, nil, :lookup => VIM::HostSystem
+  arg :dst, nil, :lookup => VIM::ComputeResource, :multi => true
+  opt :num, "Maximum concurrent vMotions", :default => 4
+end
+
+def evacuate src, dsts, opts
+  vim = src._connection
+  vms = src.vm
+  dst_hosts = dsts.map(&:host).flatten
+  checks = ['cpu', 'software']
+
+  dst_hosts.reject! { |host| host == src ||
+                             host.runtime.connectionState != 'connected' ||
+                             host.runtime.inMaintenanceMode }
+
+  candidates = {}
+  vms.each do |vm|
+    required_datastores = vm.datastore
+    result = vim.serviceInstance.QueryVMotionCompatibility(:vm => vm,
+                                                           :host => dst_hosts,
+                                                           :compatibility => checks)
+    result.reject! { |x| x.compatibility != checks ||
+                         x.host.datastore & required_datastores != required_datastores }
+    candidates[vm] = result.map { |x| x.host }
+  end
+
+  if candidates.any? { |vm,hosts| hosts.empty? }
+    puts "The following VMs have no compatible vMotion destination:"
+    candidates.select { |vm,hosts| hosts.empty? }.each { |vm,hosts| puts " #{vm.name}" }
+    return
+  end
+
+  tasks = candidates.map do |vm,hosts|
+    host = hosts[rand(hosts.size)]
+    vm.MigrateVM_Task(:host => host, :priority => :defaultPriority)
+  end
+
+  progress tasks
+end
