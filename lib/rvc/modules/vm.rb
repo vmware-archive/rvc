@@ -538,16 +538,25 @@ opts :clone do
   arg :dst, "Path to new VM"
   opt :pool, "Resource pool", :short => 'p', :type => :string, :lookup => VIM::ResourcePool
   opt :host, "Host", :short => 'h', :type => :string, :lookup => VIM::HostSystem
-  opt :template, "Create a template"
+  opt :template, "Create a template", :short => 't'
+  opt :linked, "Create a linked clone", :short => 'l'
   opt :powerOn, "Power on VM after clone"
 end
 
 def clone src, dst, opts
   folder = lookup! File.dirname(dst), VIM::Folder
+  diskMoveType = nil
+
+  if opts[:linked]
+    deltaize_disks src
+    diskMoveType = :moveChildMostDiskBacking
+  end
+
   task = src.CloneVM_Task(:folder => folder,
                           :name => File.basename(dst),
                           :spec => {
                             :location => {
+                              :diskMoveType => diskMoveType,
                               :host => opts[:host],
                               :pool => opts[:pool],
                             },
@@ -557,6 +566,27 @@ def clone src, dst, opts
   progress [task]
 end
 
+
+def deltaize_disks vm
+  real_disks = vm.config.hardware.device.grep(VIM::VirtualDisk).select { |x| x.backing.parent == nil }
+  unless real_disks.empty?
+    puts "Reconfiguring source VM to use delta disks..."
+    deviceChange = []
+    real_disks.each do |disk|
+      deviceChange << { :operation => :remove, :device => disk }
+      deviceChange << {
+        :operation => :add,
+        :fileOperation => :create,
+        :device => disk.dup.tap { |x|
+          x.backing = x.backing.dup
+          x.backing.fileName = "[#{disk.backing.datastore.name}]"
+          x.backing.parent = disk.backing
+        }
+      }
+    end
+    progress [vm.ReconfigVM_Task(:spec => { :deviceChange => deviceChange })]
+  end
+end
 
 def find_vmx_files ds
   datastorePath = "[#{ds.name}] /"
