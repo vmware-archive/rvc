@@ -8,4 +8,3 @@ storage vmotion
 add/edit/delete clusters
 add/remove hosts from clusters
 add resource usage for hosts/clusters to info
-guest power operations

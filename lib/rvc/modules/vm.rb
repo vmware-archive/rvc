@@ -68,6 +68,36 @@ def suspend vms
 end
 
 
+opts :shutdown_guest do
+  summary "Shut down guest OS"
+  arg :vm, nil, :multi => true, :lookup => VIM::VirtualMachine
+end
+
+def shutdown_guest vms
+  vms.each(&:ShutdownGuest)
+end
+
+
+opts :standby_guest do
+  summary "Suspend guest OS"
+  arg :vm, nil, :multi => true, :lookup => VIM::VirtualMachine
+end
+
+def standby_guest vms
+  vms.each(&:StandbyGuest)
+end
+
+
+opts :reboot_guest do
+  summary "Reboot guest OS"
+  arg :vm, nil, :multi => true, :lookup => VIM::VirtualMachine
+end
+
+def reboot_guest vms
+  vms.each(&:RebootGuest)
+end
+
+
 opts :create do
   summary "Create a new VM"
   arg :name, "Name"
