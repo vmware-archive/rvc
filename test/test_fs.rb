@@ -116,16 +116,29 @@ class FSTest < Test::Unit::TestCase
     assert_equal [['', Root], ['a', NodeA]], @context.loc.stack
   end
 
-  def test_wildcard
+  def test_regex
     daa = [['', Root], ['d', NodeD], ['daa', NodeDaa]]
     dab = [['', Root], ['d', NodeD], ['dab', NodeDab]]
     dabc = [['', Root], ['d', NodeD], ['dabc', NodeDabc]]
     dac = [['', Root], ['d', NodeD], ['dac', NodeDac]]
-    locs = @context.lookup_loc '/d/^daa'
+    locs = @context.lookup_loc '/d/%^daa'
     assert_equal [daa], locs.map(&:stack)
-    locs = @context.lookup_loc '/d/^daa.*'
+    locs = @context.lookup_loc '/d/%^daa.*'
     assert_equal [daa], locs.map(&:stack)
-    locs = @context.lookup_loc '/d/^da.*c'
+    locs = @context.lookup_loc '/d/%^da.*c'
+    assert_equal [dabc, dac], locs.map(&:stack)
+  end
+
+  def test_glob
+    daa = [['', Root], ['d', NodeD], ['daa', NodeDaa]]
+    dab = [['', Root], ['d', NodeD], ['dab', NodeDab]]
+    dabc = [['', Root], ['d', NodeD], ['dabc', NodeDabc]]
+    dac = [['', Root], ['d', NodeD], ['dac', NodeDac]]
+    locs = @context.lookup_loc '/d/*daa*'
+    assert_equal [daa], locs.map(&:stack)
+    locs = @context.lookup_loc '/d/d*a'
+    assert_equal [daa], locs.map(&:stack)
+    locs = @context.lookup_loc '/d/da*c'
     assert_equal [dabc, dac], locs.map(&:stack)
   end
 end

@@ -52,6 +52,15 @@ the "vm" module, but since it is a common operation it has been aliased to
 Commands and paths can be tab completed in the usual fashion. Whitespace must
 be escaped with a backslash.
 
+=== Wildcards
+
+Many commands such as "vm.on" can operate on multiple objects at once. RVC
+supports simple globbing using "*" as well as advanced regex syntax. To use a
+regex, prefix the path element with "%". For example: "vm.on myvms/%^(linux|windows)"
+will power on VMs whose names start with "linux" or "windows" in the "myvms" folder.
+Note that it is necessary to explicitly anchor the pattern with "^" and "$" if you
+wish to match the whole path element.
+
 === Marks
 
   192.168.1.105:/> mark a dc/vm/foo

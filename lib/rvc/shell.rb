@@ -80,7 +80,7 @@ class Shell
     return unless cmd
     err "invalid command" unless cmd.is_a? String
     case cmd
-    when RVC::FS::MARK_REGEX
+    when RVC::FS::MARK_PATTERN
       CMD.basic.cd cmd
     else
       if cmd.include? '.'

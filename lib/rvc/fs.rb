@@ -52,8 +52,9 @@ end
 class FS
   attr_reader :root, :loc, :marks
 
-  MARK_REGEX = /^~(?:([\d\w]*|~|@))$/
-  WILDCARD_REGEX = /^\^/
+  MARK_PATTERN = /^~(?:([\d\w]*|~|@))$/
+  REGEX_PATTERN = /^%/
+  GLOB_PATTERN = /\*/
 
   def initialize root
     @root = root
@@ -94,12 +95,17 @@ class FS
     when '...'
       loc.push(el, loc.obj.parent) unless loc.obj == @root
       [loc]
-    when MARK_REGEX
+    when MARK_PATTERN
       return unless first
       loc = @marks[$1] or return []
       [loc.dup]
-    when WILDCARD_REGEX
+    when REGEX_PATTERN
       regex = Regexp.new($')
+      loc.obj.children.
+        select { |k,v| k =~ regex }.
+        map { |k,v| loc.dup.tap { |x| x.push(k, v) } }
+    when GLOB_PATTERN
+      regex = glob_to_regex el
       loc.obj.children.
         select { |k,v| k =~ regex }.
         map { |k,v| loc.dup.tap { |x| x.push(k, v) } }
@@ -132,6 +138,10 @@ class FS
     else
       @marks[key] = loc
     end
+  end
+
+  def glob_to_regex str
+    Regexp.new "^#{Regexp.escape(str.gsub('*', "\0")).gsub("\0", ".*")}$"
   end
 end
 
