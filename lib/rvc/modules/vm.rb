@@ -372,14 +372,14 @@ opts :ssh do
   summary "SSH to a VM"
   arg :vm, nil, :lookup => VIM::VirtualMachine
   arg :cmd, "Optional command", :required => false, :default => nil
+  opt :login, "Username", :short => 'l', :default => 'root'
 end
 
 rvc_alias :ssh
 
-def ssh vm, cmd
+def ssh vm, cmd, opts
   ip = vm_ip vm
-  ssh_cmd = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@#{ip}"
-  ssh_cmd << " #{cmd}" if cmd
+  ssh_cmd = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l #{opts[:login]} #{ip} #{cmd}"
   system_fg(ssh_cmd)
 end
 
