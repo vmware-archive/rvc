@@ -53,6 +53,7 @@ class FS
   attr_reader :root, :loc, :marks
 
   MARK_REGEX = /^~(?:([\d\w]*|~|@))$/
+  WILDCARD_REGEX = /^\^/
 
   def initialize root
     @root = root
@@ -79,23 +80,35 @@ class FS
     true
   end
 
-  def lookup_loc path
+  def lookup_multi_loc path
     els, absolute, trailing_slash = Path.parse path
     base_loc = absolute ? Location.new(@root) : @loc
-    traverse(base_loc, els)[0]
+    traverse(base_loc, els)
+  end
+
+  def lookup_loc path
+    lookup_multi_loc(path).first
   end
 
   def traverse_one loc, el, first
     case el
     when '.'
+      [loc]
     when '..'
       loc.pop unless loc.obj == @root
+      [loc]
     when '...'
       loc.push(el, loc.obj.parent) unless loc.obj == @root
+      [loc]
     when MARK_REGEX
       return unless first
       loc = @marks[$1] or return []
-      loc = loc.dup
+      [loc.dup]
+    when WILDCARD_REGEX
+      regex = Regexp.new($')
+      children = loc.obj.children
+      matches = children.select { |k,v| k =~ regex }
+      matches.map { |k,v| loc.dup.tap { |x| x.push(k, v) } }
     else
       # XXX check for ambiguous child
       if first and el =~ /^\d+$/ and @marks.member? el
@@ -104,8 +117,8 @@ class FS
         x = loc.obj.traverse_one(el) or return []
         loc.push el, x
       end
+      [loc]
     end
-    [loc]
   end
 
   # Starting from base_loc, traverse each path element in els. Since the path

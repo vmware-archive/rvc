@@ -3,10 +3,16 @@ require 'rvc'
 require 'inventory_fixtures'
 
 class FSTest < Test::Unit::TestCase
+  NodeDaa = FixtureNode.new 'Daa'
+  NodeDab = FixtureNode.new 'Dab'
+  NodeDabc = FixtureNode.new 'Dabc'
+  NodeDac = FixtureNode.new 'Dac'
   NodeB = FixtureNode.new 'B'
   NodeC = FixtureNode.new 'C'
+  NodeD = FixtureNode.new('D', 'daa' => NodeDaa, 'dab' => NodeDab,
+                               'dabc' => NodeDabc, 'dac' => NodeDac)
   NodeA = FixtureNode.new('A', 'b' => NodeB, 'c' => NodeC)
-  Root = FixtureNode.new('ROOT', 'a' => NodeA)
+  Root = FixtureNode.new('ROOT', 'a' => NodeA, 'd' => NodeD)
 
   def setup
     @context = RVC::FS.new Root
@@ -109,5 +115,18 @@ class FSTest < Test::Unit::TestCase
     assert_equal [['', Root]], @context.loc.stack
     assert_equal true, @context.cd("a")
     assert_equal [['', Root], ['a', NodeA]], @context.loc.stack
+  end
+
+  def test_wildcard
+    daa = [['', Root], ['d', NodeD], ['daa', NodeDaa]]
+    dab = [['', Root], ['d', NodeD], ['dab', NodeDab]]
+    dabc = [['', Root], ['d', NodeD], ['dabc', NodeDabc]]
+    dac = [['', Root], ['d', NodeD], ['dac', NodeDac]]
+    loc = @context.lookup_multi_loc '/d/^daa'
+    assert_equal [daa], loc.map(&:stack)
+    loc = @context.lookup_multi_loc '/d/^daa.*'
+    assert_equal [daa], loc.map(&:stack)
+    loc = @context.lookup_multi_loc '/d/^da.*c'
+    assert_equal [dabc, dac], loc.map(&:stack)
   end
 end
