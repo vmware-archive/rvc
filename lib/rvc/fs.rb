@@ -69,25 +69,19 @@ class FS
     @loc.path * '/'
   end
 
-  def lookup path
-    (lookup_loc(path) || return).obj
-  end
-
-  def cd path
-    new_loc = lookup_loc(path) or return false
+  def cd new_loc
     mark '~', @loc
     @loc = new_loc
-    true
   end
 
-  def lookup_multi_loc path
-    els, absolute, trailing_slash = Path.parse path
-    base_loc = absolute ? Location.new(@root) : @loc
-    traverse(base_loc, els)
+  def lookup path
+    lookup_loc(path).map(&:obj)
   end
 
   def lookup_loc path
-    lookup_multi_loc(path).first
+    els, absolute, trailing_slash = Path.parse path
+    base_loc = absolute ? Location.new(@root) : @loc
+    traverse(base_loc, els)
   end
 
   def traverse_one loc, el, first
@@ -106,9 +100,9 @@ class FS
       [loc.dup]
     when WILDCARD_REGEX
       regex = Regexp.new($')
-      children = loc.obj.children
-      matches = children.select { |k,v| k =~ regex }
-      matches.map { |k,v| loc.dup.tap { |x| x.push(k, v) } }
+      loc.obj.children.
+        select { |k,v| k =~ regex }.
+        map { |k,v| loc.dup.tap { |x| x.push(k, v) } }
     else
       # XXX check for ambiguous child
       if first and el =~ /^\d+$/ and @marks.member? el

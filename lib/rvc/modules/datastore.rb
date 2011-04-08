@@ -25,7 +25,7 @@ opts :download do
 end
 
 def download datastore_path, local_path
-  file = lookup(datastore_path)
+  file = lookup_single(datastore_path)
   err "not a datastore file" unless file.is_a? RbVmomi::VIM::Datastore::FakeDatastoreFile
   file.datastore.download file.path, local_path
 end
@@ -38,7 +38,7 @@ end
 
 def upload local_path, datastore_path
   datastore_dir_path = File.dirname datastore_path
-  dir = lookup(datastore_dir_path)
+  dir = lookup_single(datastore_dir_path)
   err "datastore directory does not exist" unless dir.is_a? RbVmomi::VIM::Datastore::FakeDatastoreFolder
   err "local file does not exist" unless File.exists? local_path
   real_datastore_path = "#{dir.path}/#{File.basename(datastore_path)}"
@@ -52,7 +52,7 @@ end
 
 def mkdir datastore_path
   datastore_dir_path = File.dirname datastore_path
-  dir = lookup(datastore_dir_path)
+  dir = lookup_single(datastore_dir_path)
   err "datastore directory does not exist" unless dir.is_a? RbVmomi::VIM::Datastore::FakeDatastoreFolder
   ds = dir.datastore
   dc = ds.path.find { |o,x| o.is_a? RbVmomi::VIM::Datacenter }[0]

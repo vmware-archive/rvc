@@ -74,7 +74,7 @@ class OptionParser < Trollop::Parser
 
     @specs.each do |name,spec|
       next unless klass = spec[:lookup] and path = opts[name]
-      opts[name] = lookup! path, klass
+      opts[name] = lookup_single! path, klass
     end
 
     argv = leftovers
@@ -83,14 +83,15 @@ class OptionParser < Trollop::Parser
       if multi
         err "missing argument '#{name}'" if required and argv.empty?
         a = (argv.empty? ? default : argv.dup)
-        a.map! { |x| lookup! x, lookup_klass } if lookup_klass
+        a.map! { |x| lookup! x, lookup_klass }.flatten! if lookup_klass
+        err "no matches for '#{name}'" if required and a.empty?
         args << a
         argv.clear
       else
         x = argv.shift
         err "missing argument '#{name}'" if required and x.nil?
         x = default if x.nil?
-        x = lookup! x, lookup_klass if lookup_klass
+        x = lookup_single! x, lookup_klass if lookup_klass
         args << x
       end
     end

@@ -109,7 +109,7 @@ end
 def create name, opts
   err "must specify resource pool (--pool)" unless opts[:pool]
   err "must specify datastore (--datastore)" unless opts[:datastore]
-  vmFolder = lookup!(File.dirname(name), VIM::Folder)
+  vmFolder = lookup_single!(File.dirname(name), VIM::Folder)
   datastore_path = "[#{opts[:datastore].name}]"
   config = {
     :name => File.basename(name),

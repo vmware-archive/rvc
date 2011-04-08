@@ -42,7 +42,7 @@ rvc_alias :help
 HELP_ORDER = %w(basic vm)
 
 def help path
-  obj = lookup(path) if path
+  obj = lookup_single(path) if path
 
   if obj
     puts "Relevant commands for #{obj.class}:"
@@ -119,7 +119,9 @@ end
 rvc_alias :cd
 
 def cd path
-  $shell.fs.cd(path) or err "Not found: #{path.inspect}"
+  # XXX check for multiple matches
+  new_loc = $shell.fs.lookup_loc(path).first or err "Not found: #{path.inspect}"
+  $shell.fs.cd(new_loc)
   $shell.fs.mark '', find_ancestor_loc(RbVmomi::VIM::Datacenter)
   $shell.fs.mark '@', find_ancestor_loc(RbVmomi::VIM)
   $shell.fs.marks.delete_if { |k,v| k =~ /^\d+$/ }
@@ -141,7 +143,8 @@ rvc_alias :ls
 rvc_alias :ls, :l
 
 def ls path
-  loc = $shell.fs.lookup_loc(path) or err "Not found: #{path.inspect}"
+  # XXX check for multiple matches
+  loc = $shell.fs.lookup_loc(path).first or err "Not found: #{path.inspect}"
   obj = loc.obj
   children = obj.children
   name_map = children.invert
@@ -227,7 +230,8 @@ rvc_alias :mark, :m
 
 def mark key, path
   err "invalid mark name" unless key =~ /^\w+$/
-  obj = $shell.fs.lookup_loc(path) or err "Not found: #{path.inspect}" 
+  # XXX aggregate marks
+  obj = $shell.fs.lookup_loc(path).first or err "Not found: #{path.inspect}" 
   $shell.fs.mark key, obj
 end
 
@@ -271,6 +275,6 @@ rvc_alias :mkdir
 
 # TODO dispatch to datastore.mkdir if path is in a datastore
 def mkdir path
-  parent = lookup! File.dirname(path), RbVmomi::VIM::Folder
+  parent = lookup_single! File.dirname(path), RbVmomi::VIM::Folder
   parent.CreateFolder(:name => File.basename(path))
 end

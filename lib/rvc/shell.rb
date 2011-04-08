@@ -192,11 +192,11 @@ class RubyEvaluator
   end
 
   def dc
-    @fs.lookup("~")
+    @fs.lookup("~").first
   end
 
   def conn
-    @fs.lookup("~@")
+    @fs.lookup("~@").first
   end
 
   def method_missing sym, *a
