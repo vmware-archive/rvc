@@ -82,33 +82,41 @@ class FS
   def lookup_loc path
     els, absolute, trailing_slash = Path.parse path
     base_loc = absolute ? Location.new(@root) : @loc
-    traverse(base_loc, els)
+    traverse(base_loc, els)[0]
   end
 
-  def traverse base_loc, els
-    loc = base_loc.dup
-    els.each_with_index do |el,i|
-      case el
-      when '.'
-      when '..'
-        loc.pop unless loc.obj == @root
-      when '...'
-        loc.push(el, loc.obj.parent) unless loc.obj == @root
-      when MARK_REGEX
-        return unless i == 0
-        loc = @marks[$1] or return
-        loc = loc.dup
+  def traverse_one loc, el, first
+    case el
+    when '.'
+    when '..'
+      loc.pop unless loc.obj == @root
+    when '...'
+      loc.push(el, loc.obj.parent) unless loc.obj == @root
+    when MARK_REGEX
+      return unless first
+      loc = @marks[$1] or return []
+      loc = loc.dup
+    else
+      # XXX check for ambiguous child
+      if first and el =~ /^\d+$/ and @marks.member? el
+        loc = @marks[el].dup
       else
-        # XXX check for ambiguous child
-        if i == 0 and el =~ /^\d+$/ and @marks.member? el
-          loc = @marks[el].dup
-        else
-          x = loc.obj.traverse_one(el) or return
-          loc.push el, x
-        end
+        x = loc.obj.traverse_one(el) or return []
+        loc.push el, x
       end
     end
-    loc
+    [loc]
+  end
+
+  # Starting from base_loc, traverse each path element in els. Since the path
+  # may contain wildcards, this function returns a list of matches.
+  def traverse base_loc, els
+    locs = [base_loc.dup]
+    els.each_with_index do |el,i|
+      locs.map! { |loc| traverse_one loc, el, i==0 }
+      locs.flatten!
+    end
+    locs
   end
 
   def mark key, loc

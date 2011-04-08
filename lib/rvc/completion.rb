@@ -91,7 +91,7 @@ module Completion
     last = trailing_slash ? '' : (els.pop || '')
     els.map! { |x| x.gsub '\\', '' }
     base_loc = absolute ? Location.new($shell.fs.root) : $shell.fs.loc
-    found_loc = $shell.fs.traverse(base_loc, els) or return []
+    found_loc = $shell.fs.traverse(base_loc, els).first or return []
     cur = found_loc.obj
     els.unshift '' if absolute
     children = Cache[cur, :children] rescue []
