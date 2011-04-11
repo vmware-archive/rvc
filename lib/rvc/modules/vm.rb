@@ -100,19 +100,19 @@ end
 
 opts :create do
   summary "Create a new VM"
-  arg :name, "Name"
+  arg :name, "Destination", :lookup_parent => VIM::Folder
   opt :pool, "Resource pool", :short => 'p', :type => :string, :lookup => VIM::ResourcePool
   opt :host, "Host", :short => 'h', :type => :string, :lookup => VIM::HostSystem
   opt :datastore, "Datastore", :short => 'd', :type => :string, :lookup => VIM::Datastore
 end
 
-def create name, opts
+def create dest, opts
   err "must specify resource pool (--pool)" unless opts[:pool]
   err "must specify datastore (--datastore)" unless opts[:datastore]
-  vmFolder = lookup_single!(File.dirname(name), VIM::Folder)
+  vmFolder, name = *dest
   datastore_path = "[#{opts[:datastore].name}]"
   config = {
-    :name => File.basename(name),
+    :name => name,
     :guestId => 'otherGuest',
     :files => { :vmPathName => datastore_path },
     :numCPUs => 1,

@@ -65,9 +65,11 @@ class OptionParser < Trollop::Parser
     spec[:default] = [] if spec[:multi] and spec[:default].nil?
     fail "Multi argument must be the last one" if @seen_multi
     fail "Can't have required argument after optional ones" if spec[:required] and @seen_not_required
+    fail "lookup and lookup_parent are mutually exclusive" if spec[:lookup] and spec[:lookup_parent]
     @applicable << spec[:lookup] if spec[:lookup]
+    @applicable << spec[:lookup_parent] if spec[:lookup_parent]
     @args << [name,spec]
-    text "  #{name}: " + [description, spec[:lookup]].compact.join(' ')
+    text "  #{name}: " + [description, spec[:lookup], spec[:lookup_parent]].compact.join(' ')
   end
 
   def parse argv
@@ -84,7 +86,7 @@ class OptionParser < Trollop::Parser
       if spec[:multi]
         err "missing argument '#{name}'" if spec[:required] and argv.empty?
         a = (argv.empty? ? spec[:default] : argv.dup)
-        a.map! { |x| lookup! x, spec[:lookup] }.flatten! if spec[:lookup]
+        a = a.map { |x| postprocess_arg x, spec }.inject(:+)
         err "no matches for '#{name}'" if spec[:required] and a.empty?
         args << a
         argv.clear
@@ -92,12 +94,24 @@ class OptionParser < Trollop::Parser
         x = argv.shift
         err "missing argument '#{name}'" if spec[:required] and x.nil?
         x = spec[:default] if x.nil?
-        x = lookup_single! x, spec[:lookup] if spec[:lookup]
-        args << x
+        a = x.nil? ? [] : postprocess_arg(x, spec)
+        err "more than one match for #{name}" if a.size > 1
+        err "no match for '#{name}'" if spec[:required] and a.empty?
+        args << a.first
       end
     end
     err "too many arguments" unless argv.empty?
     return args, opts
+  end
+
+  def postprocess_arg x, spec
+    if spec[:lookup]
+      lookup! x, spec[:lookup]
+    elsif spec[:lookup_parent]
+      lookup!(File.dirname(x), spec[:lookup_parent]).map { |y| [y, File.basename(x)] }
+    else
+      [x]
+    end
   end
 
   def educate
