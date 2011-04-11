@@ -81,8 +81,13 @@ if $opts[:path]
     lookup(parent_path).CreateFolder(:name => File.basename($opts[:path]))
     CMD.basic.cd $opts[:path]
   end
-elsif ARGV.size == 1
-  CMD.basic.cd $shell.connections.keys.first
+elsif $shell.connections.size == 1
+  conn_name, conn = $shell.connections.first
+  if conn.serviceContent.about.apiType == 'VirtualCenter'
+    CMD.basic.cd conn_name
+  else
+    CMD.basic.cd "#{conn_name}/ha-datacenter/vm"
+  end
 end
 
 unless CMD.vmrc.find_vmrc
