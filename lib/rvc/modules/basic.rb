@@ -180,7 +180,7 @@ def ls path
 
   results.each do |r|
     name = name_map[r.obj]
-    text = r.obj.ls_text r
+    text = r.obj.ls_text(r) rescue " (error)"
     realname = r['name'] if name != r['name']
     puts "#{i} #{name}#{realname && " [#{realname}]"}#{text}"
     mark_loc = loc.dup.tap { |x| x.push name, r.obj }
