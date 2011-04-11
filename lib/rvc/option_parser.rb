@@ -55,18 +55,19 @@ class OptionParser < Trollop::Parser
     @has_options
   end
 
-  def arg name, description, opts={}
-    opts = {
+  def arg name, description, spec={}
+    spec = {
+      :description => description,
       :required => true,
       :default => nil,
       :multi => false,
-    }.merge opts
-    opts[:default] = [] if opts[:multi] and opts[:default].nil?
+    }.merge spec
+    spec[:default] = [] if spec[:multi] and spec[:default].nil?
     fail "Multi argument must be the last one" if @seen_multi
-    fail "Can't have required argument after optional ones" if opts[:required] and @seen_not_required
-    @applicable << opts[:lookup] if opts[:lookup]
-    @args << [name, description, opts[:required], opts[:default], opts[:multi], opts[:lookup]]
-    text "  #{name}: " + [description, opts[:lookup]].compact.join(' ')
+    fail "Can't have required argument after optional ones" if spec[:required] and @seen_not_required
+    @applicable << spec[:lookup] if spec[:lookup]
+    @args << [name,spec]
+    text "  #{name}: " + [description, spec[:lookup]].compact.join(' ')
   end
 
   def parse argv
@@ -79,19 +80,19 @@ class OptionParser < Trollop::Parser
 
     argv = leftovers
     args = []
-    @args.each do |name,desc,required,default,multi,lookup_klass|
-      if multi
-        err "missing argument '#{name}'" if required and argv.empty?
-        a = (argv.empty? ? default : argv.dup)
-        a.map! { |x| lookup! x, lookup_klass }.flatten! if lookup_klass
-        err "no matches for '#{name}'" if required and a.empty?
+    @args.each do |name,spec|
+      if spec[:multi]
+        err "missing argument '#{name}'" if spec[:required] and argv.empty?
+        a = (argv.empty? ? spec[:default] : argv.dup)
+        a.map! { |x| lookup! x, spec[:lookup] }.flatten! if spec[:lookup]
+        err "no matches for '#{name}'" if spec[:required] and a.empty?
         args << a
         argv.clear
       else
         x = argv.shift
-        err "missing argument '#{name}'" if required and x.nil?
-        x = default if x.nil?
-        x = lookup_single! x, lookup_klass if lookup_klass
+        err "missing argument '#{name}'" if spec[:required] and x.nil?
+        x = spec[:default] if x.nil?
+        x = lookup_single! x, spec[:lookup] if spec[:lookup]
         args << x
       end
     end
@@ -100,10 +101,10 @@ class OptionParser < Trollop::Parser
   end
 
   def educate
-    arg_texts = @args.map do |name,desc,required,default,multi,lookup_klass|
+    arg_texts = @args.map do |name,spec|
       text = name
-      text = "[#{text}]" if not required
-      text = "#{text}..." if multi
+      text = "[#{text}]" if not spec[:required]
+      text = "#{text}..." if spec[:multi]
       text
     end
     arg_texts.unshift "[opts]" if has_options?
