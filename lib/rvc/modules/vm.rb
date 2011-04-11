@@ -642,8 +642,8 @@ def find_vmx_files ds
   files
 end
 
-def change_device_connectivity id, label, connected
-  dev = vm(id).config.hardware.device.find { |x| x.deviceInfo.label == label }
+def change_device_connectivity vm, label, connected
+  dev = vm.config.hardware.device.find { |x| x.deviceInfo.label == label }
   err "no such device" unless dev
   dev.connectable.connected = connected
   spec = {
@@ -651,7 +651,7 @@ def change_device_connectivity id, label, connected
       { :operation => :edit, :device => dev },
     ]
   }
-  vm(id).ReconfigVM_Task(:spec => spec).wait_for_completion
+  vm.ReconfigVM_Task(:spec => spec).wait_for_completion
 end
 
 def vm_ip vm
