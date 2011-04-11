@@ -129,7 +129,7 @@ def create dest, opts
         :operation => :add,
         :fileOperation => :create,
         :device => VIM.VirtualDisk(
-          :key => 0,
+          :key => -1,
           :backing => VIM.VirtualDiskFlatVer2BackingInfo(
             :fileName => datastore_path,
             :diskMode => :persistent,
@@ -142,7 +142,7 @@ def create dest, opts
       }, {
         :operation => :add,
         :device => VIM.VirtualCdrom(
-          :key => 0,
+          :key => -2,
           :connectable => {
             :allowGuestControl => true,
             :connected => true,
@@ -157,7 +157,7 @@ def create dest, opts
       }, {
         :operation => :add,
         :device => VIM.VirtualE1000(
-          :key => 0,
+          :key => -3,
           :deviceInfo => {
             :label => 'Network Adapter 1',
             :summary => 'VM Network'
