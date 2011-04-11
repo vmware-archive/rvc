@@ -34,10 +34,11 @@ module Util
     objs.first
   end
 
-  def lookup! path, type
+  def lookup! path, types
+    types = [types] unless types.is_a? Enumerable
     lookup(path).tap do |objs|
       objs.each do |obj|
-        err "Expected #{type} but got #{obj.class} at #{path.inspect}" unless obj.is_a? type
+        err "Expected #{types*'/'} but got #{obj.class} at #{path.inspect}" unless types.any? { |type| obj.is_a? type }
       end
     end
   end
