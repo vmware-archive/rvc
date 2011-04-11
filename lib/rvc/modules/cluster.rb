@@ -27,3 +27,37 @@ def create dest
   folder, name = *dest
   folder.CreateClusterEx(:name => name, :spec => {})
 end
+
+
+opts :add_host do
+  summary "Add a host to a cluster"
+  arg :cluster, nil, :lookup => VIM::ClusterComputeResource
+  arg :hostname, nil
+  opt :username, "Username", :short => 'u', :default => 'root'
+  opt :password, "Password", :short => 'p', :default => ''
+end
+
+def add_host cluster, hostname, opts
+  sslThumbprint = nil
+  while true
+    spec = {
+      :force => false,
+      :hostName => hostname,
+      :userName => opts[:username],
+      :password => opts[:password],
+      :sslThumbprint => sslThumbprint,
+    }
+    task = cluster.AddHost_Task :spec => spec,
+                                :asConnected => false
+    begin
+      task.wait_for_completion
+    rescue VIM::SSLVerifyFault
+      puts "SSL thumbprint: #{$!.fault.thumbprint}"
+      $stdout.write "Accept this thumbprint? (y/n) "
+      $stdout.flush
+      answer = $stdin.readline.chomp
+      err "Aborted" unless answer == 'y' or answer == 'yes'
+      sslThumbprint = $!.fault.thumbprint
+    end
+  end
+end

@@ -92,3 +92,30 @@ end
 def exit_maintenance_mode hosts, opts
   tasks hosts, :ExitMaintenanceMode, :timeout => opts[:timeout]
 end
+
+
+opts :disconnect do
+  summary "Disconnect a host"
+  arg :host, nil, :lookup => VIM::HostSystem, :multi => true
+end
+
+def disconnect hosts
+  tasks hosts, :DisconnectHost
+end
+
+
+opts :reconnect do
+  summary "Reconnect a host"
+  arg :host, nil, :lookup => VIM::HostSystem, :multi => true
+  opt :username, "Username", :short => 'u', :default => 'root'
+  opt :password, "Password", :short => 'p', :default => ''
+end
+
+def reconnect hosts, opts
+  spec = {
+    :force => false,
+    :userName => opts[:username],
+    :password => opts[:password],
+  }
+  tasks hosts, :ReconnectHost
+end
