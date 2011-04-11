@@ -1,10 +1,9 @@
 add commands for more entities
 add fake subfolders for more entities
 add fastpass authentication
-globbing?
 
 commands:
 storage vmotion
-add/edit/delete clusters
+edit clusters
 add/remove hosts from clusters
 add resource usage for hosts/clusters to info
