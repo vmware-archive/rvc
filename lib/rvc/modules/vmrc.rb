@@ -40,6 +40,7 @@ end
 
 opts :view do
   summary "Spawn a VMRC"
+  text "The VMware Remote Console allows you to interact with a VM's virtual mouse, keyboard, and screen."
   arg :vm, nil, :lookup => VIM::VirtualMachine, :multi => true
 end
 
