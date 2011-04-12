@@ -22,8 +22,14 @@ require 'readline'
 require 'rvc/ttl_cache'
 
 begin
-  require 'rvc/readline-ffi'
-rescue Exception
+  require 'ffi'
+  begin
+    require 'rvc/readline-ffi'
+  rescue Exception
+    $stderr.puts "Error loading readline-ffi: #{$!.message}. Tab completion will be limited."
+  end
+rescue LoadError
+  $stderr.puts "Install the \"ffi\" gem for better tab completion."
 end
 
 module RVC
@@ -39,11 +45,6 @@ module Completion
   end
 
   def self.install
-    unless Readline.respond_to? :line_buffer and
-           Readline.respond_to? :char_is_quoted=
-      $stderr.puts "Install the \"ffi\" gem for better tab completion."
-    end
-
     if Readline.respond_to? :char_is_quoted=
       Readline.completer_word_break_characters = " \t\n\"'"
       Readline.completer_quote_characters = "\"\\"
