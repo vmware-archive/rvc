@@ -21,7 +21,12 @@
 class RbVmomi::VIM::ComputeResource
   # TODO expand, optimize
   def display_info
+    stats = self.stats
+    pct_cpu_used = 100.0*stats[:usedCPU]/stats[:totalCPU]
+    pct_mem_used = 100.0*stats[:usedMem]/stats[:totalMem]
     puts "name: #{name}"
+    puts "cpu #{stats[:totalCPU]} GHz (#{pct_cpu_used.to_i}% used)"
+    puts "memory #{stats[:totalMem]} GB (#{pct_mem_used.to_i}% used)"
     puts "hosts:"
     host.each do |h|
       puts " #{h.name}"

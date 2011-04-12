@@ -6,4 +6,3 @@ commands:
 storage vmotion
 edit clusters
 add/remove hosts from clusters
-add resource usage for hosts/clusters to info
