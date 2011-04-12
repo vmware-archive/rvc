@@ -66,8 +66,13 @@ class OptionParser < Trollop::Parser
     fail "Multi argument must be the last one" if @seen_multi
     fail "Can't have required argument after optional ones" if spec[:required] and @seen_not_required
     fail "lookup and lookup_parent are mutually exclusive" if spec[:lookup] and spec[:lookup_parent]
-    @applicable << spec[:lookup] if spec[:lookup]
-    @applicable << spec[:lookup_parent] if spec[:lookup_parent]
+    [:lookup, :lookup_parent].each do |sym|
+      if spec[sym].is_a? Enumerable
+        spec[sym].each { |x| @applicable << x }
+      elsif spec[sym]
+        @applicable << spec[sym]
+      end
+    end
     @args << [name,spec]
     text "  #{name}: " + [description, spec[:lookup], spec[:lookup_parent]].compact.join(' ')
   end
