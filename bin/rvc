@@ -34,8 +34,11 @@ include RVC::Util
 Thread.abort_on_exception = true
 
 CMD = Module.new
+RVC::VERSION = File.read(File.join(File.dirname(__FILE__), '..', 'VERSION'))
 
 $opts = Trollop.options do
+  version RVC::VERSION
+
   banner <<-EOS
 Ruby vSphere Console.
 
