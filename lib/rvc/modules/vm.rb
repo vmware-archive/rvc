@@ -620,6 +620,18 @@ def deltaize_disks vm
   end
 end
 
+
+opts :annotate do
+  summary "Change a VM's annotation"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  arg :annotation, nil
+end
+
+def annotate vm, str
+  vm.ReconfigVM_Task(:spec => { :annotation => str }).wait_for_completion
+end
+
+
 def find_vmx_files ds
   datastorePath = "[#{ds.name}] /"
   searchSpec = {
