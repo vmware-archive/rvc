@@ -379,7 +379,7 @@ rvc_alias :ssh
 
 def ssh vm, cmd, opts
   ip = vm_ip vm
-  ssh_cmd = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l #{opts[:login]} #{ip} #{cmd}"
+  ssh_cmd = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l #{Shellwords.escape opts[:login]} #{Shellwords.escape ip} #{Shellwords.escape cmd}"
   system_fg(ssh_cmd)
 end
 
@@ -397,7 +397,7 @@ def rvc vm
   env = Hash[%w(RBVMOMI_PASSWORD RBVMOMI_HOST RBVMOMI_USER RBVMOMI_SSL RBVMOMI_PORT
                 RBVMOMI_FOLDER RBVMOMI_DATASTORE RBVMOMI_PATH RBVMOMI_DATACENTER
                 RBVMOMI_COMPUTER).map { |k| [k,nil] }]
-  cmd = "rvc #{ip}"
+  cmd = "rvc #{Shellwords.escape ip}"
   system_fg(cmd, env)
 end
 
@@ -411,7 +411,7 @@ rvc_alias :ping
 
 def ping vm
   ip = vm_ip vm
-  system_fg "ping #{ip}"
+  system_fg "ping #{Shellwords.escape ip}"
 end
 
 
