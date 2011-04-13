@@ -379,7 +379,8 @@ rvc_alias :ssh
 
 def ssh vm, cmd, opts
   ip = vm_ip vm
-  ssh_cmd = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l #{Shellwords.escape opts[:login]} #{Shellwords.escape ip} #{Shellwords.escape cmd}"
+  cmd_arg = cmd ? Shellwords.escape(cmd) : ""
+  ssh_cmd = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l #{Shellwords.escape opts[:login]} #{Shellwords.escape ip} #{cmd_arg}"
   system_fg(ssh_cmd)
 end
 
