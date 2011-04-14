@@ -36,6 +36,7 @@ opts :connect do
   summary 'Open a connection to ESX/VC'
   arg :uri, "Host to connect to"
   opt :insecure, "don't verify ssl certificate", :short => 'k', :default => (ENV['RBVMOMI_INSECURE'] == '1')
+  opt :rev, "Override protocol revision", :type => :string
 end
 
 rvc_alias :connect
@@ -57,7 +58,7 @@ def connect uri, opts
                               :port => 443,
                               :path => '/sdk',
                               :ns => 'urn:vim25',
-                              :rev => '4.0',
+                              :rev => (opts[:rev]||'4.0'),
                               :ssl => true,
                               :insecure => insecure
       break
@@ -69,9 +70,12 @@ def connect uri, opts
     end
   end
 
-  # negotiate API version
-  rev = vim.serviceContent.about.apiVersion
-  vim.rev = [rev, '4.1'].min
+  unless opts[:rev]
+    # negotiate API version
+    rev = vim.serviceContent.about.apiVersion
+    vim.rev = [rev, '4.1'].min
+  end
+
   isVC = vim.serviceContent.about.apiType == "VirtualCenter"
 
   # authenticate
