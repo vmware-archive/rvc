@@ -91,7 +91,7 @@ class OptionParser < Trollop::Parser
       if spec[:multi]
         err "missing argument '#{name}'" if spec[:required] and argv.empty?
         a = (argv.empty? ? spec[:default] : argv.dup)
-        a = a.map { |x| postprocess_arg x, spec }.inject(:+)
+        a = a.map { |x| postprocess_arg x, spec }.inject([], :+)
         err "no matches for '#{name}'" if spec[:required] and a.empty?
         args << a
         argv.clear
