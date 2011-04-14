@@ -93,6 +93,16 @@ module Util
     progress(objs.map { |obj| obj._call :"#{sym}_Task", args })
   end
 
+  if ENV['LANG'] =~ /UTF/ and RUBY_VERSION >= '1.9.1'
+    PROGRESS_BAR_LEFT = "\u2772"
+    PROGRESS_BAR_MIDDLE = "\u25AC"
+    PROGRESS_BAR_RIGHT = "\u2773"
+  else
+    PROGRESS_BAR_LEFT = "["
+    PROGRESS_BAR_MIDDLE = "="
+    PROGRESS_BAR_RIGHT = "]"
+  end
+
   def progress tasks
     interested = %w(info.progress info.state info.entityName info.error info.name)
     connection = single_connection tasks
@@ -106,7 +116,7 @@ module Util
             progress = props['info.progress']
             barlen = terminal_columns - text.size - 2
             progresslen = ((progress||0)*barlen)/100
-            progress_bar = "[#{'=' * progresslen}#{' ' * (barlen-progresslen)}]"
+            progress_bar = "#{PROGRESS_BAR_LEFT}#{PROGRESS_BAR_MIDDLE * progresslen}#{' ' * (barlen-progresslen)}#{PROGRESS_BAR_RIGHT}"
             $stdout.write "\e[K#{text}#{progress_bar}\n"
           elsif state == 'error'
             error = props['info.error']
