@@ -568,7 +568,7 @@ end
 opts :clone do
   summary "Clone a VM"
   arg :src, nil, :lookup => VIM::VirtualMachine
-  arg :dst, "Path to new VM"
+  arg :dst, "Path to new VM", :lookup_parent => VIM::Folder
   opt :pool, "Resource pool", :short => 'p', :type => :string, :lookup => VIM::ResourcePool
   opt :host, "Host", :short => 'h', :type => :string, :lookup => VIM::HostSystem
   opt :template, "Create a template", :short => 't'
@@ -577,7 +577,7 @@ opts :clone do
 end
 
 def clone src, dst, opts
-  folder = lookup! File.dirname(dst), VIM::Folder
+  folder, name = *dst
   diskMoveType = nil
 
   if opts[:linked]
@@ -586,7 +586,7 @@ def clone src, dst, opts
   end
 
   task = src.CloneVM_Task(:folder => folder,
-                          :name => File.basename(dst),
+                          :name => name,
                           :spec => {
                             :location => {
                               :diskMoveType => diskMoveType,
