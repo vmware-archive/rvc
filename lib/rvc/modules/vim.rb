@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/known_hosts'
+
 URI_REGEX = %r{
   ^
   (?:
@@ -63,11 +65,32 @@ def connect uri, opts
                               :insecure => insecure
       break
     rescue OpenSSL::SSL::SSLError
-      err "Connection failed" unless prompt_insecure
+      err "Connection failed" unless prompt_cert_insecure
       insecure = true
     rescue Errno::EHOSTUNREACH, SocketError
       err $!.message
     end
+  end
+
+  if opts[:really_insecure]
+    result = :ok
+  else
+    peer_public_key = vim.http.peer_cert.public_key
+    known_hosts = RVC::KnownHosts.new
+    result, arg = known_hosts.verify 'vim', host, peer_public_key.to_s
+  end
+
+  if result == :not_found
+    puts "The authenticity of host '#{host}' can't be established."
+    puts "Public key fingerprint is #{arg}."
+    err "Connection failed" unless prompt_cert_unknown
+    puts "Warning: Permanently added '#{host}' (vim) to the list of known hosts"
+    known_hosts.add 'vim', host, peer_public_key.to_s
+  elsif result == :mismatch
+    err "Public key fingerprint for host '#{host}' does not match #{known_hosts.filename}:#{arg}."
+  elsif result == :ok
+  else
+    err "Unexpected result from known_hosts check"
   end
 
   unless opts[:rev]
@@ -117,7 +140,10 @@ def prompt_password
   ask("password: ") { |q| q.echo = false }
 end
 
-def prompt_insecure
-  agree("SSL certificate verification failed. Connect anyway? (y/n) ", true)
+def prompt_cert_insecure
+  agree("SSL certificate verification failed. Connect anyway (y/n)? ", true)
 end
 
+def prompt_cert_unknown
+  agree("Are you sure you want to continue connecting (y/n)? ", true)
+end
