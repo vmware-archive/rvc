@@ -114,19 +114,10 @@ def connect uri, opts
 end
 
 def prompt_password
-  system "stty -echo"
-  $stdout.write "password: "
-  $stdout.flush
-  begin
-    ($stdin.gets||exit(1)).chomp
-  ensure
-    system "stty echo"
-    puts
-  end
+  ask("password: ") { |q| q.echo = false }
 end
 
 def prompt_insecure
-  answer = Readline.readline "SSL certificate verification failed. Connect anyway? (y/n) "
-  answer == 'yes' or answer == 'y'
+  agree("SSL certificate verification failed. Connect anyway? (y/n) ", true)
 end
 
