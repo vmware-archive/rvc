@@ -92,20 +92,20 @@ class FSTest < Test::Unit::TestCase
     assert_equal nil, loc
 
     ['foo', '~', '7', ''].each do |mark|
-      @context.mark mark, b_loc
+      @context.mark mark, [b_loc]
       loc = @context.lookup_loc("~#{mark}")[0]
       assert_equal [['', Root], ['a', NodeA], ['b', NodeB]], loc.stack
 
-      @context.mark mark, nil
+      @context.mark mark, []
       loc = @context.lookup_loc("~#{mark}")[0]
       assert_equal nil, loc
     end
 
-    @context.mark '7', b_loc
+    @context.mark '7', [b_loc]
     loc = @context.lookup_loc("7")[0]
     assert_equal [['', Root], ['a', NodeA], ['b', NodeB]], loc.stack
 
-    @context.mark '7', nil
+    @context.mark '7', []
     loc = @context.lookup_loc("7")[0]
     assert_equal nil, loc
   end

@@ -122,8 +122,8 @@ def cd path
   # XXX check for multiple matches
   new_loc = $shell.fs.lookup_loc(path).first or err "Not found: #{path.inspect}"
   $shell.fs.cd(new_loc)
-  $shell.fs.mark '', find_ancestor_loc(RbVmomi::VIM::Datacenter)
-  $shell.fs.mark '@', find_ancestor_loc(RbVmomi::VIM)
+  $shell.fs.mark '', [find_ancestor_loc(RbVmomi::VIM::Datacenter)]
+  $shell.fs.mark '@', [find_ancestor_loc(RbVmomi::VIM)]
   $shell.fs.marks.delete_if { |k,v| k =~ /^\d+$/ }
 end
 
@@ -154,7 +154,7 @@ def ls path
   fake_children.each do |name,obj|
     puts "#{i} #{name}#{obj.ls_text(nil)}"
     mark_loc = loc.dup.tap { |x| x.push name, obj }
-    $shell.fs.mark i.to_s, mark_loc
+    $shell.fs.mark i.to_s, [mark_loc]
     i += 1
   end
 
@@ -184,7 +184,7 @@ def ls path
     realname = r['name'] if name != r['name']
     puts "#{i} #{name}#{realname && " [#{realname}]"}#{text}"
     mark_loc = loc.dup.tap { |x| x.push name, r.obj }
-    $shell.fs.mark i.to_s, mark_loc
+    $shell.fs.mark i.to_s, [mark_loc]
     i += 1
   end
 end
@@ -222,17 +222,16 @@ end
 opts :mark do
   summary "Save a path for later use"
   arg :key, "Name for this mark"
-  arg :path, "Any object", :required => false, :default => '.'
+  arg :path, "Any object", :required => false, :default => ['.'], :multi => true
 end
 
 rvc_alias :mark
 rvc_alias :mark, :m
 
-def mark key, path
+def mark key, paths
   err "invalid mark name" unless key =~ /^\w+$/
-  # XXX aggregate marks
-  obj = $shell.fs.lookup_loc(path).first or err "Not found: #{path.inspect}" 
-  $shell.fs.mark key, obj
+  objs = paths.map { |path| $shell.fs.lookup_loc(path) }.inject([], :+)
+  $shell.fs.mark key, objs
 end
 
 

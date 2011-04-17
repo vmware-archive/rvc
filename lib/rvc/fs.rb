@@ -71,7 +71,7 @@ class FS
   end
 
   def cd new_loc
-    mark '~', @loc
+    mark '~', [@loc]
     @loc = new_loc
   end
 
@@ -97,8 +97,8 @@ class FS
       [loc]
     when MARK_PATTERN
       return unless first
-      loc = @marks[$1] or return []
-      [loc.dup]
+      locs = @marks[$1] or return []
+      locs.dup
     when REGEX_PATTERN
       regex = Regexp.new($')
       loc.obj.children.
@@ -112,12 +112,12 @@ class FS
     else
       # XXX check for ambiguous child
       if first and el =~ /^\d+$/ and @marks.member? el
-        loc = @marks[el].dup
+        @marks[el].dup
       else
         x = loc.obj.traverse_one(el) or return []
         loc.push el, x
+        [loc]
       end
-      [loc]
     end
   end
 
@@ -132,11 +132,12 @@ class FS
     locs
   end
 
-  def mark key, loc
-    if loc == nil
+  def mark key, locs
+    fail "not an array" unless locs.is_a? Array
+    if locs.empty?
       @marks.delete key
     else
-      @marks[key] = loc
+      @marks[key] = locs
     end
   end
 
