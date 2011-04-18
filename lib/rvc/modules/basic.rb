@@ -220,22 +220,6 @@ def destroy objs
 end
 
 
-opts :mark do
-  summary "Save a path for later use"
-  arg :key, "Name for this mark"
-  arg :path, "Any object", :required => false, :default => ['.'], :multi => true
-end
-
-rvc_alias :mark
-rvc_alias :mark, :m
-
-def mark key, paths
-  err "invalid mark name" unless key =~ /^\w+$/
-  objs = paths.map { |path| $shell.fs.lookup_loc(path) }.inject([], :+)
-  $shell.fs.mark key, objs
-end
-
-
 opts :show do
   summary "Basic information about the given objects"
   arg :obj, nil, :multi => true, :required => false, :lookup => Object
