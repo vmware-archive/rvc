@@ -236,6 +236,21 @@ def mark key, paths
 end
 
 
+opts :show do
+  summary "Basic information about the given objects"
+  arg :obj, nil, :multi => true, :required => false, :lookup => Object
+end
+
+rvc_alias :show
+rvc_alias :show, :w
+
+def show objs
+  objs.each do |obj|
+    puts "#{obj.rvc_path}: #{obj.class}"
+  end
+end
+
+
 opts :mv do
   summary "Move/rename an entity"
   arg :src, "Source path"
