@@ -204,11 +204,11 @@ class RubyEvaluator
     if a.empty?
       if MODULES.member? str
         MODULES[str]
-      elsif str =~ /_?([\w\d]+)(!?)/ && locs = @fs.marks[$1]
+      elsif str =~ /_?([\w\d]+)(!?)/ && objs = @fs.marks[$1]
         if $2 == '!'
-          locs.map(&:obj)
+          objs
         else
-          locs.first.obj
+          objs.first
         end
       else
         super

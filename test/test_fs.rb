@@ -14,6 +14,8 @@ class FSTest < Test::Unit::TestCase
   NodeA = FixtureNode.new('A', 'b' => NodeB, 'c' => NodeC)
   Root = FixtureNode.new('ROOT', 'a' => NodeA, 'd' => NodeD)
 
+  Root.rvc_link nil, ''
+
   def setup
     @context = RVC::FS.new Root
   end
@@ -26,8 +28,7 @@ class FSTest < Test::Unit::TestCase
     assert_equal Root, @context.cur
     assert_equal "", @context.display_path
     assert_equal 0, @context.marks.size
-    assert_equal [''], @context.loc.path
-    assert_equal [['', Root]], @context.loc.stack
+    assert_equal [['', Root]], @context.cur.rvc_path
   end
 
   def test_lookup_simple
@@ -41,79 +42,79 @@ class FSTest < Test::Unit::TestCase
     assert_equal [NodeC], @context.lookup('a/b/.../c')
   end
 
-  def test_lookup_loc_nonexistent
-    loc = @context.lookup_loc 'nonexistent'
-    assert_equal [], loc
+  def test_lookup_nonexistent
+    objs = @context.lookup 'nonexistent'
+    assert_equal [], objs
   end
 
-  def test_lookup_loc_simple
+  def test_lookup_simple_path
     %w(a /a ./a ./a/.).each do |path|
-      loc = @context.lookup_loc(path)[0]
-      assert_equal NodeA, loc.obj
-      assert_equal ['', 'a'], loc.path
-      assert_equal [['', Root], ['a', NodeA]], loc.stack
+      obj = @context.lookup(path)[0]
+      assert_equal NodeA, obj
+      assert_equal [['', Root], ['a', NodeA]], obj.rvc_path
     end
 
     %w(a/b /a/b ./a/b /a/b/.).each do |path|
-      loc = @context.lookup_loc(path)[0]
-      assert_equal NodeB, loc.obj
-      assert_equal ['', 'a', 'b'], loc.path
-      assert_equal [['', Root], ['a', NodeA], ['b', NodeB]], loc.stack
+      obj = @context.lookup(path)[0]
+      assert_equal NodeB, obj
+      assert_equal [['', Root], ['a', NodeA], ['b', NodeB]], obj.rvc_path
     end
   end
 
-  def test_lookup_loc_parent
-    loc = @context.lookup_loc('..')[0]
-    assert_equal [['', Root]], loc.stack
+  def test_lookup_parent
+    obj = @context.lookup('..')[0]
+    assert_equal [['', Root]], obj.rvc_path
 
-    loc = @context.lookup_loc('a/..')[0]
-    assert_equal [['', Root]], loc.stack
+    obj = @context.lookup('a/..')[0]
+    assert_equal [['', Root]], obj.rvc_path
 
-    loc = @context.lookup_loc('a/b/..')[0]
-    assert_equal [['', Root], ['a', NodeA]], loc.stack
+    obj = @context.lookup('a/b/..')[0]
+    assert_equal [['', Root], ['a', NodeA]], obj.rvc_path
   end
 
+=begin
   def test_lookup_loc_realparent
-    loc = @context.lookup_loc('...')[0]
-    assert_equal [['', Root]], loc.stack
+    obj = @context.lookup('...')[0]
+    assert_equal [['', Root]], obj.rvc_path
 
-    loc = @context.lookup_loc('a/...')[0]
-    assert_equal [['', Root], ['a', NodeA], ['...', Root]], loc.stack
+    obj = @context.lookup('a/...')[0]
+    assert_equal [['', Root], ['a', NodeA], ['...', Root]], obj.rvc_path
 
-    loc = @context.lookup_loc('a/b/...')[0]
-    assert_equal [['', Root], ['a', NodeA], ['b', NodeB], ['...', NodeA]], loc.stack
+    obj = @context.lookup('a/b/...')[0]
+    assert_equal [['', Root], ['a', NodeA], ['b', NodeB], ['...', NodeA]], obj.rvc_path
   end
+=end
 
-  def test_lookup_loc_mark
-    b_loc = @context.lookup_loc('a/b')[0]
-    assert_not_nil b_loc
+  def test_lookup_mark
+    b_obj = @context.lookup('a/b')[0]
+    assert_not_nil b_obj
 
-    loc = @context.lookup_loc('~foo')[0]
-    assert_equal nil, loc
+    obj = @context.lookup('~foo')[0]
+    assert_equal nil, obj
 
     ['foo', '~', '7', ''].each do |mark|
-      @context.mark mark, [b_loc]
-      loc = @context.lookup_loc("~#{mark}")[0]
-      assert_equal [['', Root], ['a', NodeA], ['b', NodeB]], loc.stack
+      @context.mark mark, [b_obj]
+      obj = @context.lookup("~#{mark}")[0]
+      assert_equal [['', Root], ['a', NodeA], ['b', NodeB]], obj.rvc_path
 
       @context.mark mark, []
-      loc = @context.lookup_loc("~#{mark}")[0]
-      assert_equal nil, loc
+      obj = @context.lookup("~#{mark}")[0]
+      assert_equal nil, obj
     end
 
-    @context.mark '7', [b_loc]
-    loc = @context.lookup_loc("7")[0]
-    assert_equal [['', Root], ['a', NodeA], ['b', NodeB]], loc.stack
+    @context.mark '7', [b_obj]
+    obj = @context.lookup("7")[0]
+    assert_equal [['', Root], ['a', NodeA], ['b', NodeB]], obj.rvc_path
 
     @context.mark '7', []
-    loc = @context.lookup_loc("7")[0]
-    assert_equal nil, loc
+    obj = @context.lookup("7")[0]
+    assert_equal nil, obj
   end
 
   def test_cd
-    assert_equal [['', Root]], @context.loc.stack
-    @context.cd(@context.lookup_loc("a")[0])
-    assert_equal [['', Root], ['a', NodeA]], @context.loc.stack
+    assert_equal [['', Root]], @context.cur.rvc_path
+    @context.cd(@context.lookup("a")[0])
+    assert_equal [['', Root], ['a', NodeA]], @context.cur.rvc_path
   end
 
   def test_regex
@@ -121,12 +122,12 @@ class FSTest < Test::Unit::TestCase
     dab = [['', Root], ['d', NodeD], ['dab', NodeDab]]
     dabc = [['', Root], ['d', NodeD], ['dabc', NodeDabc]]
     dac = [['', Root], ['d', NodeD], ['dac', NodeDac]]
-    locs = @context.lookup_loc '/d/%^daa'
-    assert_equal [daa], locs.map(&:stack)
-    locs = @context.lookup_loc '/d/%^daa.*'
-    assert_equal [daa], locs.map(&:stack)
-    locs = @context.lookup_loc '/d/%^da.*c'
-    assert_equal [dabc, dac], locs.map(&:stack)
+    objs = @context.lookup '/d/%^daa'
+    assert_equal [daa], objs.map(&:rvc_path)
+    objs = @context.lookup '/d/%^daa.*'
+    assert_equal [daa], objs.map(&:rvc_path)
+    objs = @context.lookup '/d/%^da.*c'
+    assert_equal [dabc, dac], objs.map(&:rvc_path)
   end
 
   def test_glob
@@ -134,11 +135,11 @@ class FSTest < Test::Unit::TestCase
     dab = [['', Root], ['d', NodeD], ['dab', NodeDab]]
     dabc = [['', Root], ['d', NodeD], ['dabc', NodeDabc]]
     dac = [['', Root], ['d', NodeD], ['dac', NodeDac]]
-    locs = @context.lookup_loc '/d/*daa*'
-    assert_equal [daa], locs.map(&:stack)
-    locs = @context.lookup_loc '/d/d*a'
-    assert_equal [daa], locs.map(&:stack)
-    locs = @context.lookup_loc '/d/da*c'
-    assert_equal [dabc, dac], locs.map(&:stack)
+    objs = @context.lookup '/d/*daa*'
+    assert_equal [daa], objs.map(&:rvc_path)
+    objs = @context.lookup '/d/d*a'
+    assert_equal [daa], objs.map(&:rvc_path)
+    objs = @context.lookup '/d/da*c'
+    assert_equal [dabc, dac], objs.map(&:rvc_path)
   end
 end

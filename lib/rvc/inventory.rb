@@ -35,7 +35,7 @@ module InventoryObject
     m.extend ClassMethods
   end
 
-  attr_accessor :rvc_path
+  attr_reader :rvc_parent, :rvc_arc
 
   def display_info
     puts "class: #{self.class.name}"
@@ -53,8 +53,25 @@ module InventoryObject
     {}
   end
 
-  def parent
-    nil
+  def rvc_path
+    [].tap do |a|
+      cur = self
+      while cur != nil
+        a << [cur.rvc_arc, cur]
+        cur = cur.rvc_parent
+      end
+      a.reverse!
+    end
+  end
+
+  def rvc_path_str
+    rvc_path.map { |k,v| k } * '/'
+  end
+
+  def rvc_link parent, arc
+    return if @rvc_parent
+    @rvc_parent = parent
+    @rvc_arc = arc
   end
 end
 
@@ -74,10 +91,6 @@ class FakeFolder
     true
   end
 
-  def parent
-    @target
-  end
-
   def eql? x
     @target == x.instance_variable_get(:@target) &&
       @method == x.instance_variable_get(:@method)
@@ -93,10 +106,6 @@ class RootNode
 
   def children
     $shell.connections
-  end
-
-  def parent
-    nil
   end
 
   def self.folder?
@@ -115,10 +124,6 @@ class RbVmomi::VIM
 
   def children
     rootFolder.children
-  end
-
-  def parent
-    $shell.fs.root
   end
 
   def self.folder?

@@ -83,15 +83,15 @@ if $opts[:path]
   rescue UserError
     raise unless $opts[:create_directory]
     parent_path = File.dirname($opts[:path])
-    lookup(parent_path).CreateFolder(:name => File.basename($opts[:path]))
-    CMD.basic.cd $opts[:path]
+    lookup_single(parent_path).CreateFolder(:name => File.basename($opts[:path]))
+    CMD.basic.cd lookup_single($opts[:path])
   end
 elsif $shell.connections.size == 1
   conn_name, conn = $shell.connections.first
   if conn.serviceContent.about.apiType == 'VirtualCenter'
-    CMD.basic.cd conn_name
+    CMD.basic.cd lookup_single(conn_name)
   else
-    CMD.basic.cd "#{conn_name}/ha-datacenter/vm"
+    CMD.basic.cd lookup_single("#{conn_name}/ha-datacenter/vm")
   end
 end
 
@@ -99,7 +99,7 @@ unless CMD.vmrc.find_vmrc
   $stderr.puts "VMRC is not installed. You will be unable to view virtual machine consoles. Use the vmrc.install command to install it."
 end
 
-CMD.basic.ls '.'
+CMD.basic.ls lookup_single('.')
 
 while true
   begin

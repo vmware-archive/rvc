@@ -21,16 +21,15 @@
 opts :mark do
   summary "Save an object for later use"
   arg :key, "Name for this mark"
-  arg :path, "Any objects", :required => false, :default => ['.'], :multi => true
+  arg :obj, "Any objects", :required => false, :default => ['.'], :multi => true, :lookup => Object
 end
 
 rvc_alias :mark
 rvc_alias :mark, :m
 
-def mark key, paths
+def mark key, objs
   err "invalid mark name" unless key =~ /^\w+$/
-  locs = paths.map { |path| $shell.fs.lookup_loc(path) }.inject([], :+)
-  $shell.fs.mark key, locs
+  $shell.fs.mark key, objs
 end
 
 
@@ -43,9 +42,9 @@ rvc_alias :edit, :me
 
 def edit key
   editor = ENV['VISUAL'] || ENV['EDITOR'] || 'vi'
-  locs = $shell.fs.marks[key] or err "no such mark #{key.inspect}"
+  objs = $shell.fs.marks[key] or err "no such mark #{key.inspect}"
   filename = File.join(Dir.tmpdir, "rvc.#{Time.now.to_i}.#{rand(65536)}")
-  File.open(filename, 'w') { |io| locs.each { |loc| io.puts loc.display_path } }
+  File.open(filename, 'w') { |io| objs.each { |obj| io.puts(obj.rvc_path.map { |k,v| v } * '/') } }
   begin
     system("#{editor} #{filename}")
     new_paths = File.readlines(filename).map(&:chomp) rescue return

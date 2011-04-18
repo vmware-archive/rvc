@@ -87,18 +87,18 @@ module Completion
     ret.sort.select { |e| e.match(prefix_regex) }
   end
 
+  # TODO convert to globbing
   def self.child_candidates word
-    els, absolute, trailing_slash = Path.parse word
-    last = trailing_slash ? '' : (els.pop || '')
-    els.map! { |x| x.gsub '\\', '' }
-    base_loc = absolute ? Location.new($shell.fs.root) : $shell.fs.loc
-    found_loc = $shell.fs.traverse(base_loc, els).first or return []
-    cur = found_loc.obj
-    els.unshift '' if absolute
+    arcs, absolute, trailing_slash = Path.parse word
+    last = trailing_slash ? '' : (arcs.pop || '')
+    arcs.map! { |x| x.gsub '\\', '' }
+    base = absolute ? $shell.fs.root : $shell.fs.cur
+    cur = $shell.fs.traverse(base, arcs).first or return []
+    arcs.unshift '' if absolute
     children = Cache[cur, :children] rescue []
     children.
       select { |k,v| k.gsub(' ', '\\ ') =~ /^#{Regexp.escape(last)}/ }.
-      map { |k,v| (els+[k])*'/' }.
+      map { |k,v| (arcs+[k])*'/' }.
       map { |x| x.gsub ' ', '\\ ' }
   end
 

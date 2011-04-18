@@ -113,48 +113,41 @@ end
 
 opts :cd do
   summary "Change directory"
-  arg :path, "Directory to change to"
+  arg :obj, "Directory to change to", :lookup => Object
 end
 
 rvc_alias :cd
 
-def cd path
-  # XXX check for multiple matches
-  new_loc = $shell.fs.lookup_loc(path).first or err "Not found: #{path.inspect}"
-  $shell.fs.cd(new_loc)
-  $shell.fs.mark '', [find_ancestor_loc(RbVmomi::VIM::Datacenter)]
-  $shell.fs.mark '@', [find_ancestor_loc(RbVmomi::VIM)]
+def cd obj
+  $shell.fs.cd(obj)
+  $shell.fs.mark '', [find_ancestor(RbVmomi::VIM::Datacenter)].compact
+  $shell.fs.mark '@', [find_ancestor(RbVmomi::VIM)].compact
   $shell.fs.marks.delete_if { |k,v| k =~ /^\d+$/ }
 end
 
-def find_ancestor_loc klass
-  dc_loc = $shell.fs.loc.dup
-  dc_loc.pop while dc_loc.obj and not dc_loc.obj.is_a? klass
-  dc_loc.obj ? dc_loc : nil
+def find_ancestor klass
+  $shell.fs.cur.rvc_path.map { |k,v| v }.reverse.find { |x| x.is_a? klass }
 end
 
 
 opts :ls do
   summary "List objects in a directory"
-  arg :path, "Directory to list", :required => false, :default => '.'
+  arg :obj, "Directory to list", :required => false, :default => '.', :lookup => Object
 end
 
 rvc_alias :ls
 rvc_alias :ls, :l
 
-def ls path
-  # XXX check for multiple matches
-  loc = $shell.fs.lookup_loc(path).first or err "Not found: #{path.inspect}"
-  obj = loc.obj
+def ls obj
   children = obj.children
   name_map = children.invert
   children, fake_children = children.partition { |k,v| v.is_a? VIM::ManagedEntity }
   i = 0
 
-  fake_children.each do |name,obj|
-    puts "#{i} #{name}#{obj.ls_text(nil)}"
-    mark_loc = loc.dup.tap { |x| x.push name, obj }
-    $shell.fs.mark i.to_s, [mark_loc]
+  fake_children.each do |name,child|
+    puts "#{i} #{name}#{child.ls_text(nil)}"
+    child.rvc_link obj, name
+    $shell.fs.mark i.to_s, [child]
     i += 1
   end
 
@@ -163,9 +156,9 @@ def ls path
   filterSpec = VIM.PropertyFilterSpec(:objectSet => [], :propSet => [])
   filteredTypes = Set.new
 
-  children.each do |name,obj|
-    filterSpec.objectSet << { :obj => obj }
-    filteredTypes << obj.class
+  children.each do |name,child|
+    filterSpec.objectSet << { :obj => child }
+    filteredTypes << child.class
   end
 
   filteredTypes.each do |x|
@@ -183,8 +176,8 @@ def ls path
     text = r.obj.ls_text(r) rescue " (error)"
     realname = r['name'] if name != r['name']
     puts "#{i} #{name}#{realname && " [#{realname}]"}#{text}"
-    mark_loc = loc.dup.tap { |x| x.push name, r.obj }
-    $shell.fs.mark i.to_s, [mark_loc]
+    r.obj.rvc_link obj, name
+    $shell.fs.mark i.to_s, [r.obj]
     i += 1
   end
 end
@@ -199,7 +192,7 @@ rvc_alias :info
 rvc_alias :info, :i
 
 def info obj
-  puts "path: #{obj.rvc_path}"
+  puts "path: #{obj.rvc_path_str}"
   if obj.respond_to? :display_info
     obj.display_info
   else

@@ -20,131 +20,89 @@
 
 module RVC
 
-class Location
-  attr_reader :stack
-
-  def initialize root
-    @stack = [['', root]]
-  end
-
-  def initialize_copy src
-    super
-    @stack = @stack.dup
-  end
-
-  def push name, obj
-    @stack << [name, obj]
-  end
-
-  def pop
-    @stack.pop
-  end
-
-  def obj
-    @stack.empty? ? nil : @stack[-1][1]
-  end
-
-  def path
-    @stack.map { |name,obj| name }
-  end
-
-  def display_path
-    path * '/'
-  end
-end
-
 class FS
-  attr_reader :root, :loc, :marks
+  attr_reader :root, :cur, :marks
 
   MARK_PATTERN = /^~(?:([\d\w]*|~|@))$/
   REGEX_PATTERN = /^%/
   GLOB_PATTERN = /\*/
 
   def initialize root
+    fail unless root.is_a? RVC::InventoryObject
     @root = root
-    @loc = Location.new root
+    @cur = root
     @marks = {}
   end
 
-  def cur
-    @loc.obj
-  end
-
   def display_path
-    @loc.path * '/'
+    @cur.rvc_path.map { |arc,obj| arc } * '/'
   end
 
-  def cd new_loc
-    mark '~', [@loc]
-    @loc = new_loc
+  def cd dst
+    fail unless dst.is_a? RVC::InventoryObject
+    mark '~', [@cur]
+    @cur = dst
   end
 
   def lookup path
-    lookup_loc(path).map(&:obj)
+    arcs, absolute, trailing_slash = Path.parse path
+    base = absolute ? @root : @cur
+    traverse(base, arcs)
   end
 
-  def lookup_loc path
-    els, absolute, trailing_slash = Path.parse path
-    base_loc = absolute ? Location.new(@root) : @loc
-    traverse(base_loc, els)
+  # Starting from base, traverse each path element in arcs. Since the path
+  # may contain wildcards, this function returns a list of matches.
+  def traverse base, arcs
+    objs = [base]
+    arcs.each_with_index do |arc,i|
+      objs.map! { |obj| traverse_one obj, arc, i==0 }
+      objs.flatten!
+    end
+    objs
   end
 
-  def traverse_one loc, el, first
-    case el
+  def traverse_one cur, arc, first
+    case arc
     when '.'
-      [loc]
+      [cur]
     when '..'
-      loc.pop unless loc.obj == @root
-      [loc]
+      [cur.rvc_parent ? cur.rvc_parent : cur]
     when '...'
-      loc.push(el, loc.obj.parent) unless loc.obj == @root
-      [loc]
+      # XXX shouldnt be nil
+      [(cur.respond_to?(:parent) && cur.parent) ? cur.parent : (cur.rvc_parent || cur)]
     when MARK_PATTERN
-      return unless first
-      locs = @marks[$1] or return []
-      locs.dup
+      if first and objs = @marks[$1]
+        objs
+      else
+        []
+      end
     when REGEX_PATTERN
       regex = Regexp.new($')
-      loc.obj.children.
-        select { |k,v| k =~ regex }.
-        map { |k,v| loc.dup.tap { |x| x.push(k, v) } }
+      cur.children.select { |k,v| k =~ regex }.map { |k,v| v.rvc_link(cur, k); v }
     when GLOB_PATTERN
-      regex = glob_to_regex el
-      loc.obj.children.
-        select { |k,v| k =~ regex }.
-        map { |k,v| loc.dup.tap { |x| x.push(k, v) } }
+      regex = glob_to_regex arc
+      cur.children.select { |k,v| k =~ regex }.map { |k,v| v.rvc_link(cur, k); v }
     else
       # XXX check for ambiguous child
-      if first and el =~ /^\d+$/ and @marks.member? el
-        @marks[el].dup
+      if first and arc =~ /^\d+$/ and objs = @marks[arc]
+        objs
       else
-        x = loc.obj.traverse_one(el) or return []
-        loc.push el, x
-        [loc]
+        if child = cur.traverse_one(arc)
+          child.rvc_link cur, arc
+          [child]
+        else
+          []
+        end
       end
     end
   end
 
-  # Starting from base_loc, traverse each path element in els. Since the path
-  # may contain wildcards, this function returns a list of matches.
-  def traverse base_loc, els
-    locs = [base_loc.dup]
-    els.each_with_index do |el,i|
-      locs.map! { |loc| traverse_one loc, el, i==0 }
-      locs.flatten!
-    end
-    locs.each { |loc| loc.obj.rvc_path ||= loc.display_path }
-    locs
+  def mark key, objs
+    fail "not an array" unless objs.is_a? Array
+    @marks[key] = objs
   end
 
-  def mark key, locs
-    fail "not an array" unless locs.is_a? Array
-    if locs.empty?
-      @marks.delete key
-    else
-      @marks[key] = locs
-    end
-  end
+private
 
   def glob_to_regex str
     Regexp.new "^#{Regexp.escape(str.gsub('*', "\0")).gsub("\0", ".*")}$"
