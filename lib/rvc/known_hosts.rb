@@ -20,6 +20,7 @@ class KnownHosts
     expected_hashed_host = hash_host protocol, hostname
     expected_hashed_public_key = hash_public_key public_key
     if File.exists? filename
+      fail "bad permissions on known_hosts, expected 0600" unless File.stat(filename).mode & 0666 == 0600
       File.readlines(filename).each_with_index do |l,i|
         hashed_host, hashed_public_key = l.split
         next unless hashed_host == expected_hashed_host
@@ -36,6 +37,7 @@ class KnownHosts
   def add protocol, hostname, public_key
     FileUtils.mkdir_p File.dirname(filename)
     File.open(filename, 'a') do |io|
+      io.chmod 0600
       io.write "#{hash_host protocol, hostname} #{hash_public_key public_key}"
     end
   end
