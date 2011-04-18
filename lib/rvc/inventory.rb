@@ -35,6 +35,8 @@ module InventoryObject
     m.extend ClassMethods
   end
 
+  attr_accessor :rvc_path
+
   def display_info
     puts "class: #{self.class.name}"
   end

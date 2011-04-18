@@ -199,6 +199,7 @@ rvc_alias :info
 rvc_alias :info, :i
 
 def info obj
+  puts "path: #{obj.rvc_path}"
   if obj.respond_to? :display_info
     obj.display_info
   else

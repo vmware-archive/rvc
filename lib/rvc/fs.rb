@@ -47,6 +47,10 @@ class Location
   def path
     @stack.map { |name,obj| name }
   end
+
+  def display_path
+    path * '/'
+  end
 end
 
 class FS
@@ -129,6 +133,7 @@ class FS
       locs.map! { |loc| traverse_one loc, el, i==0 }
       locs.flatten!
     end
+    locs.each { |loc| loc.obj.rvc_path ||= loc.display_path }
     locs
   end
 
