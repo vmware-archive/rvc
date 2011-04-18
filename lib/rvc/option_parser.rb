@@ -111,9 +111,12 @@ class OptionParser < Trollop::Parser
 
   def postprocess_arg x, spec
     if spec[:lookup]
-      lookup! x, spec[:lookup]
+      lookup!(x, spec[:lookup]).
+        tap { |a| err "no matches for #{x.inspect}" if a.empty? }
     elsif spec[:lookup_parent]
-      lookup!(File.dirname(x), spec[:lookup_parent]).map { |y| [y, File.basename(x)] }
+      lookup!(File.dirname(x), spec[:lookup_parent]).
+        map { |y| [y, File.basename(x)] }.
+        tap { |a| err "no matches for #{File.dirname(x).inspect}" if a.empty? }
     else
       [x]
     end
