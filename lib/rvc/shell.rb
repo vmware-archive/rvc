@@ -199,23 +199,17 @@ class RubyEvaluator
     @fs.lookup("~@").first
   end
 
-  def magic_mark_method name
-    if name[-1..-1] == '!'
-      @fs.marks[str[0...-1]].map(&:obj)
-    else
-      @fs.marks[str].first.obj
-    end
-  end
-
   def method_missing sym, *a
     str = sym.to_s
     if a.empty?
       if MODULES.member? str
         MODULES[str]
-      elsif @fs.marks.member?(str)
-        magic_mark_method str
-      elsif str[0..0] == '_' && @fs.marks.member?(str[1..-1])
-        magic_mark_method str[1..-1]
+      elsif str =~ /_?([\w\d]+)(!?)/ && locs = @fs.marks[$1]
+        if $2 == '!'
+          locs.map(&:obj)
+        else
+          locs.first.obj
+        end
       else
         super
       end
