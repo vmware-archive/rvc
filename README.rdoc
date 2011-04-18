@@ -81,6 +81,13 @@ When the working directory is a descendant of a Datacenter object, the mark "~"
 refers to the Datacenter. For example "~/datastore" is a convenient way to get
 the datastore folder of the current datacenter.
 
+=== Aggregate marks
+
+More than one object can be given to the "mark" command. The resulting mark can
+be used with any command that accepts multiple objects. The "mark.edit" command
+opens up an editor showing the objects referenced by the given mark and allows
+you to remove some or add more.
+
 === Ruby mode
 
 Beginning an input line with "/" causes RVC to treat it as Ruby code and eval
@@ -89,7 +96,9 @@ it. This gives you direct access to the underlying RbVmomi library. If the line
 
 Marks can be easily used in Ruby mode since there are magic variables with the
 same names. Since some marks, like numeric ones, aren't valid variable names,
-they also exist with a "_" prefix.
+they also exist with a "_" prefix. By default only the first object in an
+aggregate mark will be returned; to get an array of them all use the '!'
+suffix.
 
 The methods "this", "conn", and "dc" are provided in Ruby mode, returning the
 current object, connection, and datacenter respectively. The connection object
