@@ -81,7 +81,7 @@ class Shell
     err "invalid command" unless cmd.is_a? String
     case cmd
     when RVC::FS::MARK_PATTERN
-      CMD.basic.cd cmd
+      CMD.basic.cd lookup_single(cmd)
     else
       if cmd.include? '.'
         module_name, cmd, = cmd.split '.'
