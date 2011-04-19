@@ -223,7 +223,7 @@ rvc_alias :show, :w
 
 def show objs
   objs.each do |obj|
-    puts "#{obj.rvc_path}: #{obj.class}"
+    puts "#{obj.rvc_path_str}: #{obj.class}"
   end
 end
 
