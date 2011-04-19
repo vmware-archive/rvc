@@ -122,7 +122,7 @@ def connect uri, opts
   Thread.new do
     while true
       sleep 600
-      vim.serviceInstance.RetrieveServiceContent
+      vim.serviceInstance.CurrentTime
     end
   end
 
