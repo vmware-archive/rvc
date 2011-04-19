@@ -25,7 +25,7 @@ class KnownHosts
     expected_hashed_host = hash_host protocol, hostname
     expected_hashed_public_key = hash_public_key public_key
     if File.exists? filename
-      fail "bad permissions on known_hosts, expected 0600" unless @ignore_permissions or File.stat(filename).mode & 0666 == 0600
+      fail "bad permissions on #{filename}, expected 0600" unless @ignore_permissions or File.stat(filename).mode & 0666 == 0600
       File.readlines(filename).each_with_index do |l,i|
         hashed_host, hashed_public_key = l.split
         next unless hashed_host == expected_hashed_host
