@@ -75,10 +75,14 @@ rvc_alias :edit, :vi
 def edit file
   editor = ENV['VISUAL'] || ENV['EDITOR'] || 'vi'
   filename = File.join(Dir.tmpdir, "rvc.#{Time.now.to_i}.#{rand(65536)}")
-  file.datastore.download file.path, filename
+  file.datastore.download(file.path, filename) rescue err("download failed")
   begin
+    pre_stat = File.stat filename
     system("#{editor} #{filename}")
-    # TODO upload if changed
+    post_stat = File.stat filename
+    if pre_stat != post_stat
+      file.datastore.upload(file.path, filename) rescue err("upload failed")
+    end
   ensure
     File.unlink filename
   end
