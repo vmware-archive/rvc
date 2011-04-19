@@ -38,7 +38,7 @@ class KnownHosts
     FileUtils.mkdir_p File.dirname(filename)
     File.open(filename, 'a') do |io|
       io.chmod 0600
-      io.write "#{hash_host protocol, hostname} #{hash_public_key public_key}"
+      io.write "#{hash_host protocol, hostname} #{hash_public_key public_key}\n"
     end
   end
 end
