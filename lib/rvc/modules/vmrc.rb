@@ -19,14 +19,14 @@
 # THE SOFTWARE.
 
 require 'tmpdir'
+require 'digest/sha2'
+require 'zip'
 
-VMRC_NAME = "vmware-vmrc-linux-x86-3.0.0"
+VMRC_NAME = "vmware-vmrc-linux-x86-3.0.0-309851"
 VMRC_PKGVER = 1
-VMRC_BASENAME = "#{VMRC_NAME}.#{VMRC_PKGVER}.tar.bz2"
+VMRC_BASENAME = "#{VMRC_NAME}.#{VMRC_PKGVER}.xpi"
 VMRC_URL = "http://cloud.github.com/downloads/vmware/rvc/#{VMRC_BASENAME}"
-VMRC_SHA256 = "cda9ba0b0078aee9a7b9704d720ef4c7d74ae2028efb71815d0eb91a5de75921"
-
-CURL = ENV['CURL'] || 'curl'
+VMRC_SHA256 = "c86ecd9d9a1dd909a119c19d28325cb87d6e2853885d3014a7dac65175dd2ae1"
 
 def find_local_vmrc
   path = File.join(Dir.tmpdir, VMRC_NAME, 'plugins', 'vmware-vmrc')
@@ -68,23 +68,66 @@ def view vms
   end
 end
 
+
 opts :install do
   summary "Install VMRC"
 end
 
 def install
-  system "which #{CURL} > /dev/null" or err "curl not found"
-  system "which sha256sum > /dev/null" or err "sha256sum not found"
-  puts "Downloading VMRC..."
-  dir = Dir.mktmpdir
-  vmrc_file = "#{dir}/#{VMRC_BASENAME}"
-  checksum_file = "#{dir}/sha256sums"
-  system "#{CURL} -L #{VMRC_URL} -o #{vmrc_file}" or err "download failed"
-  puts "Checking integrity..."
-  File.open(checksum_file, 'w') { |io| io.puts "#{VMRC_SHA256} *#{vmrc_file}" }
-  system "sha256sum -c #{checksum_file}" or err "integrity check failed"
-  puts "Installing VMRC..."
-  system "tar -xj -f #{vmrc_file} -C #{Dir.tmpdir}" or err("VMRC installation failed")
+  zip_filename = File.join(Dir.tmpdir, VMRC_BASENAME)
+  download VMRC_URL, zip_filename
+  verify zip_filename, VMRC_SHA256
+  extract zip_filename, File.join(Dir.tmpdir, VMRC_NAME)
   puts "VMRC was installed successfully."
-  FileUtils.rm_r dir
+end
+
+def download url_str, dest
+  puts "Downloading VMRC..."
+
+  url = URI.parse(url_str)
+
+  http = if ENV['http_proxy']
+    proxy_uri = URI.parse(ENV['http_proxy'])
+    proxy_user, proxy_pass = proxy_uri.userinfo.split(/:/) if proxy_uri.userinfo
+    Net::HTTP::Proxy(proxy_uri.host, proxy_uri.port, proxy_user, proxy_pass)
+  else
+    Net::HTTP
+  end
+
+  begin
+    File.open(dest, 'w') do |io|
+      res = http.start(url.host, url.port) do |http|
+        http.get(url.path) do |segment|
+          io.write segment
+        end
+      end
+    end
+  rescue Exception
+    err "Error downloading VMRC: #{$!.class}: #{$!.message}"
+  end
+end
+
+def verify filename, expected_hash
+  puts "Checking integrity..."
+  hexdigest = Digest::SHA256.file(filename).hexdigest
+  err "Hash mismatch" if hexdigest != VMRC_SHA256
+end
+
+def extract src, dst
+  puts "Installing VMRC..."
+  FileUtils.mkdir_p dst
+  Zip::ZipFile.open(src) do |zf|
+    zf.each do |e|
+      dst_filename = File.join(dst, e.name)
+      case e.ftype
+      when :file
+        zf.extract e.name, dst_filename
+        File.chmod(e.unix_perms, dst_filename)
+      when :directory
+        FileUtils.mkdir_p dst_filename
+      else
+        $stderr.puts "unknown file type #{e.ftype}"
+      end
+    end
+  end
 end
