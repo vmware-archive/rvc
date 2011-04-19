@@ -44,11 +44,12 @@ def edit key
   editor = ENV['VISUAL'] || ENV['EDITOR'] || 'vi'
   objs = $shell.fs.marks[key] or err "no such mark #{key.inspect}"
   filename = File.join(Dir.tmpdir, "rvc.#{Time.now.to_i}.#{rand(65536)}")
-  File.open(filename, 'w') { |io| objs.each { |obj| io.puts(obj.rvc_path.map { |k,v| v } * '/') } }
+  File.open(filename, 'w') { |io| objs.each { |obj| io.puts(obj.rvc_path_str) } }
   begin
     system("#{editor} #{filename}")
     new_paths = File.readlines(filename).map(&:chomp) rescue return
-    mark key, new_paths
+    new_objs = new_paths.map { |path| lookup(path) }.inject([], &:+)
+    mark key, new_objs
   ensure
     File.unlink filename
   end
