@@ -37,6 +37,8 @@ Thread.abort_on_exception = true
 CMD = Module.new
 RVC::VERSION = File.read(File.join(File.dirname(__FILE__), '..', 'VERSION'))
 
+HighLine.use_color = ENV['TERM'] != nil
+
 $opts = Trollop.options do
   version RVC::VERSION
 
