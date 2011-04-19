@@ -213,6 +213,18 @@ def destroy objs
 end
 
 
+opts :reload_entity do
+  summary "Synchronize management server state"
+  arg :obj, nil, :lookup => VIM::ManagedEntity, :multi => true
+end
+
+rvc_alias :reload_entity
+
+def reload_entity objs
+  objs.each(&:Reload)
+end
+
+
 opts :show do
   summary "Basic information about the given objects"
   arg :obj, nil, :multi => true, :required => false, :lookup => Object
