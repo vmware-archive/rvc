@@ -30,6 +30,7 @@ def download datastore_path, local_path
   file.datastore.download file.path, local_path
 end
 
+
 opts :upload do
   summary "Upload a file to a datastore"
   arg 'local-path', "Filename on the local machine"
@@ -44,6 +45,7 @@ def upload local_path, datastore_path
   real_datastore_path = "#{dir.path}/#{File.basename(datastore_path)}"
   dir.datastore.upload real_datastore_path, local_path
 end
+
 
 opts :mkdir do
   summary "Create a directory on a datastore"
@@ -60,4 +62,24 @@ def mkdir datastore_path
   dc._connection.serviceContent.fileManager.MakeDirectory :name => name,
                                                           :datacenter => dc,
                                                           :createParentDirectories => false
+end
+
+
+opts :edit do
+  summary "Edit a file"
+  arg "file", nil, :lookup => VIM::Datastore::FakeDatastoreFile
+end
+
+rvc_alias :edit, :vi
+
+def edit file
+  editor = ENV['VISUAL'] || ENV['EDITOR'] || 'vi'
+  filename = File.join(Dir.tmpdir, "rvc.#{Time.now.to_i}.#{rand(65536)}")
+  file.datastore.download file.path, filename
+  begin
+    system("#{editor} #{filename}")
+    # TODO upload if changed
+  ensure
+    File.unlink filename
+  end
 end
