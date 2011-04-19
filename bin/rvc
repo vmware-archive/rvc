@@ -81,7 +81,7 @@ history = File.open(history_fn, 'a')
 
 if $opts[:path]
   begin
-    CMD.basic.cd $opts[:path]
+    CMD.basic.cd lookup_single($opts[:path])
   rescue UserError
     raise unless $opts[:create_directory]
     parent_path = File.dirname($opts[:path])
