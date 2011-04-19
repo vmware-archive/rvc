@@ -21,15 +21,17 @@
 require 'readline'
 require 'rvc/ttl_cache'
 
-begin
-  require 'ffi'
+if not defined? RbReadline
   begin
-    require 'rvc/readline-ffi'
-  rescue Exception
-    $stderr.puts "Error loading readline-ffi: #{$!.message}. Tab completion will be limited."
+    require 'ffi'
+    begin
+      require 'rvc/readline-ffi'
+    rescue Exception
+      $stderr.puts "Error loading readline-ffi: #{$!.message}. Tab completion will be limited."
+    end
+  rescue LoadError
+    $stderr.puts "Install the \"ffi\" gem for better tab completion."
   end
-rescue LoadError
-  $stderr.puts "Install the \"ffi\" gem for better tab completion."
 end
 
 module RVC
