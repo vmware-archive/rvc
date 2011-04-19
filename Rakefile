@@ -10,6 +10,7 @@ begin
     gem.add_dependency 'rbvmomi', '>= 1.2.3'
     gem.add_dependency 'trollop', '>= 1.16.2'
     gem.add_dependency 'backports', '>= 1.18.2'
+    gem.add_dependency 'highline', '>= 1.6.1'
     #gem.add_dependency 'ffi', '>= 1.0.7'
   end
 rescue LoadError
