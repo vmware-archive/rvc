@@ -41,6 +41,8 @@ rescue LoadError
 end
 
 begin
+  # HACK rvc needs to be installed as a gem
+  require 'rvc'
   require 'ocra'
   desc 'Compile into a win32 executable'
   task :exe do
