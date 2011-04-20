@@ -58,7 +58,7 @@ EOS
   opt :cmd, "command to evaluate", :short => 'c', :multi => true, :type => :string
 end
 
-Trollop.die "At least 1 argument expected" unless ARGV.length >= 1
+Trollop.die "At least 1 argument expected" unless ARGV.length >= 1 or defined? Ocra
 
 RVC.reload_modules false
 
@@ -95,6 +95,12 @@ elsif $shell.connections.size == 1
   else
     CMD.basic.cd lookup_single("#{conn_name}/ha-datacenter/vm")
   end
+end
+
+if defined? Ocra
+  require "net/https"
+  require "digest/sha2"
+  exit
 end
 
 unless CMD.vmrc.find_vmrc
