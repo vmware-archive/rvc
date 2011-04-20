@@ -131,7 +131,7 @@ def extract src, dst
       case e.ftype
       when :file
         zf.extract e.name, dst_filename
-        File.chmod(e.unix_perms, dst_filename)
+        File.chmod(e.unix_perms, dst_filename) if e.unix_perms
       when :directory
         FileUtils.mkdir_p dst_filename
       else
