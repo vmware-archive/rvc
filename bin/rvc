@@ -58,8 +58,6 @@ EOS
   opt :cmd, "command to evaluate", :short => 'c', :multi => true, :type => :string
 end
 
-Trollop.die "At least 1 argument expected" unless ARGV.length >= 1 or defined? Ocra
-
 RVC.reload_modules false
 
 $shell = RVC::Shell.new
@@ -105,6 +103,10 @@ end
 
 unless CMD.vmrc.find_vmrc
   $stderr.puts "VMRC is not installed. You will be unable to view virtual machine consoles. Use the vmrc.install command to install it."
+end
+
+if $shell.connections.empty?
+  $stderr.puts "Use the 'connect' command to connect to an ESX or VC server."
 end
 
 CMD.basic.ls lookup_single('.')
