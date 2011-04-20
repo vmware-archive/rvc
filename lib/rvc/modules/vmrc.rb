@@ -65,6 +65,19 @@ def view vms
     moref = vm._ref
     ticket = vm._connection.serviceInstance.content.sessionManager.AcquireCloneTicket
     host = vm._connection._host
+    spawn_vmrc vmrc, moref, host, ticket
+  end
+end
+
+case RbConfig::CONFIG['host_os']
+when /mswin/, /mingw/
+  def spawn_vmrc vmrc, moref, host, ticket
+    err "Ruby 1.9 required" unless Process.respond_to? :spawn
+    Process.spawn vmrc, '-h', host, '-p', ticket, '-M', moref,
+                  :err => "#{ENV['HOME']||'.'}/.rvc-vmrc.log"
+  end
+else
+  def spawn_vmrc vmrc, moref, host, ticket
     fork do
       ENV['https_proxy'] = ENV['HTTPS_PROXY'] = ''
       $stderr.reopen("#{ENV['HOME']||'.'}/.rvc-vmrc.log", "a")
@@ -72,9 +85,7 @@ def view vms
       $stderr.puts "Using VMRC #{vmrc}"
       $stderr.flush
       Process.setpgrp
-      exec vmrc, '-M', moref,
-                 '-h', host,
-                 '-p', ticket
+      exec vmrc, '-M', moref, '-h', host, '-p', ticket
     end
   end
 end
