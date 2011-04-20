@@ -39,3 +39,13 @@ begin
 rescue LoadError
   puts "Rcov not available. Install it with: gem install rcov"
 end
+
+begin
+  require 'ocra'
+  desc 'Compile into a win32 executable'
+  task :exe do
+    sh "ocra bin/rvc"
+  end
+rescue LoadError
+  puts "OCRA not available. Install it with: gem install ocra"
+end
