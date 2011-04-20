@@ -42,6 +42,18 @@ rvc_alias :help
 HELP_ORDER = %w(basic vm)
 
 def help path
+  if tgt = RVC::ALIASES[path]
+    fail unless tgt =~ /^(.+)\.(.+)$/
+    opts_block = RVC::MODULES[$1].opts_for($2.to_sym)
+    RVC::OptionParser.new(tgt, &opts_block).educate
+    return
+  elsif path =~ /^(.+)\.(.+)$/ and
+        mod = RVC::MODULES[$1] and
+        opts_block = mod.opts_for($2.to_sym)
+    RVC::OptionParser.new(path, &opts_block).educate
+    return
+  end
+
   obj = lookup_single(path) if path
 
   if obj
