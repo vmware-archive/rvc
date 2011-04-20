@@ -104,7 +104,7 @@ def download url_str, dest
   end
 
   begin
-    File.open(dest, 'w') do |io|
+    File.open(dest, 'wb') do |io|
       res = http.start(url.host, url.port) do |http|
         http.get(url.path) do |segment|
           io.write segment
