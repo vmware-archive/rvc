@@ -21,12 +21,21 @@
 require 'tmpdir'
 require 'digest/sha2'
 require 'zip'
+require 'rbconfig'
 
-VMRC_NAME = "vmware-vmrc-linux-x86-3.0.0-309851"
-VMRC_PKGVER = 1
-VMRC_BASENAME = "#{VMRC_NAME}.#{VMRC_PKGVER}.xpi"
+case RbConfig::CONFIG['host_os']
+when /mswin/, /mingw/
+  VMRC_NAME = "vmware-vmrc-win32-x86-3.0.0-309851"
+  VMRC_SHA256 = "8d8f9655121db5987bef1c2fa3a08ef2c4dd7769eb230bbd5b3ba9fd9576db56"
+when /linux/
+  VMRC_NAME = "vmware-vmrc-linux-x86-3.0.0-309851"
+  VMRC_SHA256 = "c86ecd9d9a1dd909a119c19d28325cb87d6e2853885d3014a7dac65175dd2ae1"
+else
+  $stderr.puts "No VMRC available for OS #{RbConfig::CONFIG['host_os']}"
+end
+
+VMRC_BASENAME = "#{VMRC_NAME}.xpi"
 VMRC_URL = "http://cloud.github.com/downloads/vmware/rvc/#{VMRC_BASENAME}"
-VMRC_SHA256 = "c86ecd9d9a1dd909a119c19d28325cb87d6e2853885d3014a7dac65175dd2ae1"
 
 def find_local_vmrc
   path = File.join(Dir.tmpdir, VMRC_NAME, 'plugins', 'vmware-vmrc')
