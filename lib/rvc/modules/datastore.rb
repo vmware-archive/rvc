@@ -20,30 +20,101 @@
 
 opts :download do
   summary "Download a file from a datastore"
-  arg 'datastore-path', "Filename on the datastore"
+  arg 'datastore-path', "Filename on the datastore", :lookup => VIM::Datastore::FakeDatastoreFile
   arg 'local-path', "Filename on the local machine"
 end
 
-def download datastore_path, local_path
-  file = lookup_single(datastore_path)
-  err "not a datastore file" unless file.is_a? RbVmomi::VIM::Datastore::FakeDatastoreFile
-  file.datastore.download file.path, local_path
+def download file, local_path
+  main_http = file.datastore._connection.http
+  http = Net::HTTP.new(main_http.address, main_http.port)
+  http.use_ssl = true
+  http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+  #http.set_debug_output $stderr
+  http.start
+  err "certificate mismatch" unless main_http.peer_cert.to_der == http.peer_cert.to_der
+
+  headers = { 'cookie' => file.datastore._connection.cookie }
+  path = http_path file.datastore.send(:datacenter).name, file.datastore.name, file.path
+  http.request_get(path, headers) do |res|
+    case res
+    when Net::HTTPOK
+      len = res.content_length
+      count = 0
+      File.open(local_path, 'wb') do |io|
+        res.read_body do |segment|
+          count += segment.length
+          io.write segment
+          $stdout.write "\e[0G\e[Kdownloading #{count}/#{len} bytes (#{(count*100)/len}%)"
+          $stdout.flush
+        end
+      end
+      $stdout.puts
+    else
+      err "download failed: #{res.message}"
+    end
+  end
 end
 
 
 opts :upload do
   summary "Upload a file to a datastore"
   arg 'local-path', "Filename on the local machine"
-  arg 'datastore-path', "Filename on the datastore"
+  arg 'datastore-path', "Filename on the datastore", :lookup_parent => VIM::Datastore::FakeDatastoreFolder
 end
 
-def upload local_path, datastore_path
-  datastore_dir_path = File.dirname datastore_path
-  dir = lookup_single(datastore_dir_path)
-  err "datastore directory does not exist" unless dir.is_a? RbVmomi::VIM::Datastore::FakeDatastoreFolder
+def upload local_path, dest
+  dir, datastore_filename = *dest
   err "local file does not exist" unless File.exists? local_path
-  real_datastore_path = "#{dir.path}/#{File.basename(datastore_path)}"
-  dir.datastore.upload real_datastore_path, local_path
+  real_datastore_path = "#{dir.path}/#{datastore_filename}"
+
+  main_http = dir.datastore._connection.http
+  http = Net::HTTP.new(main_http.address, main_http.port)
+  http.use_ssl = true
+  http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+  #http.set_debug_output $stderr
+  http.start
+  err "certificate mismatch" unless main_http.peer_cert.to_der == http.peer_cert.to_der
+
+  File.open(local_path, 'rb') do |io|
+    stream = ProgressStream.new(io, io.stat.size) do |s|
+      $stdout.write "\e[0G\e[Kuploading #{s.count}/#{s.len} bytes (#{(s.count*100)/s.len}%)"
+      $stdout.flush
+    end
+
+    headers = {
+      'cookie' => dir.datastore._connection.cookie,
+      'content-length' => io.stat.size.to_s,
+      'Content-Type' => 'application/octet-stream',
+    }
+    path = http_path dir.datastore.send(:datacenter).name, dir.datastore.name, real_datastore_path
+    request = Net::HTTP::Put.new path, headers
+    request.body_stream = stream
+    res = http.request(request)
+    $stdout.puts
+    case res
+    when Net::HTTPOK
+    else
+      err "upload failed: #{res.message}"
+    end
+  end
+end
+
+class ProgressStream
+  attr_reader :io, :len, :count
+
+  def initialize io, len, &b
+    @io = io
+    @len = len
+    @count = 0
+    @cb = b
+  end
+
+  def read n
+    io.read(n).tap do |c|
+      @count += c.length if c
+      @cb[self]
+    end
+  end
 end
 
 
@@ -75,15 +146,20 @@ rvc_alias :edit, :vi
 def edit file
   editor = ENV['VISUAL'] || ENV['EDITOR'] || 'vi'
   filename = File.join(Dir.tmpdir, "rvc.#{Time.now.to_i}.#{rand(65536)}")
-  file.datastore.download(file.path, filename) rescue err("download failed")
+  download file, filename
   begin
     pre_stat = File.stat filename
     system("#{editor} #{filename}")
     post_stat = File.stat filename
     if pre_stat != post_stat
-      file.datastore.upload(file.path, filename) rescue err("upload failed")
+      upload filename, [file.parent, File.basename(file.path)]
     end
   ensure
     File.unlink filename
   end
+end
+
+
+def http_path dc_name, ds_name, path
+  "/folder/#{URI.escape path}?dcPath=#{URI.escape dc_name}&dsName=#{URI.escape ds_name}"
 end
