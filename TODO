@@ -1,8 +1,12 @@
 add commands for more entities
 add fake subfolders for more entities
-add fastpass authentication
+add fastpass and SSPI authentication
 
 commands:
 storage vmotion
 edit clusters
 add/remove hosts from clusters
+watch tasks
+tail -f logs
+show virtual disk tree
+consolidate delta disks
