@@ -294,3 +294,30 @@ def mkdir path
   parent = lookup_single! File.dirname(path), RbVmomi::VIM::Folder
   parent.CreateFolder(:name => File.basename(path))
 end
+
+
+opts :events do
+  summary "Show recent events"
+  arg :obj, nil, :required => false, :default => '.', :lookup => Object
+  opt :lines, "Output the last N events", :short => 'n', :type => :int, :default => 10
+end
+
+rvc_alias :events
+
+def events obj, opts
+  err "'events' not supported at this level" unless obj.respond_to?(:_connection)
+  manager = obj._connection.serviceContent.eventManager
+  @event_details ||= Hash[manager.collect("description.eventInfo").first.collect { |d| [d.key, d] }]
+
+  spec = VIM::EventFilterSpec(:entity => VIM::EventFilterSpecByEntity(:entity => obj, :recursion => "all"))
+
+  collector = manager.CreateCollectorForEvents(:filter => spec)
+  collector.SetCollectorPageSize(:maxCount => opts[:lines])
+  collector.latestPage.reverse.each do |event|
+    time = event.createdTime.localtime.strftime("%m/%d/%Y %I:%M %p")
+    category = @event_details[event.class.to_s].category
+    puts "[#{time}] [#{category}] #{event.fullFormattedMessage.strip}"
+  end
+ensure
+  collector.DestroyCollector if collector
+end
