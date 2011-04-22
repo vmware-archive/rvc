@@ -82,41 +82,41 @@ class OptionParser < Trollop::Parser
 
     @specs.each do |name,spec|
       next unless klass = spec[:lookup] and path = opts[name]
-      opts[name] = lookup_single! path, klass
+      opts[name] = RVC::Util.lookup_single! path, klass
     end
 
     argv = leftovers
     args = []
     @args.each do |name,spec|
       if spec[:multi]
-        err "missing argument '#{name}'" if spec[:required] and argv.empty?
+        RVC::Util.err "missing argument '#{name}'" if spec[:required] and argv.empty?
         a = (argv.empty? ? spec[:default] : argv.dup)
         a = a.map { |x| postprocess_arg x, spec }.inject([], :+)
-        err "no matches for '#{name}'" if spec[:required] and a.empty?
+        RVC::Util.err "no matches for '#{name}'" if spec[:required] and a.empty?
         args << a
         argv.clear
       else
         x = argv.shift
-        err "missing argument '#{name}'" if spec[:required] and x.nil?
+        RVC::Util.err "missing argument '#{name}'" if spec[:required] and x.nil?
         x = spec[:default] if x.nil?
         a = x.nil? ? [] : postprocess_arg(x, spec)
-        err "more than one match for #{name}" if a.size > 1
-        err "no match for '#{name}'" if spec[:required] and a.empty?
+        RVC::Util.err "more than one match for #{name}" if a.size > 1
+        RVC::Util.err "no match for '#{name}'" if spec[:required] and a.empty?
         args << a.first
       end
     end
-    err "too many arguments" unless argv.empty?
+    RVC::Util.err "too many arguments" unless argv.empty?
     return args, opts
   end
 
   def postprocess_arg x, spec
     if spec[:lookup]
-      lookup!(x, spec[:lookup]).
-        tap { |a| err "no matches for #{x.inspect}" if a.empty? }
+      RVC::Util.lookup!(x, spec[:lookup]).
+        tap { |a| RVC::Util.err "no matches for #{x.inspect}" if a.empty? }
     elsif spec[:lookup_parent]
-      lookup!(File.dirname(x), spec[:lookup_parent]).
+      RVC::Util.lookup!(File.dirname(x), spec[:lookup_parent]).
         map { |y| [y, File.basename(x)] }.
-        tap { |a| err "no matches for #{File.dirname(x).inspect}" if a.empty? }
+        tap { |a| RVC::Util.err "no matches for #{File.dirname(x).inspect}" if a.empty? }
     else
       [x]
     end

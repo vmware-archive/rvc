@@ -39,7 +39,7 @@ class Shell
     end
 
     if input[0..0] == '!'
-      system_fg input[1..-1]
+      RVC::Util.system_fg input[1..-1]
       return
     end
 
@@ -57,7 +57,7 @@ class Shell
       end
     rescue SystemExit, IOError
       raise
-    rescue UserError, RuntimeError, RbVmomi::Fault
+    rescue RVC::Util::UserError, RuntimeError, RbVmomi::Fault
       if ruby or debug
         puts "#{$!.class}: #{$!.message}"
         puts $!.backtrace * "\n"
@@ -78,20 +78,20 @@ class Shell
   def eval_command input
     cmd, *args = Shellwords.shellwords(input)
     return unless cmd
-    err "invalid command" unless cmd.is_a? String
+    RVC::Util.err "invalid command" unless cmd.is_a? String
     case cmd
     when RVC::FS::MARK_PATTERN
-      CMD.basic.cd lookup_single(cmd)
+      CMD.basic.cd RVC::Util.lookup_single(cmd)
     else
       if cmd.include? '.'
         module_name, cmd, = cmd.split '.'
       elsif ALIASES.member? cmd
         module_name, cmd, = ALIASES[cmd].split '.'
       else
-        err "unknown alias #{cmd}"
+        RVC::Util.err "unknown alias #{cmd}"
       end
 
-      m = MODULES[module_name] or err("unknown module #{module_name}")
+      m = MODULES[module_name] or RVC::Util.err("unknown module #{module_name}")
 
       opts_block = m.opts_for(cmd.to_sym)
       parser = RVC::OptionParser.new cmd, &opts_block

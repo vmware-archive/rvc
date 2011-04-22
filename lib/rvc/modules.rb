@@ -18,12 +18,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/util'
+
 module RVC
 
 ALIASES = {}
 MODULES = {}
 
 class CmdModule
+  include RVC::Util
+
   def initialize module_name
     @module_name = module_name
     @opts = {}

@@ -30,7 +30,6 @@ require 'backports'
 require 'rvc'
 
 VIM = RbVmomi::VIM
-include RVC::Util
 
 Thread.abort_on_exception = true
 
@@ -86,15 +85,15 @@ if $opts[:path]
   rescue UserError
     raise unless $opts[:create_directory]
     parent_path = File.dirname($opts[:path])
-    lookup_single(parent_path).CreateFolder(:name => File.basename($opts[:path]))
+    RVC::Util.lookup_single(parent_path).CreateFolder(:name => File.basename($opts[:path]))
     CMD.basic.cd lookup_single($opts[:path])
   end
 elsif $shell.connections.size == 1
   conn_name, conn = $shell.connections.first
   if conn.serviceContent.about.apiType == 'VirtualCenter'
-    CMD.basic.cd lookup_single(conn_name)
+    CMD.basic.cd RVC::Util.lookup_single(conn_name)
   else
-    CMD.basic.cd lookup_single("#{conn_name}/ha-datacenter/vm")
+    CMD.basic.cd RVC::Util.lookup_single("#{conn_name}/ha-datacenter/vm")
   end
 end
 
@@ -112,7 +111,7 @@ if $shell.connections.empty?
   $stderr.puts "Use the 'connect' command to connect to an ESX or VC server."
 end
 
-CMD.basic.ls lookup_single('.')
+CMD.basic.ls RVC::Util.lookup_single('.')
 
 while true
   begin

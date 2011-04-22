@@ -21,7 +21,7 @@
 class RbVmomi::VIM::VirtualMachine
   def display_info
     config, runtime, guest = collect :config, :runtime, :guest
-    err "Information currently unavailable" unless config and runtime and guest
+    RVC::Util.err "Information currently unavailable" unless config and runtime and guest
 
     puts "name: #{config.name}"
     puts "note: #{config.annotation}" if config.annotation and !config.annotation.empty?
