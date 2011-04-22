@@ -37,7 +37,6 @@ URI_REGEX = %r{
 opts :connect do
   summary 'Open a connection to ESX/VC'
   arg :uri, "Host to connect to"
-  opt :insecure, "don't verify ssl certificate", :short => 'k', :default => (ENV['RBVMOMI_INSECURE'] == '1')
   opt :rev, "Override protocol revision", :type => :string
 end
 
@@ -51,46 +50,32 @@ def connect uri, opts
   password = match[2] || ENV['RBVMOMI_PASSWORD']
   host = match[3]
   path = match[4]
-  insecure = opts[:insecure]
+  bad_cert = false
 
   vim = nil
   loop do
     begin
       vim = RbVmomi::VIM.new :host => host,
-                              :port => 443,
-                              :path => '/sdk',
-                              :ns => 'urn:vim25',
-                              :rev => (opts[:rev]||'4.0'),
-                              :ssl => true,
-                              :insecure => insecure
+                             :port => 443,
+                             :path => '/sdk',
+                             :ns => 'urn:vim25',
+                             :rev => (opts[:rev]||'4.0'),
+                             :ssl => true,
+                             :insecure => bad_cert
       break
     rescue OpenSSL::SSL::SSLError
-      err "Connection failed" unless prompt_cert_insecure
-      insecure = true
+      # We'll check known_hosts next
+      raise if bad_cert
+      bad_cert = true
     rescue Errno::EHOSTUNREACH, SocketError
       err $!.message
     end
   end
 
-  if opts[:really_insecure]
-    result = :ok
-  else
+  if bad_cert
+    # Fall back to SSH-style known_hosts
     peer_public_key = vim.http.peer_cert.public_key
-    known_hosts = RVC::KnownHosts.new
-    result, arg = known_hosts.verify 'vim', host, peer_public_key.to_s
-  end
-
-  if result == :not_found
-    puts "The authenticity of host '#{host}' can't be established."
-    puts "Public key fingerprint is #{arg}."
-    err "Connection failed" unless prompt_cert_unknown
-    puts "Warning: Permanently added '#{host}' (vim) to the list of known hosts"
-    known_hosts.add 'vim', host, peer_public_key.to_s
-  elsif result == :mismatch
-    err "Public key fingerprint for host '#{host}' does not match #{known_hosts.filename}:#{arg}."
-  elsif result == :ok
-  else
-    err "Unexpected result from known_hosts check"
+    check_known_hosts(host, peer_public_key)
   end
 
   unless opts[:rev]
@@ -140,12 +125,22 @@ def prompt_password
   ask("password: ") { |q| q.echo = false }
 end
 
-def prompt_cert_insecure
-  agree("SSL certificate verification failed. Connect anyway (y/n)? ", true)
-end
+def check_known_hosts host, peer_public_key
+  known_hosts = RVC::KnownHosts.new
+  result, arg = known_hosts.verify 'vim', host, peer_public_key.to_s
 
-def prompt_cert_unknown
-  agree("Are you sure you want to continue connecting (y/n)? ", true)
+  if result == :not_found
+    puts "The authenticity of host '#{host}' can't be established."
+    puts "Public key fingerprint is #{arg}."
+    err "Connection failed" unless agree("Are you sure you want to continue connecting (y/n)? ", true)
+    puts "Warning: Permanently added '#{host}' (vim) to the list of known hosts"
+    known_hosts.add 'vim', host, peer_public_key.to_s
+  elsif result == :mismatch
+    err "Public key fingerprint for host '#{host}' does not match #{known_hosts.filename}:#{arg}."
+  elsif result == :ok
+  else
+    err "Unexpected result from known_hosts check"
+  end
 end
 
 class RbVmomi::VIM

@@ -51,8 +51,6 @@ Usage:
 where [options] are:
 EOS
 
-  opt :insecure, "don't verify ssl certificate", :short => 'k', :default => (ENV['RBVMOMI_INSECURE'] == '1')
-  opt :really_insecure, "don't use ~/.rvc/known_hosts", :short => 'K', :default => (ENV['RBVMOMI_REALLY_INSECURE'] == '1')
   opt :path, "Initial directory", :short => :none, :default => ENV['RVC_PATH'], :type => :string
   opt :create_directory, "Create the initial directory if it doesn't exist", :short => :none
   opt :cmd, "command to evaluate", :short => 'c', :multi => true, :type => :string
@@ -70,7 +68,7 @@ end
 ARGV.each do |uri|
   begin
     puts "Connecting to #{uri}..." if ARGV.size > 1
-    CMD.vim.connect uri, :insecure => $opts[:insecure], :really_insecure => $opts[:really_insecure]
+    CMD.vim.connect uri, {}
   rescue UserError
     puts "Failed to connect to #{uri}: #{$!.message}"
     exit 1
