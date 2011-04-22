@@ -68,6 +68,21 @@ class RbVmomi::VIM::VirtualMachine
     {
       'host' => host,
       'resourcePool' => resourcePool,
+      'files' => RVC::FakeFolder.new(self, :rvc_children_files),
     }
+  end
+
+  def rvc_children_files
+    files = layoutEx.file
+    datastore_map = RVC::Util.collect_children self, :datastore
+    Hash[files.map do |file|
+      file.name =~ /^\[(.+)\] (.+)$/ or fail "invalid datastore path"
+      ds = datastore_map[$1] or fail "datastore #{$1.inspect} not found"
+      arcs, = RVC::Path.parse $2
+      arcs.unshift 'files'
+      objs = $shell.fs.traverse ds, arcs
+      fail unless objs.size == 1
+      [File.basename(file.name), objs.first]
+    end]
   end
 end
