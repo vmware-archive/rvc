@@ -189,6 +189,9 @@ module Util
 
     results = obj._connection.propertyCollector.RetrieveProperties(:specSet => [spec])
 
+    # Work around ESX 4.0 ignoring the skip field
+    results.reject! { |r| r.obj == obj }
+
     Hash[results.map { |r| [r['name'], r.obj] }]
   end
 end
