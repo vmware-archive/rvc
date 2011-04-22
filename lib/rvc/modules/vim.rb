@@ -147,3 +147,9 @@ end
 def prompt_cert_unknown
   agree("Are you sure you want to continue connecting (y/n)? ", true)
 end
+
+class RbVmomi::VIM
+  def display_info
+    puts serviceContent.about.fullName
+  end
+end
