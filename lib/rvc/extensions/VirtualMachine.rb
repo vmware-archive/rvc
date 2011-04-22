@@ -68,8 +68,18 @@ class RbVmomi::VIM::VirtualMachine
     {
       'host' => host,
       'resourcePool' => resourcePool,
+      'datastores' => RVC::FakeFolder.new(self, :rvc_children_datastores),
+      'networks' => RVC::FakeFolder.new(self, :rvc_children_networks),
       'files' => RVC::FakeFolder.new(self, :rvc_children_files),
     }
+  end
+
+  def rvc_children_datastores
+    RVC::Util.collect_children self, :datastore
+  end
+
+  def rvc_children_networks
+    RVC::Util.collect_children self, :network
   end
 
   def rvc_children_files
