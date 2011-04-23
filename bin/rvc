@@ -68,7 +68,7 @@ ARGV.each do |uri|
   begin
     puts "Connecting to #{uri}..." if ARGV.size > 1
     CMD.vim.connect uri, {}
-  rescue UserError
+  rescue RVC::Util.UserError
     puts "Failed to connect to #{uri}: #{$!.message}"
     exit 1
   end
