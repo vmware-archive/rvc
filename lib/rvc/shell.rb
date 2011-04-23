@@ -123,7 +123,11 @@ class Shell
   end
 
   def prompt
-    "#{@fs.display_path}#{$terminal.color(@persist_ruby ? '~' : '>', :yellow)} "
+    if false
+      "#{@fs.display_path}#{$terminal.color(@persist_ruby ? '~' : '>', :yellow)} "
+    else
+      "#{@fs.display_path}#{@persist_ruby ? '~' : '>'} "
+    end
   end
 
   def introspect_object obj
