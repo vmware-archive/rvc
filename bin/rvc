@@ -92,7 +92,7 @@ if $opts[:path]
     raise unless $opts[:create_directory]
     parent_path = File.dirname($opts[:path])
     RVC::Util.lookup_single(parent_path).CreateFolder(:name => File.basename($opts[:path]))
-    CMD.basic.cd lookup_single($opts[:path])
+    CMD.basic.cd RVC::Util.lookup_single($opts[:path])
   end
 elsif $shell.connections.size == 1
   conn_name, conn = $shell.connections.first
