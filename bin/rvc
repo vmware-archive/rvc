@@ -87,7 +87,7 @@ history = File.open(history_fn, 'a')
 
 if $opts[:path]
   begin
-    CMD.basic.cd lookup_single($opts[:path])
+    CMD.basic.cd RVC::Util.lookup_single($opts[:path])
   rescue RVC::Util::UserError
     raise unless $opts[:create_directory]
     parent_path = File.dirname($opts[:path])
