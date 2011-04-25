@@ -63,7 +63,7 @@ class Shell
         puts $!.backtrace * "\n"
       else
         case $!
-        when RbVmomi::Fault, UserError
+        when RbVmomi::Fault, RVC::Util::UserError
           puts $!.message
         else
           puts "#{$!.class}: #{$!.message}"
