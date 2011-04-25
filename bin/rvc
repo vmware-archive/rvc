@@ -57,7 +57,8 @@ end
 
 RVC.reload_modules false
 
-$shell = RVC::Shell.new
+session = RVC::MemorySession.new
+$shell = RVC::Shell.new session
 
 # Prompt for hostname if none given. Useful on win32.
 if ARGV.empty?

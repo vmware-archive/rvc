@@ -107,7 +107,7 @@ module Completion
   def self.mark_candidates word
     return [] unless word.empty? || word[0..0] == '~'
     prefix_regex = /^#{Regexp.escape(word[1..-1] || '')}/
-    $shell.fs.marks.keys.sort.grep(prefix_regex).map { |x| "~#{x}" }
+    $shell.session.marks.sort.grep(prefix_regex).map { |x| "~#{x}" }
   end
 end
 end

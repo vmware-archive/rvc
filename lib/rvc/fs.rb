@@ -21,7 +21,7 @@
 module RVC
 
 class FS
-  attr_reader :root, :cur, :marks
+  attr_reader :root, :cur
 
   MARK_PATTERN = /^~(?:([\d\w]*|~|@))$/
   REGEX_PATTERN = /^%/
@@ -31,7 +31,6 @@ class FS
     fail unless root.is_a? RVC::InventoryObject
     @root = root
     @cur = root
-    @marks = {}
   end
 
   def display_path
@@ -40,7 +39,7 @@ class FS
 
   def cd dst
     fail unless dst.is_a? RVC::InventoryObject
-    mark '~', [@cur]
+    $shell.session.set_mark '~', [@cur]
     @cur = dst
   end
 
@@ -71,7 +70,7 @@ class FS
       # XXX shouldnt be nil
       [(cur.respond_to?(:parent) && cur.parent) ? cur.parent : (cur.rvc_parent || cur)]
     when MARK_PATTERN
-      if first and objs = @marks[$1]
+      if first and objs = $shell.session.get_mark($1)
         objs
       else
         []
@@ -84,7 +83,7 @@ class FS
       cur.children.select { |k,v| k =~ regex }.map { |k,v| v.rvc_link(cur, k); v }
     else
       # XXX check for ambiguous child
-      if first and arc =~ /^\d+$/ and objs = @marks[arc]
+      if first and arc =~ /^\d+$/ and objs = $shell.session.get_mark(arc)
         objs
       else
         if child = cur.traverse_one(arc)
@@ -95,11 +94,6 @@ class FS
         end
       end
     end
-  end
-
-  def mark key, objs
-    fail "not an array" unless objs.is_a? Array
-    @marks[key] = objs
   end
 
 private

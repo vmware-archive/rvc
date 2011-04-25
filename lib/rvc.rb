@@ -27,5 +27,7 @@ require 'rvc/fs'
 require 'rvc/completion'
 require 'rvc/option_parser'
 require 'rvc/shell'
+require 'rvc/memory_session'
+require 'rvc/filesystem_session'
 
 RbVmomi::VIM.extension_dirs << File.join(File.dirname(__FILE__), "rvc/extensions")

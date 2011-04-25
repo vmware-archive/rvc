@@ -21,10 +21,11 @@
 module RVC
 
 class Shell
-  attr_reader :fs, :connections
+  attr_reader :fs, :connections, :session
   attr_accessor :debug
 
-  def initialize
+  def initialize session
+    @session = session
     @persist_ruby = false
     @fs = RVC::FS.new RVC::RootNode.new
     @ruby_evaluator = RubyEvaluator.new @fs
@@ -179,6 +180,10 @@ class Shell
       puts klass
     end
   end
+
+  def delete_numeric_marks
+    @session.marks.grep(/^\d+$/).each { |x| @session.set_mark x, nil }
+  end
 end
 
 class RubyEvaluator
@@ -208,7 +213,7 @@ class RubyEvaluator
     if a.empty?
       if MODULES.member? str
         MODULES[str]
-      elsif str =~ /_?([\w\d]+)(!?)/ && objs = @fs.marks[$1]
+      elsif str =~ /_?([\w\d]+)(!?)/ && objs = session.get_mark($1)
         if $2 == '!'
           objs
         else

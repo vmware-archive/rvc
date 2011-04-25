@@ -132,9 +132,9 @@ rvc_alias :cd
 
 def cd obj
   $shell.fs.cd(obj)
-  $shell.fs.mark '', [find_ancestor(RbVmomi::VIM::Datacenter)].compact
-  $shell.fs.mark '@', [find_ancestor(RbVmomi::VIM)].compact
-  $shell.fs.marks.delete_if { |k,v| k =~ /^\d+$/ }
+  $shell.session.set_mark '', [find_ancestor(RbVmomi::VIM::Datacenter)].compact
+  $shell.session.set_mark '@', [find_ancestor(RbVmomi::VIM)].compact
+  $shell.delete_numeric_marks
 end
 
 def find_ancestor klass
@@ -159,7 +159,7 @@ def ls obj
   fake_children.each do |name,child|
     puts "#{i} #{name}#{child.ls_text(nil)}"
     child.rvc_link obj, name
-    $shell.fs.mark i.to_s, [child]
+    CMD.mark.mark i.to_s, [child]
     i += 1
   end
 
@@ -189,7 +189,7 @@ def ls obj
     realname = r['name'] if name != r['name']
     puts "#{i} #{name}#{realname && " [#{realname}]"}#{text}"
     r.obj.rvc_link obj, name
-    $shell.fs.mark i.to_s, [r.obj]
+    CMD.mark.mark i.to_s, [r.obj]
     i += 1
   end
 end
