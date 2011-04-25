@@ -54,3 +54,12 @@ def edit key
     File.unlink filename
   end
 end
+
+
+opts :list do
+  summary "List marks"
+end
+
+def list
+  $shell.session.marks.each { |x| puts x }
+end
