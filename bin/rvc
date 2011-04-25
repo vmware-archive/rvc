@@ -57,7 +57,12 @@ end
 
 RVC.reload_modules false
 
-session = RVC::MemorySession.new
+session = if ENV['RVC_SESSION'] and not ENV['RVC_SESSION'].empty?
+  RVC::FilesystemSession.new ENV['RVC_SESSION']
+else
+  RVC::MemorySession.new
+end
+
 $shell = RVC::Shell.new session
 
 # Prompt for hostname if none given. Useful on win32.
