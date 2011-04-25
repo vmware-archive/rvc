@@ -7,6 +7,7 @@ class FilesystemSession
     @dir = File.join(Dir.tmpdir, "rvc-sessions-#{Process.uid}", name)
     FileUtils.mkdir_p @dir
     FileUtils.mkdir_p mark_dir
+    FileUtils.mkdir_p connection_dir
     @priv = {}
   end
 
@@ -43,6 +44,10 @@ class FilesystemSession
     end
   end
 
+  def connections
+    Dir.entries(connection_dir).reject { |x| x == '.' || x == '..' }
+  end
+
   private
 
   def is_private_mark? key
@@ -54,6 +59,8 @@ class FilesystemSession
 
   def mark_dir; File.join(@dir, 'marks') end
   def mark_fn(key); File.join(mark_dir, key) end
+  def connection_dir; File.join(@dir, 'connections') end
+  def connection_fn(key); File.join(connection_dir, key) end
 end
 
 end
