@@ -18,6 +18,18 @@ class MemorySession
     fail "not an array" unless objs.is_a? Array
     @marks[key] = objs
   end
+
+  def connections
+    @connections.keys
+  end
+
+  def get_connection key
+    @connections[key]
+  end
+
+  def set_connection key, conn
+    @connections[key] = conn
+  end
 end
 
 end

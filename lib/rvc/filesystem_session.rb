@@ -48,6 +48,15 @@ class FilesystemSession
     Dir.entries(connection_dir).reject { |x| x == '.' || x == '..' }
   end
 
+  def get_connection key
+    return nil unless File.exists? mark_fn(key)
+    File.open(mark_fn(key)) { |io| YAML.load io }
+  end
+
+  def set_connection key, conn
+    File.open(mark_fn(key), 'w') { |io| YAML.dump conn, io }
+  end
+
   private
 
   def is_private_mark? key
