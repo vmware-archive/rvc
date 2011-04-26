@@ -15,8 +15,12 @@ class MemorySession
   end
 
   def set_mark key, objs
-    fail "not an array" unless objs.is_a? Array
-    @marks[key] = objs
+    if objs == nil
+      @marks.delete key
+    else
+      fail "not an array" unless objs.is_a? Array
+      @marks[key] = objs
+    end
   end
 
   def connections
