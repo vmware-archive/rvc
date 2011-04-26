@@ -49,12 +49,16 @@ class FilesystemSession
   end
 
   def get_connection key
-    return nil unless File.exists? mark_fn(key)
-    File.open(mark_fn(key)) { |io| YAML.load io }
+    return nil unless File.exists? connection_fn(key)
+    File.open(connection_fn(key)) { |io| YAML.load io }
   end
 
   def set_connection key, conn
-    File.open(mark_fn(key), 'w') { |io| YAML.dump conn, io }
+    if conn == nil
+      File.unlink(connection_fn(key))
+    else
+      File.open(connection_fn(key), 'w') { |io| YAML.dump conn, io }
+    end
   end
 
   private

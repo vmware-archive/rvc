@@ -119,6 +119,11 @@ def connect uri, opts
   conn_name.succ! while $shell.connections.member? conn_name
 
   $shell.connections[conn_name] = vim
+  $shell.session.set_connection conn_name,
+    'host' => host,
+    'username' => username,
+    'password' => password,
+    'rev' => opts[:rev]
 end
 
 def prompt_password
