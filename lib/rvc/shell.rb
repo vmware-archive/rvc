@@ -213,7 +213,7 @@ class RubyEvaluator
     if a.empty?
       if MODULES.member? str
         MODULES[str]
-      elsif str =~ /_?([\w\d]+)(!?)/ && objs = session.get_mark($1)
+      elsif str =~ /_?([\w\d]+)(!?)/ && objs = $shell.session.get_mark($1)
         if $2 == '!'
           objs
         else
