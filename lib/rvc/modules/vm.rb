@@ -648,7 +648,7 @@ def find_vmx_files ds
   files = []
   results.each do |result|
     result.file.each do |file|
-      files << result.folderPath + file.path
+      files << "#{result.folderPath}/#{file.path}"
     end
   end
 
