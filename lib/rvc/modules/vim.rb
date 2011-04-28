@@ -122,7 +122,6 @@ def connect uri, opts
   $shell.session.set_connection conn_name,
     'host' => host,
     'username' => username,
-    'password' => password,
     'rev' => opts[:rev]
 end
 

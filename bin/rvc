@@ -72,8 +72,9 @@ end
 
 $shell.session.connections.each do |key|
   conn = $shell.session.get_connection(key) or fail "no such connection #{key.inspect}"
-  uri = "#{conn['username']}:#{conn['password']}@#{conn['host']}"
+  uri = "#{conn['username']}@#{conn['host']}"
   begin
+    puts "Connecting to #{uri}..."
     CMD.vim.connect uri, {}
   rescue RVC::Util::UserError
     puts "Failed to connect to #{uri}: #{$!.message}"
@@ -83,7 +84,7 @@ end
 
 ARGV.each do |uri|
   begin
-    puts "Connecting to #{uri}..." if ARGV.size > 1
+    puts "Connecting to #{uri}..." if (ARGV+$shell.session.connections).size > 1
     CMD.vim.connect uri, {}
   rescue RVC::Util::UserError
     puts "Failed to connect to #{uri}: #{$!.message}"
