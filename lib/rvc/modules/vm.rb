@@ -516,10 +516,13 @@ opts :snapshot do
   summary "Snapshot a VM"
   arg :vm, nil, :lookup => VIM::VirtualMachine
   arg :name, "Name of new snapshot"
+  opt :description, "Description", :short => 'd', :default => ""
+  opt :quiesce, "Quiesce", :short => 'q', :default => false
+  opt :memory, "Memory", :short => 'm', :default => true
 end
 
-def snapshot vm, name
-  tasks [vm], :CreateSnapshot, :memory => true, :name => name, :quiesce => false
+def snapshot vm, name, opts
+  tasks [vm], :CreateSnapshot, :description => opts[:description], :memory => opts[:memory], :name => name, :quiesce => opts[:quiesce]
 end
 
 
