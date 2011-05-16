@@ -33,6 +33,9 @@ when /linux/
   VMRC_SHA256 = "c86ecd9d9a1dd909a119c19d28325cb87d6e2853885d3014a7dac65175dd2ae1"
   VMRC_BIN = "vmware-vmrc"
 else
+  VMRC_NAME = nil
+  VMRC_SHA256 = nil
+  VMRC_BIN = nil
   $stderr.puts "No VMRC available for OS #{RbConfig::CONFIG['host_os']}"
 end
 
@@ -40,6 +43,7 @@ VMRC_BASENAME = "#{VMRC_NAME}.xpi"
 VMRC_URL = "http://cloud.github.com/downloads/vmware/rvc/#{VMRC_BASENAME}"
 
 def find_local_vmrc
+  return nil if VMRC_NAME.nil?
   path = File.join(Dir.tmpdir, VMRC_NAME, 'plugins', VMRC_BIN)
   File.exists?(path) && path
 end
