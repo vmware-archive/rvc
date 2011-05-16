@@ -1,13 +1,14 @@
 module RVC
 
-# XXX permissions
 class FilesystemSession
   def initialize name
     fail "invalid session name" unless name =~ /^[\w-]+$/
     @dir = File.join(Dir.tmpdir, "rvc-sessions-#{Process.uid}", name)
+    prev_umask = File.umask 077
     FileUtils.mkdir_p @dir
     FileUtils.mkdir_p mark_dir
     FileUtils.mkdir_p connection_dir
+    File.umask prev_umask
     @priv = {}
   end
 
