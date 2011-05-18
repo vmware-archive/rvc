@@ -36,10 +36,13 @@ else
   $stderr.puts "No VMRC available for OS #{RbConfig::CONFIG['host_os']}"
 end
 
-VMRC_BASENAME = "#{VMRC_NAME}.xpi"
-VMRC_URL = "http://cloud.github.com/downloads/vmware/rvc/#{VMRC_BASENAME}"
+if defined? VMRC_NAME
+  VMRC_BASENAME = "#{VMRC_NAME}.xpi"
+  VMRC_URL = "http://cloud.github.com/downloads/vmware/rvc/#{VMRC_BASENAME}"
+end
 
 def find_local_vmrc
+  return nil unless defined? VMRC_NAME
   path = File.join(Dir.tmpdir, VMRC_NAME, 'plugins', VMRC_BIN)
   File.exists?(path) && path
 end
