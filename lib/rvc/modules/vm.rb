@@ -104,21 +104,22 @@ opts :create do
   opt :pool, "Resource pool", :short => 'p', :type => :string, :lookup => VIM::ResourcePool
   opt :host, "Host", :short => 'h', :type => :string, :lookup => VIM::HostSystem
   opt :datastore, "Datastore", :short => 'd', :type => :string, :lookup => VIM::Datastore
-  opt :disksize, "Size in KB of primary disk", :short => 's', :type => :number
+  opt :disksize, "Size in KB of primary disk", :short => 's', :type => :int, :default => 4000000
+  opt :memory, "Size in MB of memory", :short => 'm', :type => :int, :default => 128
+  opt :cpucount, "Number of CPUs", :short => 'c', :type => :int, :default => 1
 end
 
 def create dest, opts
   err "must specify resource pool (--pool)" unless opts[:pool]
   err "must specify datastore (--datastore)" unless opts[:datastore]
-  disksize = 4000000 unless opts[:disksize]
   vmFolder, name = *dest
   datastore_path = "[#{opts[:datastore].name}]"
   config = {
     :name => name,
     :guestId => 'otherGuest',
     :files => { :vmPathName => datastore_path },
-    :numCPUs => 1,
-    :memoryMB => 128,
+    :numCPUs => opt[:cpucount],
+    :memoryMB => opt[:memory],
     :deviceChange => [
       {
         :operation => :add,
@@ -139,7 +140,7 @@ def create dest, opts
           ),
           :controllerKey => 1000,
           :unitNumber => 0,
-          :capacityInKB => disksize
+          :capacityInKB => opts[:disksize]
         )
       }, {
         :operation => :add,
