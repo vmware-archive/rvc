@@ -168,7 +168,7 @@ def tasks
   begin
     view = conn.serviceContent.viewManager.CreateListView
 
-    collector = conn.serviceContent.taskManager.CreateCollectorForTasks(filter: {
+    collector = conn.serviceContent.taskManager.CreateCollectorForTasks(:filter => {
       :time => {
         :beginTime => conn.serviceInstance.CurrentTime.to_datetime, # XXX
         :timeType => :queuedTime
