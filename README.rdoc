@@ -47,6 +47,14 @@ example, the command to power off a VM is actually "vm.off", since it exists in
 the "vm" module, but since it is a common operation it has been aliased to
 "off".
 
+== Paths
+
+All vm operations need a full path, or relative path, rather than just the
+name of the resource. So to create a VM you would use:
+
+	/> vm.create -p /vm1/ha/host/hosta/resourcePool/pools/dev/ -d
+		/vm1/ha/datastore/datastore1 /vm1/ha/vms/newvm
+
 == Features
 
 === Tab-completion
