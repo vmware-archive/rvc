@@ -119,6 +119,10 @@ def connect uri, opts
   conn_name.succ! while $shell.connections.member? conn_name
 
   $shell.connections[conn_name] = vim
+  $shell.session.set_connection conn_name,
+    'host' => host,
+    'username' => username,
+    'rev' => opts[:rev]
 end
 
 def prompt_password
@@ -146,5 +150,71 @@ end
 class RbVmomi::VIM
   def display_info
     puts serviceContent.about.fullName
+  end
+
+  def _connection
+    self
+  end
+end
+
+
+opts :tasks do
+  summary "Watch tasks in progress"
+end
+
+def tasks
+  conn = single_connection [$shell.fs.cur]
+
+  begin
+    view = conn.serviceContent.viewManager.CreateListView
+
+    collector = conn.serviceContent.taskManager.CreateCollectorForTasks(filter: {
+      :time => {
+        :beginTime => conn.serviceInstance.CurrentTime.to_datetime, # XXX
+        :timeType => :queuedTime
+      }
+    })
+    collector.SetCollectorPageSize :maxCount => 1
+
+    filter_spec = {
+      :objectSet => [
+        {
+          :obj => view,
+          :skip => true,
+          :selectSet => [
+            VIM::TraversalSpec(:path => 'view', :type => view.class.wsdl_name)
+          ]
+        },
+        { :obj => collector },
+      ],
+      :propSet => [
+        { :type => 'Task', :pathSet => %w(info.state) },
+        { :type => 'TaskHistoryCollector', :pathSet => %w(latestPage) },
+      ]
+    }
+    filter = conn.propertyCollector.CreateFilter(:partialUpdates => false, :spec => filter_spec)
+
+    ver = ''
+    loop do
+      result = conn.propertyCollector.WaitForUpdates(:version => ver)
+      ver = result.version
+      result.filterSet[0].objectSet.each do |r|
+        remove = []
+        case r.obj
+        when VIM::TaskHistoryCollector
+          infos = collector.ReadNextTasks :maxCount => 100
+          view.ModifyListView :add => infos.map(&:task)
+        when VIM::Task
+          puts "#{Time.now} #{r.obj.info.name} #{r.obj.info.entityName} #{r['info.state']}" unless r['info.state'] == nil
+          remove << r.obj if %w(error success).member? r['info.state']
+        end
+        view.ModifyListView :remove => remove unless remove.empty?
+      end
+    end
+  rescue Interrupt
+  ensure
+    filter.DestroyPropertyFilter if filter
+    collector.DestroyCollector if collector
+    view.DestroyView if view
   end
 end

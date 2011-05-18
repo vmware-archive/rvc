@@ -278,7 +278,9 @@ end
 rvc_alias :disconnect
 
 def disconnect connection
-  $shell.connections.delete_if { |k,v| v == connection }
+  k, = $shell.connections.find { |k,v| v == connection }
+  $shell.connections.delete k
+  $shell.session.set_connection k, nil
 end
 
 
