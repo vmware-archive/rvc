@@ -39,10 +39,8 @@ else
   $stderr.puts "No VMRC available for OS #{RbConfig::CONFIG['host_os']}"
 end
 
-if defined? VMRC_NAME
-  VMRC_BASENAME = "#{VMRC_NAME}.xpi"
-  VMRC_URL = "http://cloud.github.com/downloads/vmware/rvc/#{VMRC_BASENAME}"
-end
+VMRC_BASENAME = "#{VMRC_NAME}.xpi"
+VMRC_URL = "http://cloud.github.com/downloads/vmware/rvc/#{VMRC_BASENAME}"
 
 def find_local_vmrc
   return nil if VMRC_NAME.nil?
