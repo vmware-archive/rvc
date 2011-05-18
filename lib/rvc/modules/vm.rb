@@ -104,11 +104,13 @@ opts :create do
   opt :pool, "Resource pool", :short => 'p', :type => :string, :lookup => VIM::ResourcePool
   opt :host, "Host", :short => 'h', :type => :string, :lookup => VIM::HostSystem
   opt :datastore, "Datastore", :short => 'd', :type => :string, :lookup => VIM::Datastore
+  opt :disksize, "Size in KB of primary disk", :short => 's', :type => :number
 end
 
 def create dest, opts
   err "must specify resource pool (--pool)" unless opts[:pool]
   err "must specify datastore (--datastore)" unless opts[:datastore]
+  disksize = 4000000 unless opts[:disksize]
   vmFolder, name = *dest
   datastore_path = "[#{opts[:datastore].name}]"
   config = {
@@ -137,7 +139,7 @@ def create dest, opts
           ),
           :controllerKey => 1000,
           :unitNumber => 0,
-          :capacityInKB => 4000000
+          :capacityInKB => disksize
         )
       }, {
         :operation => :add,
