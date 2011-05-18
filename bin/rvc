@@ -109,7 +109,7 @@ if defined? Ocra
   exit
 end
 
-unless CMD.vmrc.find_vmrc
+unless CMD.vmrc.find_vmrc == nil
   $stderr.puts "VMRC is not installed. You will be unable to view virtual machine consoles. Use the vmrc.install command to install it."
 end
 
