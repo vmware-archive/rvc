@@ -118,8 +118,8 @@ def create dest, opts
     :name => name,
     :guestId => 'otherGuest',
     :files => { :vmPathName => datastore_path },
-    :numCPUs => opt[:cpucount],
-    :memoryMB => opt[:memory],
+    :numCPUs => opts[:cpucount],
+    :memoryMB => opts[:memory],
     :deviceChange => [
       {
         :operation => :add,
