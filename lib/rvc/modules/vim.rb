@@ -92,6 +92,11 @@ def connect uri, opts
     puts "Using default username #{username.inspect}."
   end
 
+  # If we already have a password, then don't bother querying if we have an OSX
+  # keychain entry for it. If we have either of them, use it.
+  # So will use command line first, then ENV, then keychain on OSX, then prompt.
+  password = keychain_password( username ,  host ) if password.nil?
+
   password_given = password != nil
   loop do
     begin
@@ -127,6 +132,20 @@ end
 
 def prompt_password
   ask("password: ") { |q| q.echo = false }
+end
+
+def keychain_password username , hostname
+   return nil unless RbConfig::CONFIG['host_os'] =~ /^darwin10/
+
+  begin
+    require 'osx_keychain'
+  rescue LoadError
+    return nil
+  end
+
+  keychain = OSXKeychain.new
+  return keychain["rvc", "#{username}@#{hostname}" ]
+
 end
 
 def check_known_hosts host, peer_public_key
