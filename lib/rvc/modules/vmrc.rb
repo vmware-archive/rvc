@@ -56,6 +56,7 @@ end
 opts :view do
   summary "Spawn a VMRC"
   text "The VMware Remote Console allows you to interact with a VM's virtual mouse, keyboard, and screen."
+  opt :install, "Automatically install VMRC", :short => 'i'
   arg :vm, nil, :lookup => VIM::VirtualMachine, :multi => true
 end
 
@@ -63,8 +64,16 @@ rvc_alias :view
 rvc_alias :view, :vmrc
 rvc_alias :view, :v
 
-def view vms
-  err "VMRC not found" unless vmrc = find_vmrc
+def view vms, opts
+  unless vmrc = find_vmrc
+    if opts[:install]
+      install
+      vmrc = find_vmrc
+    else
+      err "VMRC not found. You may need to run vmrc.install."
+    end
+  end
+
   vms.each do |vm|
     moref = vm._ref
     ticket = vm._connection.serviceInstance.content.sessionManager.AcquireCloneTicket
