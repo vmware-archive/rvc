@@ -95,7 +95,11 @@ def connect uri, opts
   # If we already have a password, then don't bother querying if we have an OSX
   # keychain entry for it. If we have either of them, use it.
   # So will use command line first, then ENV, then keychain on OSX, then prompt.
+  loaded_from_keychain = nil
   password = keychain_password( username ,  host ) if password.nil?
+  if not password.nil?
+    loaded_from_keychain = password
+  end
 
   password_given = password != nil
   loop do
@@ -115,6 +119,9 @@ def connect uri, opts
       vim.serviceInstance.CurrentTime
     end
   end
+
+  # if we got to here, save the password, unless we loaded it from keychain
+  save_keychain_password( username , password , host ) unless loaded_from_keychain == password
 
   # Stash the address we used to connect so VMRC can use it.
   vim.define_singleton_method(:_host) { host }
@@ -147,6 +154,26 @@ def keychain_password username , hostname
   return keychain["rvc", "#{username}@#{hostname}" ]
 
 end
+
+def save_keychain_password username , password , hostname
+  # only works for OSX at the minute.
+  return false unless RbConfig::CONFIG['host_os'] =~ /^darwin10/
+
+  # check we already managed to load that gem.
+  if defined? OSXKeychain::VERSION
+
+    if agree("Save password for connection (y/n)? ", true)
+      keychain = OSXKeychain.new
+
+      # update the keychain, unless it's already set to that.
+      keychain.set("rvc", "#{username}@#{hostname}" , password ) unless 
+        keychain["rvc", "#{username}@#{hostname}" ] == password
+    end
+  else
+    return false
+  end
+end
+
 
 def check_known_hosts host, peer_public_key
   known_hosts = RVC::KnownHosts.new
