@@ -119,3 +119,24 @@ def reconnect hosts, opts
   }
   tasks hosts, :ReconnectHost
 end
+
+
+opts :add_iscsi_target do
+  arg :host, nil, :lookup => VIM::HostSystem, :multi => true
+  opt :address, "Address of iSCSI server", :short => 'a', :type => :string, :required => true
+  opt :iqn, "IQN of iSCSI target", :short => 'i', :type => :string, :required => true
+end
+
+def add_iscsi_target hosts, opts
+  hosts.each do |host|
+    puts "configuring host #{host.name}"
+    storage = host.configManager.storageSystem
+    storage.UpdateSoftwareInternetScsiEnabled(enabled: true)
+    adapter = storage.storageDeviceInfo.hostBusAdapter.grep(VIM::HostInternetScsiHba)[0]
+    storage.AddInternetScsiStaticTargets(
+      iScsiHbaDevice: adapter.device,
+      targets: [ VIM::HostInternetScsiHbaStaticTarget(address: opts[:address], iScsiName: opts[:iqn]) ]
+    )
+    storage.RescanAllHba
+  end
+end
