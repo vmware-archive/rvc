@@ -11,7 +11,10 @@ def get objs
     puts "#{obj.name}:"
     perms = authMgr.RetrieveEntityPermissions(:entity => obj, :inherited => true)
     perms.each do |perm|
-      puts " #{perm[:principal]} (#{perm[:group] ? 'group' : 'user'}): #{roles[perm[:roleId]].name}"
+    flags = []
+    flags << 'group' if perm[:group]
+    flags << 'propagate' if perm[:propagate]
+      puts " #{perm[:principal]}#{flags.empty? ? '' : " (#{flags * ', '})"}: #{roles[perm[:roleId]].name}"
     end
   end
 end
@@ -37,5 +40,23 @@ def set objs, opts
            :propagate => opts[:propagate] }
   objs.each do |obj|
     authMgr.SetEntityPermissions(:entity => obj, :permission => [perm])
+  end
+end
+
+
+opts :remove do
+  summary "Remove permissions for the given user from a managed entity"
+  arg :obj, nil, :lookup => VIM::ManagedEntity, :multi => true
+  opt :principal, "Principal", :type => :string, :required => true
+  opt :group, "Does the principal refer to a group?"
+end
+
+def remove objs, opts
+  conn = single_connection objs
+  authMgr = conn.serviceContent.authorizationManager
+  objs.each do |obj|
+    authMgr.RemoveEntityPermission :entity => obj,
+                                   :user => opts[:principal],
+                                   :isGroup => opts[:group]
   end
 end
