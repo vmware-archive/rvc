@@ -56,14 +56,14 @@ def create name, privileges
 end
 
 
-opts :destroy do
-  summary "Destroy a role"
+opts :delete do
+  summary "Delete a role"
   arg :name, "Name of the role", :type => :string
-  opt :fail_if_used, "Fail if the role is in use", :default => true
+  opt :force, "Don't fail if the role is in use"
 end
 
-def destroy name, opts
+def delete name, opts
   role = cur_auth_mgr.roleList.find { |x| x.name == name }
   err "no such role #{role_name.inspect}" unless role
-  cur_auth_mgr.RemoveAuthorizationRole :roleId => role.roleId, :failIfUsed => opts[:fail_if_used]
+  cur_auth_mgr.RemoveAuthorizationRole :roleId => role.roleId, :failIfUsed => opts[:force]
 end
