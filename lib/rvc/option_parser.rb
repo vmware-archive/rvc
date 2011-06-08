@@ -74,6 +74,8 @@ class OptionParser < Trollop::Parser
       end
     end
     @args << [name,spec]
+    description = "Path to a" if description == nil and spec[:lookup]
+    description = "Child of a" if description == nil and spec[:lookup_parent]
     text "  #{name}: " + [description, spec[:lookup], spec[:lookup_parent]].compact.join(' ')
   end
 
