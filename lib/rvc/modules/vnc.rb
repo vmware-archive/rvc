@@ -18,7 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-VNC = ENV['VNC'] || search_path('vinagre') || search_path('tightvnc')
+VNC = ENV['VNC'] || search_path('vinagre') || search_path('tightvnc') || search_path('vncviewer')
 
 opts :view do
   summary "Spawn a VNC client"
