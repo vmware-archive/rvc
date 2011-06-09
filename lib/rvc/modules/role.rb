@@ -36,7 +36,7 @@ end
 def permissions name
   role = cur_auth_mgr.roleList.find { |x| x.name == name }
   err "no such role #{role_name.inspect}" unless role
-  cur_auth_mgr.RetrieveRolePermissions(roleId: role.roleId).each do |perm|
+  cur_auth_mgr.RetrieveRolePermissions(:roleId => role.roleId).each do |perm|
     flags = []
     flags << 'group' if perm[:group]
     flags << 'propagate' if perm[:propagate]
