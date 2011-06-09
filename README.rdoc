@@ -134,7 +134,10 @@ instead of automatically cd'ing to a connection.
 == VNC Clients
 === OSX
 Using homebrew https://github.com/mxcl/homebrew install tiger-vnc using the
-command "brew install tiger-vnc"
+command 
+	
+	"brew install tiger-vnc"
+
 this will allow you to use the vnc.view command
 
 == Extensibility
