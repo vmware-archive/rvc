@@ -131,6 +131,12 @@ is represented by a top-level node in the virtual filesystem. If more than one
 host is given on the command line, RVC will start in the root of the filesystem
 instead of automatically cd'ing to a connection.
 
+== VNC Clients
+== OSX
+Using homebrew https://github.com/mxcl/homebrew install tiger-vnc using the
+command "brew install tiger-vnc"
+this will allow you to use the vnc.view command
+
 == Extensibility
 
 RVC is designed to let users easily add commands they need. You can create a
