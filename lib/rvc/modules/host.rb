@@ -131,11 +131,11 @@ def add_iscsi_target hosts, opts
   hosts.each do |host|
     puts "configuring host #{host.name}"
     storage = host.configManager.storageSystem
-    storage.UpdateSoftwareInternetScsiEnabled(enabled: true)
+    storage.UpdateSoftwareInternetScsiEnabled(:enabled => true)
     adapter = storage.storageDeviceInfo.hostBusAdapter.grep(VIM::HostInternetScsiHba)[0]
     storage.AddInternetScsiStaticTargets(
-      iScsiHbaDevice: adapter.device,
-      targets: [ VIM::HostInternetScsiHbaStaticTarget(address: opts[:address], iScsiName: opts[:iqn]) ]
+      :iScsiHbaDevice => adapter.device,
+      :targets => [ VIM::HostInternetScsiHbaStaticTarget(:address => opts[:address], :iScsiName => opts[:iqn]) ]
     )
     storage.RescanAllHba
   end
