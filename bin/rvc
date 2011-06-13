@@ -133,17 +133,7 @@ if $interactive
 end
 
 if $opts[:script]
-  lines = File.readlines $opts[:script]
-  lines.each_with_index do |input,i|
-    begin
-      input = input.strip
-      next if input.empty?
-      $shell.eval_ruby input
-    rescue
-      $stderr.puts "exception at #{$opts[:script]}:#{i}"
-      raise
-    end
-  end
+  $shell.eval_ruby File.read($opts[:script])
 else
   while true
     begin
