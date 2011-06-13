@@ -53,7 +53,10 @@ EOS
   opt :path, "Initial directory", :short => :none, :default => ENV['RVC_PATH'], :type => :string
   opt :create_directory, "Create the initial directory if it doesn't exist", :short => :none
   opt :cmd, "command to evaluate", :short => 'c', :multi => true, :type => :string
+  opt :script, "file to execute", :short => 's', :type => :string
 end
+
+$interactive = $opts[:script].nil? and $stdin.tty?
 
 RVC.reload_modules false
 
@@ -66,7 +69,7 @@ end
 $shell = RVC::Shell.new session
 
 # Prompt for hostname if none given. Useful on win32.
-if $shell.session.connections.empty? and ARGV.empty?
+if $shell.session.connections.empty? and ARGV.empty? and $interactive
   ARGV << Readline.readline("Host to connect to (user@host): ")
 end
 
@@ -92,10 +95,12 @@ ARGV.each do |uri|
   end
 end
 
-RVC::Completion.install
-history_fn = "#{ENV['HOME']}/.rvc-history"
-IO.foreach(history_fn) { |l| Readline::HISTORY << l.chomp } rescue puts "Welcome to RVC. Try the 'help' command."
-history = File.open(history_fn, 'a')
+if $interactive
+  RVC::Completion.install
+  history_fn = "#{ENV['HOME']}/.rvc-history"
+  IO.foreach(history_fn) { |l| Readline::HISTORY << l.chomp } rescue puts "Welcome to RVC. Try the 'help' command."
+  history = File.open(history_fn, 'a')
+end
 
 if $opts[:path]
   begin
@@ -106,7 +111,7 @@ if $opts[:path]
     RVC::Util.lookup_single(parent_path).CreateFolder(:name => File.basename($opts[:path]))
     CMD.basic.cd RVC::Util.lookup_single($opts[:path])
   end
-elsif $shell.connections.size == 1
+elsif $shell.connections.size == 1 and $interactive
   conn_name, conn = $shell.connections.first
   if conn.serviceContent.about.apiType == 'VirtualCenter'
     CMD.basic.cd RVC::Util.lookup_single(conn_name)
@@ -121,24 +126,34 @@ if defined? Ocra
   exit
 end
 
-unless CMD.vmrc.find_vmrc
-  $stderr.puts "VMRC is not installed. You will be unable to view virtual machine consoles. Use the vmrc.install command to install it."
+if $interactive
+  $stderr.puts "VMRC is not installed. You will be unable to view virtual machine consoles. Use the vmrc.install command to install it." unless CMD.vmrc.find_vmrc 
+  $stderr.puts "Use the 'connect' command to connect to an ESX or VC server." if $shell.connections.empty?
+  CMD.basic.ls RVC::Util.lookup_single('.')
 end
 
-if $shell.connections.empty?
-  $stderr.puts "Use the 'connect' command to connect to an ESX or VC server."
-end
-
-CMD.basic.ls RVC::Util.lookup_single('.')
-
-while true
-  begin
-    input = $opts[:cmd].shift || Readline.readline($shell.prompt, false) or break
-    input = input.strip
-    next if input.empty?
-    (history.puts input; Readline::HISTORY << input) unless input == Readline::HISTORY.to_a[-1]
-    $shell.eval_input input
-  rescue Interrupt
-    puts
+if $opts[:script]
+  lines = File.readlines $opts[:script]
+  lines.each_with_index do |input,i|
+    begin
+      input = input.strip
+      next if input.empty?
+      $shell.eval_ruby input
+    rescue
+      $stderr.puts "exception at #{$opts[:script]}:#{i}"
+      raise
+    end
+  end
+else
+  while true
+    begin
+      input = $opts[:cmd].shift || Readline.readline($shell.prompt, false) or break
+      input = input.strip
+      next if input.empty?
+      (history.puts input; Readline::HISTORY << input) unless input == Readline::HISTORY.to_a[-1]
+      $shell.eval_input input
+    rescue Interrupt
+      puts
+    end
   end
 end

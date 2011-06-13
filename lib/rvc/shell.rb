@@ -115,12 +115,13 @@ class Shell
 
   def eval_ruby input
     result = @ruby_evaluator.do_eval input
-    if input =~ /\#$/
-      introspect_object result
-    else
-      pp result
+    if $interactive
+      if input =~ /\#$/
+        introspect_object result
+      else
+        pp result
+      end
     end
-    nil
   end
 
   def prompt
@@ -187,6 +188,8 @@ class Shell
 end
 
 class RubyEvaluator
+  include RVC::Util
+
   def initialize fs
     @binding = binding
     @fs = fs
