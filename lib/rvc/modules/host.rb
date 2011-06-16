@@ -140,3 +140,23 @@ def add_iscsi_target hosts, opts
     storage.RescanAllHba
   end
 end
+
+opts :add_nfs_datastore do
+  arg :host, nil, :lookup => VIM::HostSystem, :multi => true
+  opt :name, "Datastore name", :short => 'n', :type => :string, :required => true
+  opt :address, "Address of NFS server", :short => 'a', :type => :string, :required => true
+  opt :path, "Path on NFS server", :short => 'p', :type => :string, :required => true
+end
+
+def add_nfs_datastore hosts, opts
+  hosts.each do |host|
+    datastoreSystem, = host.collect 'configManager.datastoreSystem'
+    spec = {
+      :accessMode => 'readWrite',
+      :localPath => opts[:name],
+      :remoteHost => opts[:address],
+      :remotePath => opts[:path]
+    }
+    datastoreSystem.CreateNasDatastore :spec => spec
+  end
+end
