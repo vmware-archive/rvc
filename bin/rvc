@@ -133,7 +133,7 @@ if $interactive
 end
 
 if $opts[:script]
-  $shell.eval_ruby File.read($opts[:script])
+  $shell.eval_ruby File.read($opts[:script]), $opts[:script]
 else
   while true
     begin

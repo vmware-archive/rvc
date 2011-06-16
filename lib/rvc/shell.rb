@@ -113,8 +113,8 @@ class Shell
     nil
   end
 
-  def eval_ruby input
-    result = @ruby_evaluator.do_eval input
+  def eval_ruby input, file="<input>"
+    result = @ruby_evaluator.do_eval input, file
     if $interactive
       if input =~ /\#$/
         introspect_object result
@@ -191,12 +191,24 @@ class RubyEvaluator
   include RVC::Util
 
   def initialize fs
-    @binding = binding
+    @binding = toplevel
     @fs = fs
   end
 
-  def do_eval input
-    eval input, @binding
+  def toplevel
+    binding
+  end
+
+  def do_eval input, file
+    begin
+      eval input, @binding, file
+    rescue Exception => e
+      bt = e.backtrace
+      bt = bt.reverse.drop_while { |x| !(x =~ /toplevel/) }.reverse
+      bt[-1].gsub! ':in `toplevel\'', ''
+      e.set_backtrace bt
+      raise
+    end
   end
 
   def this
@@ -212,6 +224,7 @@ class RubyEvaluator
   end
 
   def method_missing sym, *a
+    super unless $shell
     str = sym.to_s
     if a.empty?
       if MODULES.member? str
