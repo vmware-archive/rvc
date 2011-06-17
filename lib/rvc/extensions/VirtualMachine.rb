@@ -64,13 +64,14 @@ class RbVmomi::VIM::VirtualMachine
   end
 
   def children
-    host, resourcePool = collect *%w(runtime.host resourcePool)
+    host, resourcePool, rootSnapshotList = collect *%w(runtime.host resourcePool snapshot.rootSnapshotList)
     {
       'host' => host,
       'resourcePool' => resourcePool,
       'datastores' => RVC::FakeFolder.new(self, :rvc_children_datastores),
       'networks' => RVC::FakeFolder.new(self, :rvc_children_networks),
       'files' => RVC::FakeFolder.new(self, :rvc_children_files),
+      'snapshots' => RVC::RootSnapshotFolder.new(rootSnapshotList),
     }
   end
 
@@ -94,5 +95,53 @@ class RbVmomi::VIM::VirtualMachine
       fail unless objs.size == 1
       [File.basename(file.name), objs.first]
     end]
+  end
+end
+
+class RVC::RootSnapshotFolder
+  include RVC::InventoryObject
+
+  def initialize trees
+    @trees = trees
+  end
+
+  def children
+    return {} if @trees.nil?
+    Hash[@trees.map { |x| [x.name, RVC::SnapshotFolder.new(x)] }]
+  end
+
+  def display_info
+    puts "Root of a VM's snapshot tree"
+  end
+end
+
+class RVC::SnapshotFolder
+  include RVC::InventoryObject
+
+  attr_reader :tree
+
+  def initialize tree
+    @tree = tree
+  end
+
+  def children
+    {}.tap do |h|
+      @tree.childSnapshotList.each do |x|
+        name = x.name
+        name = x.name + '.1' if h.member? x.name
+        while h.member? name
+          name = name.succ
+        end
+        h[name] = RVC::SnapshotFolder.new(x)
+      end
+    end
+  end
+
+  def display_info
+    puts "id: #{@tree.id}"
+    puts "name: #{@tree.name}"
+    puts "description: #{@tree.description}"
+    puts "state: #{@tree.state}"
+    puts "creation time: #{@tree.createTime}"
   end
 end

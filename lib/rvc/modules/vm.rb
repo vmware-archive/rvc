@@ -515,48 +515,6 @@ def remove_device vm, label
 end
 
 
-opts :snapshot do
-  summary "Snapshot a VM"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
-  arg :name, "Name of new snapshot"
-  opt :description, "Description", :short => 'd', :default => ""
-  opt :quiesce, "Quiesce", :short => 'q', :default => false
-  opt :memory, "Memory", :short => 'm', :default => true
-end
-
-def snapshot vm, name, opts
-  tasks [vm], :CreateSnapshot, :description => opts[:description], :memory => opts[:memory], :name => name, :quiesce => opts[:quiesce]
-end
-
-
-# TODO make fake folder
-opts :snapshots do
-  summary "Display VM snapshot tree"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
-end
-
-def snapshots vm
-  _display_snapshot_tree vm.snapshot.rootSnapshotList, 0
-end
-
-def _display_snapshot_tree nodes, indent
-  nodes.each do |node|
-    puts "#{' '*indent}#{node.name} #{node.createTime}"
-    _display_snapshot_tree node.childSnapshotList, (indent+1)
-  end
-end
-
-
-opts :revert do
-  summary "Revert a VM to its current snapshot"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
-end
-
-def revert vm
-  tasks [vm], :RevertToCurrentSnapshot
-end
-
-
 opts :migrate do
   summary "Migrate a VM"
   arg :vm, nil, :lookup => VIM::VirtualMachine, :multi => true
