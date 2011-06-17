@@ -26,3 +26,15 @@ def revert arg
     tasks [arg.tree.snapshot], :RevertToSnapshot
   end
 end
+
+
+opts :rename do
+  summary "Rename a snapshot"
+  arg :snapshot, nil, :lookup => RVC::SnapshotFolder
+  opt :name, "New name", :type => :string
+  opt :description, "New description", :type => :string
+end
+
+def rename snapshot, opts
+  snapshot.tree.snapshot.RenameSnapshot :name => opts[:name], :description => :opts[:description]
+end
