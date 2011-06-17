@@ -42,7 +42,14 @@ rvc_alias :help
 HELP_ORDER = %w(basic vm)
 
 def help path
-  if tgt = RVC::ALIASES[path]
+  if mod = RVC::MODULES[path]
+    opts = mod.instance_variable_get(:@opts)
+    opts.each do |method_name,method_opts|
+      parser = RVC::OptionParser.new method_name, &method_opts
+      help_summary parser, path, method_name
+    end
+    return
+  elsif tgt = RVC::ALIASES[path]
     fail unless tgt =~ /^(.+)\.(.+)$/
     opts_block = RVC::MODULES[$1].opts_for($2.to_sym)
     RVC::OptionParser.new(tgt, &opts_block).educate
@@ -69,9 +76,7 @@ def help path
     opts.each do |method_name,method_opts|
       parser = RVC::OptionParser.new method_name, &method_opts
       next unless obj.nil? or parser.applicable.any? { |x| obj.is_a? x }
-      aliases = ALIASES.select { |k,v| v == "#{mod_name}.#{method_name}" }.map(&:first)
-      aliases_text = aliases.empty? ? '' : " (#{aliases*', '})"
-      puts "#{mod_name}.#{method_name}#{aliases_text}: #{parser.summary?}" if parser.summary?
+      help_summary parser, mod_name, method_name
     end
   end
 
@@ -82,6 +87,12 @@ To see detailed help for a command, use its --help option.
 To show only commands relevant to a specific object, use "help /path/to/object".
     EOS
   end
+end
+
+def help_summary parser, mod_name, method_name
+  aliases = ALIASES.select { |k,v| v == "#{mod_name}.#{method_name}" }.map(&:first)
+  aliases_text = aliases.empty? ? '' : " (#{aliases*', '})"
+  puts "#{mod_name}.#{method_name}#{aliases_text}: #{parser.summary?}" if parser.summary?
 end
 
 
