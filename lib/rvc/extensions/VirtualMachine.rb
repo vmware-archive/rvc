@@ -122,6 +122,10 @@ class RVC::SnapshotFolder
     @ids = ids
   end
 
+  def self.to_s
+    'Snapshot'
+  end
+
   def find_tree
     cur = nil
     children = @vm.snapshot.rootSnapshotList
