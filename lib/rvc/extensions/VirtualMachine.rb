@@ -106,7 +106,9 @@ class RVC::RootSnapshotFolder
   end
 
   def children
-    Hash[@vm.snapshot.rootSnapshotList.map { |x| [x.name, RVC::SnapshotFolder.new(@vm, [x.id])] }]
+    info = @vm.snapshot
+    return {} unless info
+    Hash[info.rootSnapshotList.map { |x| [x.name, RVC::SnapshotFolder.new(@vm, [x.id])] }]
   end
 
   def display_info
@@ -128,9 +130,12 @@ class RVC::SnapshotFolder
 
   def find_tree
     cur = nil
-    children = @vm.snapshot.rootSnapshotList
+    info = @vm.snapshot
+    fail "snapshot not found" unless info
+    children = info.rootSnapshotList
     @ids.each do |id|
       cur = children.find { |x| x.id == id }
+      fail "snapshot not found" unless cur
       children = cur.childSnapshotList
     end
     cur
