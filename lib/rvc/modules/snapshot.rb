@@ -23,7 +23,7 @@ def revert arg
   if arg.is_a? VIM::VirtualMachine
     tasks [arg], :RevertToCurrentSnapshot
   else
-    tasks [arg.tree.snapshot], :RevertToSnapshot
+    tasks [arg.find_tree.snapshot], :RevertToSnapshot
   end
 end
 
@@ -36,5 +36,5 @@ opts :rename do
 end
 
 def rename snapshot, opts
-  snapshot.tree.snapshot.RenameSnapshot :name => opts[:name], :description => :opts[:description]
+  snapshot.find_tree.snapshot.RenameSnapshot :name => opts[:name], :description => :opts[:description]
 end
