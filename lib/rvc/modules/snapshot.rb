@@ -31,10 +31,20 @@ end
 opts :rename do
   summary "Rename a snapshot"
   arg :snapshot, nil, :lookup => RVC::SnapshotFolder
-  opt :name, "New name", :type => :string
-  opt :description, "New description", :type => :string
+  arg :name, "New name", :type => :string
 end
 
-def rename snapshot, opts
-  snapshot.find_tree.snapshot.RenameSnapshot :name => opts[:name], :description => :opts[:description]
+def rename snapshot, name
+  snapshot.find_tree.snapshot.RenameSnapshot :name => name
+end
+
+
+opts :describe do
+  summary "Change the description of a snapshot"
+  arg :snapshot, nil, :lookup => RVC::SnapshotFolder
+  arg :description, "New description", :type => :string
+end
+
+def describe snapshot, description
+  snapshot.find_tree.snapshot.RenameSnapshot :description => description
 end
