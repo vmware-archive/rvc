@@ -597,6 +597,18 @@ def annotate vm, str
 end
 
 
+opts :modify_cpu do
+  summary "Change CPU configuration"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :num, "New number of CPUs", :type => :int, :required => true
+end
+
+def modify_cpu vm, opts
+  spec = { :numCPUs => opts[:num] }
+  tasks [vm], :ReconfigVM, :spec => spec
+end
+
+
 def find_vmx_files ds
   datastorePath = "[#{ds.name}] /"
   searchSpec = {
