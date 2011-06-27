@@ -609,6 +609,18 @@ def modify_cpu vm, opts
 end
 
 
+opts :modify_memory do
+  summary "Change memory configuration"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :size, "New memory size in MB", :type => :int, :required => true
+end
+
+def modify_memory vm, opts
+  spec = { :memoryMB => opts[:size] }
+  tasks [vm], :ReconfigVM, :spec => spec
+end
+
+
 def find_vmx_files ds
   datastorePath = "[#{ds.name}] /"
   searchSpec = {
