@@ -97,15 +97,47 @@ end
 # Override this to spawn a VNC client differently
 def vnc_client ip, port, password
   if VNC
+
+    passwordfile = vnc_opts = nil
+    if VNC =~ /\/vncviewer/
+      passwordfile = write_tiger_vnc( password )
+      vnc_opts = " -passwd #{passwordfile} "
+    end
+
     fork do
       $stderr.reopen("#{ENV['HOME']||'.'}/.rvc-vmrc.log", "w")
       Process.setpgrp
-      exec VNC, "#{ip}:#{port}"
+      exec "#{VNC} #{vnc_opts} #{ip}:#{port}"
     end
     puts "spawning #{VNC}"
     puts "#{ip}:#{port} password: #{password}"
+    puts "options: #{vnc_opts}" unless vnc_opts.nil?
+
+    fork do
+      sleep 5
+      File.unlink passwordfile unless passwordfile.nil?
+    end
   else
     puts "no VNC client configured"
     puts "#{ip}:#{port} password: #{password}"
   end
+end
+
+# We can save the vnc pasword out to a file, then call vncviewer with it
+# directly so we don't need to "password" auth.
+def write_tiger_vnc pass
+  require 'open3'
+  file = '.vncpass'
+
+  unless pass.length >= 6
+    puts "Need a longer VNC password"
+    exit 10
+  end
+
+  Open3.popen3( "vncpasswd #{file}" ) do |vin,vout,verr|
+    vin.puts pass
+    vin.puts pass
+  end
+
+  return file
 end
