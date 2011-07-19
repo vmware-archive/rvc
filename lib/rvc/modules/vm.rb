@@ -250,6 +250,8 @@ opts :answer do
 end
 
 def answer vm, str
+  q = vm.runtime.question
+  err "no question" unless q
   choice = q.choice.choiceInfo.find { |x| x.label == str }
   err("invalid answer") unless choice
   vm.AnswerVM :questionid => q.path, :answerChoice => choice.key
