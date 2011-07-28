@@ -104,10 +104,33 @@ opts :create do
   opt :pool, "Resource pool", :short => 'p', :type => :string, :lookup => VIM::ResourcePool
   opt :host, "Host", :short => 'h', :type => :string, :lookup => VIM::HostSystem
   opt :datastore, "Datastore", :short => 'd', :type => :string, :lookup => VIM::Datastore
-  opt :disksize, "Size in KB of primary disk", :short => 's', :type => :int, :default => 4000000
+  opt :disksize, "Size in KB of primary disk (or add a unit of <M|G|T>)", :short => 's', :type => :string, :default => "4000000"
   opt :memory, "Size in MB of memory", :short => 'm', :type => :int, :default => 128
   opt :cpucount, "Number of CPUs", :short => 'c', :type => :int, :default => 1
 end
+
+
+def realdisksize( size )
+  size.downcase!
+  if size =~ /([0-9][0-9,]+)([mgt])?/i
+    size = $1.delete(',').to_i
+    unit = $2
+
+    case unit
+    when 'm'
+      return size * 1024
+    when 'g'
+      return size * ( 1024 ** 2 )
+    when 't'
+      return size * ( 1024 ** 3 )
+    when nil
+      return size
+    else
+      err "Unknown size modifer of '#{unit}'"
+    end
+  end
+end
+
 
 def create dest, opts
   err "must specify resource pool (--pool)" unless opts[:pool]
@@ -140,7 +163,7 @@ def create dest, opts
           ),
           :controllerKey => 1000,
           :unitNumber => 0,
-          :capacityInKB => opts[:disksize]
+          :capacityInKB => realdisksize( opts[:disksize] )
         )
       }, {
         :operation => :add,
