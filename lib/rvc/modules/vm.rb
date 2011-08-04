@@ -416,17 +416,18 @@ end
 opts :rvc do
   summary "RVC to a VM"
   arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :user, "Username", :type => :string
 end
 
 rvc_alias :rvc
 
-def rvc vm
+def rvc vm, opts
   ip = vm_ip vm
 
   env = Hash[%w(RBVMOMI_PASSWORD RBVMOMI_HOST RBVMOMI_USER RBVMOMI_SSL RBVMOMI_PORT
                 RBVMOMI_FOLDER RBVMOMI_DATASTORE RBVMOMI_PATH RBVMOMI_DATACENTER
                 RBVMOMI_COMPUTER).map { |k| [k,nil] }]
-  cmd = "rvc #{Shellwords.escape ip}"
+  cmd = "rvc #{opts[:user] && Shellwords.escape("#{opts[:user]}@")}#{Shellwords.escape ip}"
   system_fg(cmd, env)
 end
 
