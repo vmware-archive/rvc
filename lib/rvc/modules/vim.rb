@@ -88,7 +88,12 @@ def connect uri, opts
 
   # authenticate
   if username == nil
-    username = isVC ? 'Administrator' : 'root'
+    if isVC
+      isLinux = vim.serviceContent.about.osType == "linux-x64"
+      username = isLinux ? 'root' : 'Administrator'
+    else
+      username = 'root'
+    end
     puts "Using default username #{username.inspect}."
   end
 
