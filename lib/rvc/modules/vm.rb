@@ -118,7 +118,7 @@ end
 
 def realdisksize( size )
   size.downcase!
-  if size =~ /([0-9][0-9,]+)([mgt])?/i
+  if size =~ /([0-9][0-9,]*)([mgt])?/i
     size = $1.delete(',').to_i
     unit = $2
 
@@ -134,6 +134,8 @@ def realdisksize( size )
     else
       err "Unknown size modifer of '#{unit}'"
     end
+  else
+    err "Problem with #{size}"
   end
 end
 
