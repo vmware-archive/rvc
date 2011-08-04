@@ -143,6 +143,7 @@ end
 def create dest, opts
   err "must specify resource pool (--pool)" unless opts[:pool]
   err "must specify datastore (--datastore)" unless opts[:datastore]
+  err "memory must be a multiple of 4MB" unless opts[:memory] % 4 == 0
   vmFolder, name = *dest
   datastore_path = "[#{opts[:datastore].name}]"
   config = {
