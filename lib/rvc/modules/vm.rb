@@ -107,12 +107,18 @@ opts :create do
   opt :disksize, "Size in KB of primary disk (or add a unit of <M|G|T>)", :short => 's', :type => :string, :default => "4000000"
   opt :memory, "Size in MB of memory", :short => 'm', :type => :int, :default => 128
   opt :cpucount, "Number of CPUs", :short => 'c', :type => :int, :default => 1
+  text <<-EOB
+
+Example:
+  vm.create -p ~foo/resourcePool/pools/prod -d ~data/bigdisk -s 10g ~vms/new
+
+  EOB
 end
 
 
 def realdisksize( size )
   size.downcase!
-  if size =~ /([0-9][0-9,]+)([mgt])?/i
+  if size =~ /([0-9][0-9,]*)([mgt])?/i
     size = $1.delete(',').to_i
     unit = $2
 
@@ -128,6 +134,8 @@ def realdisksize( size )
     else
       err "Unknown size modifer of '#{unit}'"
     end
+  else
+    err "Problem with #{size}"
   end
 end
 
@@ -135,6 +143,7 @@ end
 def create dest, opts
   err "must specify resource pool (--pool)" unless opts[:pool]
   err "must specify datastore (--datastore)" unless opts[:datastore]
+  err "memory must be a multiple of 4MB" unless opts[:memory] % 4 == 0
   vmFolder, name = *dest
   datastore_path = "[#{opts[:datastore].name}]"
   config = {
