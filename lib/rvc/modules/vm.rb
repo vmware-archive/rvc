@@ -107,6 +107,12 @@ opts :create do
   opt :disksize, "Size in KB of primary disk (or add a unit of <M|G|T>)", :short => 's', :type => :string, :default => "4000000"
   opt :memory, "Size in MB of memory", :short => 'm', :type => :int, :default => 128
   opt :cpucount, "Number of CPUs", :short => 'c', :type => :int, :default => 1
+  text <<-EOB
+
+Example:
+  vm.create -p ~foo/resourcePool/pools/prod -d ~data/bigdisk -s 10g ~vms/new
+
+  EOB
 end
 
 
