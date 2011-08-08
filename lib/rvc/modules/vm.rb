@@ -217,6 +217,30 @@ opts :insert_cdrom do
   arg :iso, "Path to the ISO image on a datastore", :lookup => VIM::Datastore::FakeDatastoreFile
 end
 
+opts :memory do
+  summary "Display info about VM devices"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+end
+
+def memory vm
+  ram = vm.config.hardware.memoryMB
+  puts "Memory currently is #{ram}MB"
+end
+
+opts :set_memory do
+  summary "Change memory on a VM"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  arg :memory, "New amount of RAM in MB", :type => :int
+end
+
+def set_memory vm,memory
+  err "VM needs to be off" unless vm.summary.runtime.powerState == 'poweredOff'
+  err "memory must be a multiple of 4MB" unless ( memory.to_i % 4 ) == 0
+
+  spec = { :memoryMB => memory }
+  vm.ReconfigVM_Task(:spec => spec).wait_for_completion
+end
+
 def insert_cdrom vm, iso
   device = vm.config.hardware.device.grep(VIM::VirtualCdrom)[0]
   err "No virtual CDROM drive found" unless device
