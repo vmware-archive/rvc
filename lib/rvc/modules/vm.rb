@@ -249,6 +249,58 @@ def register vmx_file, opts
                                      :pool => rp).wait_for_completion
 end
 
+opts :bootconfig do
+  summary "Alter the boot config settings"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :delay, "Time in milliseconds to delay boot", :short => 'd', :type => :int
+  opt :enablebootretry,  "Enable rebooting if no boot device found", :short => 'r'
+  opt :disablebootretry, "Disable rebooting if no boot device found"
+  opt :retrydelay, "Time to wait before rebooting to retry", :short => 't', :type => :int
+  opt :show, "Show the current bootoptions", :short => 's'
+  conflicts :enablebootretry, :disablebootretry   # not that this currently works nicely, but still.
+end
+
+def bootconfig vm, opts
+
+  if opts[:show]
+    pp vm.config.bootOptions
+    return
+  end
+
+  cur_delay        = vm.config.bootOptions.bootDelay
+  cur_retrydelay   = vm.config.bootOptions.bootRetryDelay
+  cur_retryenabled = vm.config.bootOptions.bootRetryEnabled
+
+  if opts[:delay] and opts[:delay] != cur_delay
+    new_delay = opts[:delay]
+  else
+    new_delay = cur_delay
+  end
+
+  if opts[:retrydelay] and opts[:retrydelay] != cur_retrydelay
+    new_retrydelay = opts[:retrydelay]
+    new_retryenabled = true
+  else
+    new_retrydelay = cur_retrydelay
+  end
+
+  if opts[:enablebootretry]
+    new_retryenabled = true
+  elsif opts[:disablebootretry]
+    new_retryenabled = false
+  else
+    new_retryenabled = cur_retryenabled
+  end
+
+  spec = { :bootOptions => {
+    :bootDelay => new_delay,
+    :bootRetryDelay => new_retrydelay,
+    :bootRetryEnabled => new_retryenabled,
+    }
+  }
+
+  vm.ReconfigVM_Task(:spec => spec).wait_for_completion
+end
 
 opts :unregister do
   summary "Unregister a VM"
