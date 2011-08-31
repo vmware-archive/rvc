@@ -51,6 +51,7 @@ def add_host cluster, hostname, opts
                                 :asConnected => false
     begin
       task.wait_for_completion
+      break
     rescue VIM::SSLVerifyFault
       puts "SSL thumbprint: #{$!.fault.thumbprint}"
       $stdout.write "Accept this thumbprint? (y/n) "
