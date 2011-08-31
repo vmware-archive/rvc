@@ -264,20 +264,30 @@ end
 
 
 opts :mv do
-  summary "Move/rename an entity"
-  arg :src, "Source path"
-  arg :dst, "Destination path"
+  summary "Move entities to another folder"
+  text "The entities' names are unchanged."
+  arg :objs, "Entities to move", :lookup => VIM::ManagedEntity, :multi => true
 end
 
 rvc_alias :mv
 
-def mv src, dst
-  src_dir = File.dirname(src)
-  dst_dir = File.dirname(dst)
-  err "cross-directory mv not yet supported" unless src_dir == dst_dir
-  dst_name = File.basename(dst)
-  obj = lookup(src)
-  obj.Rename_Task(:newName => dst_name).wait_for_completion
+def mv objs
+  err "Destination entity missing" unless objs.size > 1
+  dst = objs.pop
+  progress [dst.MoveIntoFolder_Task(:list => objs)]
+end
+
+
+opts :rename do
+  summary "Rename an entity"
+  arg :objs, "Entity to rename", :lookup => VIM::ManagedEntity
+  arg :name, "New name"
+end
+
+rvc_alias :rename
+
+def rename obj, name
+  progress [obj.Rename_Task(:newName => name)]
 end
 
 
