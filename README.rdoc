@@ -91,6 +91,13 @@ When the working directory is a descendant of a Datacenter object, the mark "~"
 refers to the Datacenter. For example "~/datastore" is a convenient way to get
 the datastore folder of the current datacenter.
 
+Loading marks is possible too. A file named ~/.rvc-marks.yaml in the
+simple format of:
+
+vcenter.hostname: { markname: /path/name/,
+				    anothermarkname: /a/longer/path/name }
+another.vcenter.host: { ... }
+
 === Aggregate marks
 
 More than one object can be given to the "mark" command. The resulting mark can
