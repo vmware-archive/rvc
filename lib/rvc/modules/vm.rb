@@ -104,14 +104,46 @@ opts :create do
   opt :pool, "Resource pool", :short => 'p', :type => :string, :lookup => VIM::ResourcePool
   opt :host, "Host", :short => 'h', :type => :string, :lookup => VIM::HostSystem
   opt :datastore, "Datastore", :short => 'd', :type => :string, :lookup => VIM::Datastore
-  opt :disksize, "Size in KB of primary disk", :short => 's', :type => :int, :default => 4000000
+  opt :disksize, "Size in KB of primary disk (or add a unit of <M|G|T>)", :short => 's', :type => :string, :default => "4000000"
   opt :memory, "Size in MB of memory", :short => 'm', :type => :int, :default => 128
   opt :cpucount, "Number of CPUs", :short => 'c', :type => :int, :default => 1
+  text <<-EOB
+
+Example:
+  vm.create -p ~foo/resourcePool/pools/prod -d ~data/bigdisk -s 10g ~vms/new
+
+  EOB
 end
+
+
+def realdisksize( size )
+  size.downcase!
+  if size =~ /([0-9][0-9,]*)([mgt])?/i
+    size = $1.delete(',').to_i
+    unit = $2
+
+    case unit
+    when 'm'
+      return size * 1024
+    when 'g'
+      return size * ( 1024 ** 2 )
+    when 't'
+      return size * ( 1024 ** 3 )
+    when nil
+      return size
+    else
+      err "Unknown size modifer of '#{unit}'"
+    end
+  else
+    err "Problem with #{size}"
+  end
+end
+
 
 def create dest, opts
   err "must specify resource pool (--pool)" unless opts[:pool]
   err "must specify datastore (--datastore)" unless opts[:datastore]
+  err "memory must be a multiple of 4MB" unless opts[:memory] % 4 == 0
   vmFolder, name = *dest
   datastore_path = "[#{opts[:datastore].name}]"
   config = {
@@ -140,7 +172,7 @@ def create dest, opts
           ),
           :controllerKey => 1000,
           :unitNumber => 0,
-          :capacityInKB => opts[:disksize]
+          :capacityInKB => realdisksize( opts[:disksize] )
         )
       }, {
         :operation => :add,
@@ -217,6 +249,58 @@ def register vmx_file, opts
                                      :pool => rp).wait_for_completion
 end
 
+opts :bootconfig do
+  summary "Alter the boot config settings"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :delay, "Time in milliseconds to delay boot", :short => 'd', :type => :int
+  opt :enablebootretry,  "Enable rebooting if no boot device found", :short => 'r'
+  opt :disablebootretry, "Disable rebooting if no boot device found"
+  opt :retrydelay, "Time to wait before rebooting to retry", :short => 't', :type => :int
+  opt :show, "Show the current bootoptions", :short => 's'
+  conflicts :enablebootretry, :disablebootretry   # not that this currently works nicely, but still.
+end
+
+def bootconfig vm, opts
+
+  if opts[:show]
+    pp vm.config.bootOptions
+    return
+  end
+
+  cur_delay        = vm.config.bootOptions.bootDelay
+  cur_retrydelay   = vm.config.bootOptions.bootRetryDelay
+  cur_retryenabled = vm.config.bootOptions.bootRetryEnabled
+
+  if opts[:delay] and opts[:delay] != cur_delay
+    new_delay = opts[:delay]
+  else
+    new_delay = cur_delay
+  end
+
+  if opts[:retrydelay] and opts[:retrydelay] != cur_retrydelay
+    new_retrydelay = opts[:retrydelay]
+    new_retryenabled = true
+  else
+    new_retrydelay = cur_retrydelay
+  end
+
+  if opts[:enablebootretry]
+    new_retryenabled = true
+  elsif opts[:disablebootretry]
+    new_retryenabled = false
+  else
+    new_retryenabled = cur_retryenabled
+  end
+
+  spec = { :bootOptions => {
+    :bootDelay => new_delay,
+    :bootRetryDelay => new_retrydelay,
+    :bootRetryEnabled => new_retryenabled,
+    }
+  }
+
+  vm.ReconfigVM_Task(:spec => spec).wait_for_completion
+end
 
 opts :unregister do
   summary "Unregister a VM"
