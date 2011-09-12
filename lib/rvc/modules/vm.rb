@@ -708,6 +708,41 @@ def modify_memory vm, opts
 end
 
 
+opts :add_cdrom_device do
+  summary "Add a cdrom drive"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :label, "Device label", :default => "CD/DVD drive 1"
+end
+
+def add_cdrom_device vm, opts
+  progress [vm.ReconfigVM_Task(:spec => {
+    :deviceChange => [
+      {
+        :operation => :add,
+        :device => VIM.VirtualCdrom(
+          :controllerKey => 200,
+          :key => 3000,
+          :unitNumber => 0,
+          :backing => VIM.VirtualCdromAtapiBackingInfo(
+            :deviceName => opts[:label],
+            :useAutoDetect => false
+          ),
+          :connectable => VIM.VirtualDeviceConnectInfo(
+            :allowGuestControl => true,
+            :connected => true,
+            :startConnected => true
+          ),
+          :deviceInfo => VIM.Description(
+            :label => opts[:label],
+            :summary => opts[:label]
+          )
+        )
+      }
+    ]
+  })]
+end
+
+
 def find_vmx_files ds
   datastorePath = "[#{ds.name}] /"
   searchSpec = {
