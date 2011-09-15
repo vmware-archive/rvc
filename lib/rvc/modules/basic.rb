@@ -187,7 +187,7 @@ def ls obj
   filteredTypes.each do |x|
     filterSpec.propSet << {
       :type => x.wsdl_name,
-      :pathSet => x.ls_properties+%w(name),
+      :pathSet => x.ls_properties+%w(name overallStatus),
     }
   end
 
@@ -198,13 +198,20 @@ def ls obj
     name = name_map[r.obj]
     text = r.obj.ls_text(r) rescue " (error)"
     realname = r['name'] if name != r['name']
-    puts "#{i} #{name}#{realname && " [#{realname}]"}#{text}"
+    colored_name = $terminal.color(name, *LS_COLORS[r['overallStatus']])
+    puts "#{i} #{colored_name}#{realname && " [#{realname}]"}#{text}"
     r.obj.rvc_link obj, name
     CMD.mark.mark i.to_s, [r.obj]
     i += 1
   end
 end
 
+LS_COLORS = {
+  'gray' => [],
+  'red' => [:red],
+  'green' => [],
+  'yellow' => [:yellow],
+}
 
 opts :info do
   summary "Display information about an object"
