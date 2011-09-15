@@ -31,6 +31,20 @@ class RbVmomi::VIM::HostSystem
     " (host): cpu #{numCpuPkgs}*#{numCpuCores}*#{"%.2f" % (cpuMhz.to_f/1000)} GHz, memory #{"%.2f" % (memorySize/10**9)} GB"
   end
 
+  def display_info
+    summary = self.summary
+    runtime = summary.runtime
+    puts "connection state: #{runtime.connectionState}"
+    puts "power state: #{runtime.powerState}"
+    puts "uptime: #{"%0.2f" % ((Time.now - runtime.bootTime)/(24*3600))} days" if runtime.bootTime
+    puts "in maintenance mode: #{runtime.inMaintenanceMode}"
+    puts "standby mode: #{runtime.standbyMode}" if runtime.standbyMode
+    if about = summary.config.product
+      puts "product: #{about.fullName}"
+      puts "license: #{about.licenseProductName} #{about.licenseProductVersion}" if about.licenseProductName
+    end
+  end
+
   def children
     {
       'vms' => RVC::FakeFolder.new(self, :ls_vms),
