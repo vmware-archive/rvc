@@ -21,6 +21,13 @@
 class RbVmomi::VIM::ManagedEntity
   include RVC::InventoryObject
 
+  STATUS_COLORS = {
+    'gray' => [],
+    'red' => [:red],
+    'green' => [],
+    'yellow' => [:yellow],
+  }
+
   def display_info
     puts "name: #{name}"
     puts "type: #{self.class.name}"

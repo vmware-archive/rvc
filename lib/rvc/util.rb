@@ -203,5 +203,9 @@ module Util
 
     Hash[results.map { |r| [r['name'], r.obj] }]
   end
+
+  def status_color str, status
+    $terminal.color(str, *VIM::ManagedEntity::STATUS_COLORS[status])
+  end
 end
 end
