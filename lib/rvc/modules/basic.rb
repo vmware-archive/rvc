@@ -198,20 +198,13 @@ def ls obj
     name = name_map[r.obj]
     text = r.obj.ls_text(r) rescue " (error)"
     realname = r['name'] if name != r['name']
-    colored_name = $terminal.color(name, *LS_COLORS[r['overallStatus']])
+    colored_name = status_color name, r['overallStatus']
     puts "#{i} #{colored_name}#{realname && " [#{realname}]"}#{text}"
     r.obj.rvc_link obj, name
     CMD.mark.mark i.to_s, [r.obj]
     i += 1
   end
 end
-
-LS_COLORS = {
-  'gray' => [],
-  'red' => [:red],
-  'green' => [],
-  'yellow' => [:yellow],
-}
 
 opts :info do
   summary "Display information about an object"
