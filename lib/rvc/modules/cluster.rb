@@ -48,9 +48,9 @@ def add_host cluster, hostname, opts
       :sslThumbprint => sslThumbprint,
     }
     task = cluster.AddHost_Task :spec => spec,
-                                :asConnected => false
+                                :asConnected => true
     begin
-      task.wait_for_completion
+      one_progress task
       break
     rescue VIM::SSLVerifyFault
       puts "SSL thumbprint: #{$!.fault.thumbprint}"

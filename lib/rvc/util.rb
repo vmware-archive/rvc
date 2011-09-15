@@ -104,6 +104,7 @@ module Util
   end
 
   def progress tasks
+    results = {}
     interested = %w(info.progress info.state info.entityName info.error info.name)
     connection = single_connection tasks
     connection.serviceInstance.wait_for_multiple_tasks interested, tasks do |h|
@@ -120,8 +121,10 @@ module Util
             $stdout.write "\e[K#{text}#{progress_bar}\n"
           elsif state == 'error'
             error = props['info.error']
+            results[task] = error
             $stdout.write "\e[K#{name} #{entityName}: #{error.fault.class.wsdl_name}: #{error.localizedMessage}\n"
           else
+            results[task] = task.info.result if state == 'success'
             $stdout.write "\e[K#{name} #{entityName}: #{state}\n"
           end
         end
@@ -130,7 +133,13 @@ module Util
       end
     end
     $stdout.write "\e[#{tasks.size}B" if interactive?
-    true
+    results
+  end
+
+  def one_progress task
+    progress([task])[task].tap do |r|
+      raise r if r.is_a? VIM::LocalizedMethodFault
+    end
   end
 
   def terminal_columns
