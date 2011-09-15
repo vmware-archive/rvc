@@ -62,3 +62,19 @@ def add_host cluster, hostname, opts
     end
   end
 end
+
+
+opts :configure_ha do
+  summary "Configure HA on a cluster"
+  arg :cluster, nil, :lookup => VIM::ClusterComputeResource
+  opt :disabled, "Disable HA", :default => false
+end
+
+def configure_ha cluster, opts
+  spec = VIM::ClusterConfigSpecEx(
+    :dasConfig => {
+      :enabled => !opts[:disabled],
+    }
+  )
+  one_progress(cluster.ReconfigureComputeResource_Task :spec => spec, :modify => true)
+end
