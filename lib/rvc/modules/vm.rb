@@ -703,6 +703,8 @@ opts :modify_memory do
 end
 
 def modify_memory vm, opts
+  err "VM needs to be off" unless vm.summary.runtime.powerState == 'poweredOff'
+  err "memory must be a multiple of 4MB" unless ( opts[:size]  % 4 ) == 0
   spec = { :memoryMB => opts[:size] }
   tasks [vm], :ReconfigVM, :spec => spec
 end
