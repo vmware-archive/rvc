@@ -118,7 +118,7 @@ def vnc_client ip, port, password
         vncpass.puts password
       end
 
-      vnc_client_connect ip, port, password, "-passwd #{filename} "
+      vnc_client_connect ip, port, password, "-passwd #{filename}"
     ensure
       sleep 3 # we have to do this, as the vncviewer forks, and we've no simple way of working out if that thread has read the file yet.
       file.close
@@ -132,7 +132,7 @@ def vnc_client_connect ip, port, password, vnc_opts=nil
   fork do
     $stderr.reopen("#{ENV['HOME']||'.'}/.rvc-vmrc.log", "w")
     Process.setpgrp
-    exec VNC, "#{vnc_opts} #{ip}:#{port}"
+    exec [ VNC, vnc_opts, "#{ip}:#{port}" ].join ' '
   end
   puts "spawning #{VNC}"
   print "#{ip}:#{port} password: #{password}"
