@@ -95,49 +95,48 @@ def vnc_password
 end
 
 # Override this to spawn a VNC client differently
-def vnc_client ip, port, password
-  if VNC
-
-    passwordfile = vnc_opts = nil
-    if VNC =~ /\/vncviewer/
-      passwordfile = write_tiger_vnc( password )
-      vnc_opts = " -passwd #{passwordfile} "
-    end
-
-    fork do
-      $stderr.reopen("#{ENV['HOME']||'.'}/.rvc-vmrc.log", "w")
-      Process.setpgrp
-      exec "#{VNC} #{vnc_opts} #{ip}:#{port}"
-    end
-    puts "spawning #{VNC}"
-    puts "#{ip}:#{port} password: #{password}"
-    puts "options: #{vnc_opts}" unless vnc_opts.nil?
-
-    fork do
-      sleep 5
-      File.unlink passwordfile unless passwordfile.nil?
-    end
-  else
-    puts "no VNC client configured"
-    puts "#{ip}:#{port} password: #{password}"
-  end
-end
-
+# 
 # We can save the vnc pasword out to a file, then call vncviewer with it
 # directly so we don't need to "password" auth.
-def write_tiger_vnc pass
-  require 'open3'
-  file = '.vncpass'
+def vnc_client ip, port, password
 
-  unless pass.length >= 6
-    puts "Need a longer VNC password"
-    exit 10
+  unless VNC
+    puts "no VNC client configured"
+    return false
   end
 
-  Open3.popen3( "vncpasswd #{file}" ) do |vin,vout,verr|
-    vin.puts pass
-    vin.puts pass
+  unless VNC =~ /\/vncviewer/ # or other vnc clients that support the same -passwd
+    vnc_client_connect ip, port, password
+  else
+
+    file = Tempfile.new( 'rvcvncpass' )
+    filename = file.path
+    begin
+
+      IO.popen( "vncpasswd #{filename}" , 'w+' ) do |vncpass| 
+        vncpass.puts password
+        vncpass.puts password
+      end
+
+      vnc_client_connect ip, port, password, "-passwd #{filename} "
+    ensure
+      sleep 3 # we have to do this, as the vncviewer forks, and we've no simple way of working out if that thread has read the file yet.
+      file.close
+      file.unlink
+    end
   end
 
-  return file
 end
+
+def vnc_client_connect ip, port, password, vnc_opts=nil
+  fork do
+    $stderr.reopen("#{ENV['HOME']||'.'}/.rvc-vmrc.log", "w")
+    Process.setpgrp
+    exec VNC, "#{vnc_opts} #{ip}:#{port}"
+  end
+  puts "spawning #{VNC}"
+  print "#{ip}:#{port} password: #{password}"
+  print " options: #{vnc_opts}" unless vnc_opts.nil?
+  puts
+end
+
