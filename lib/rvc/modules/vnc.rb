@@ -95,17 +95,48 @@ def vnc_password
 end
 
 # Override this to spawn a VNC client differently
+# 
+# We can save the vnc pasword out to a file, then call vncviewer with it
+# directly so we don't need to "password" auth.
 def vnc_client ip, port, password
-  if VNC
-    fork do
-      $stderr.reopen("#{ENV['HOME']||'.'}/.rvc-vmrc.log", "w")
-      Process.setpgrp
-      exec VNC, "#{ip}:#{port}"
-    end
-    puts "spawning #{VNC}"
-    puts "#{ip}:#{port} password: #{password}"
-  else
+
+  unless VNC
     puts "no VNC client configured"
-    puts "#{ip}:#{port} password: #{password}"
+    return false
   end
+
+  unless VNC =~ /\/vncviewer/ # or other vnc clients that support the same -passwd
+    vnc_client_connect ip, port, password
+  else
+
+    file = Tempfile.new( 'rvcvncpass' )
+    filename = file.path
+    begin
+
+      IO.popen( "vncpasswd #{filename}" , 'w+' ) do |vncpass| 
+        vncpass.puts password
+        vncpass.puts password
+      end
+
+      vnc_client_connect ip, port, password, "-passwd #{filename}"
+    ensure
+      sleep 3 # we have to do this, as the vncviewer forks, and we've no simple way of working out if that thread has read the file yet.
+      file.close
+      file.unlink
+    end
+  end
+
 end
+
+def vnc_client_connect ip, port, password, vnc_opts=nil
+  fork do
+    $stderr.reopen("#{ENV['HOME']||'.'}/.rvc-vmrc.log", "w")
+    Process.setpgrp
+    exec [ VNC, vnc_opts, "#{ip}:#{port}" ].join ' '
+  end
+  puts "spawning #{VNC}"
+  print "#{ip}:#{port} password: #{password}"
+  print " options: #{vnc_opts}" unless vnc_opts.nil?
+  puts
+end
+

@@ -28,6 +28,7 @@ require 'shellwords'
 require 'yaml'
 require 'backports'
 require 'rvc'
+require 'tempfile'
 
 VIM = RbVmomi::VIM
 
