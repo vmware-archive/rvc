@@ -21,7 +21,7 @@ end
 
 def get name
   role = cur_auth_mgr.roleList.find { |x| x.name == name }
-  err "no such role #{role_name.inspect}" unless role
+  err "no such role #{name.inspect}" unless role
   puts "label: #{role.info.label}"
   puts "summary: #{role.info.summary}"
   puts "privileges: #{role.privilege.sort * ' '}"
@@ -35,7 +35,7 @@ end
 
 def permissions name
   role = cur_auth_mgr.roleList.find { |x| x.name == name }
-  err "no such role #{role_name.inspect}" unless role
+  err "no such role #{name.inspect}" unless role
   cur_auth_mgr.RetrieveRolePermissions(:roleId => role.roleId).each do |perm|
     flags = []
     flags << 'group' if perm[:group]
@@ -64,7 +64,7 @@ end
 
 def delete name, opts
   role = cur_auth_mgr.roleList.find { |x| x.name == name }
-  err "no such role #{role_name.inspect}" unless role
+  err "no such role #{name.inspect}" unless role
   cur_auth_mgr.RemoveAuthorizationRole :roleId => role.roleId, :failIfUsed => opts[:force]
 end
 
