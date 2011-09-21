@@ -35,6 +35,27 @@ class RbVmomi::VIM::ResourcePool
     ]
   end
 
+  def display_info
+    cfg = config
+    rt = runtime
+    cpuAlloc, memAlloc = cfg.cpuAllocation, cfg.memoryAllocation
+
+
+    cpu_shares_text = cpuAlloc.shares.level == 'custom' ? cpuAlloc.shares.shares.to_s : cpuAlloc.shares.level
+    mem_shares_text = memAlloc.shares.level == 'custom' ? memAlloc.shares.shares.to_s : memAlloc.shares.level
+
+    puts "cpu:"
+    puts " reservation: %0.2f GHz" % [cpuAlloc.reservation/1e3]
+    puts " limit: %0.2f GHz" % [cpuAlloc.limit/1e3]
+    puts " shares: #{cpu_shares_text}"
+    puts " usage: %0.2f Ghz (%0.1f)%%" % [rt.cpu.overallUsage/1e3, 100.0*rt.cpu.overallUsage/rt.cpu.maxUsage]
+    puts "memory:"
+    puts " reservation: %0.2f GB" % [memAlloc.reservation/1e3]
+    puts " limit: %0.2f GB" % [memAlloc.limit/1e3]
+    puts " shares: #{mem_shares_text}"
+    puts " usage: %0.2f GB (%0.1f)%%" % [rt.memory.overallUsage/1e9, 100.0*rt.memory.overallUsage/rt.memory.maxUsage]
+  end
+
   def children
     {
       'vms' => RVC::FakeFolder.new(self, :children_vms),

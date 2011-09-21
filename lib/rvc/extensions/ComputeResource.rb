@@ -25,8 +25,8 @@ class RbVmomi::VIM::ComputeResource
     pct_cpu_used = 100.0*stats[:usedCPU]/stats[:totalCPU]
     pct_mem_used = 100.0*stats[:usedMem]/stats[:totalMem]
     puts "name: #{name}"
-    puts "cpu #{stats[:totalCPU]} GHz (#{pct_cpu_used.to_i}% used)"
-    puts "memory #{stats[:totalMem]} GB (#{pct_mem_used.to_i}% used)"
+    puts "cpu: #{stats[:totalCPU]/1e3} GHz (#{pct_cpu_used.to_i}% used)"
+    puts "memory: #{stats[:totalMem]/1e3} GB (#{pct_mem_used.to_i}% used)"
     puts "hosts:"
     host.each do |h|
       puts " #{h.name}"

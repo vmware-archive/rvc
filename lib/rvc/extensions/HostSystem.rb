@@ -34,6 +34,8 @@ class RbVmomi::VIM::HostSystem
   def display_info
     summary = self.summary
     runtime = summary.runtime
+    stats = summary.quickStats
+    hw = summary.hardware
     puts "connection state: #{runtime.connectionState}"
     puts "power state: #{runtime.powerState}"
     puts "uptime: #{"%0.2f" % ((Time.now - runtime.bootTime)/(24*3600))} days" if runtime.bootTime
@@ -43,6 +45,11 @@ class RbVmomi::VIM::HostSystem
       puts "product: #{about.fullName}"
       puts "license: #{about.licenseProductName} #{about.licenseProductVersion}" if about.licenseProductName
     end
+    overallCpu = hw.numCpuPkgs * hw.numCpuCores * hw.cpuMhz
+    puts "cpu: %d*%d*%.2f GHz = %.2f GHz" % [hw.numCpuPkgs, hw.numCpuCores, hw.cpuMhz/1e3, overallCpu/1e3]
+    puts "cpu usage: %.2f GHz (%.1f%%)" % [stats.overallCpuUsage/1e3, 100*stats.overallCpuUsage/overallCpu]
+    puts "memory: %.2f GB" % [hw.memorySize/1e9]
+    puts "memory usage: %.2f GB (%.1f%%)" % [stats.overallMemoryUsage/1e3, 100*1e6*stats.overallMemoryUsage/hw.memorySize]
   end
 
   def children
