@@ -68,13 +68,39 @@ def suspend vms
 end
 
 
+opts :wait_for_shutdown do
+  summary "Waits for a VM to shutdown"
+  arg :vm, nil, :multi => true, :lookup => VIM::VirtualMachine
+  opt :timeout, "Timeout in seconds", :type => :int, :default => 300
+  opt :delay, "Interval in seconds", :type => :int, :default => 5
+end
+
+def wait_for_shutdown vms, opts
+  finish_time = Time.now + opts[:timeout]
+  while Time.now < finish_time
+    all_off = true
+    vms.each do |vm|
+      if vm.summary.runtime.powerState == 'poweredOn'
+        all_off = false
+      end
+    end
+    return if all_off
+    sleep [opts[:delay], finish_time - Time.now].min
+  end
+  puts "WARNING: At least one VM did not shut down!"
+end
+
+
 opts :shutdown_guest do
   summary "Shut down guest OS"
   arg :vm, nil, :multi => true, :lookup => VIM::VirtualMachine
+  opt :timeout, "Timeout for guest shut down in seconds", :type => int, :default => nil
+  opt :delay, "Interval between checks for guest shut down in seconds", :type => int, :default => nil
 end
 
-def shutdown_guest vms
+def shutdown_guest vms, opts
   vms.each(&:ShutdownGuest)
+  wait_for_shutdown vms, opts unless opts[:timeout].nil?
 end
 
 
