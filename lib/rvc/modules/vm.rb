@@ -94,8 +94,8 @@ end
 opts :shutdown_guest do
   summary "Shut down guest OS"
   arg :vm, nil, :multi => true, :lookup => VIM::VirtualMachine
-  opt :timeout, "Timeout for guest shut down in seconds", :type => int, :default => nil
-  opt :delay, "Interval between checks for guest shut down in seconds", :type => int, :default => nil
+  opt :timeout, "Timeout for guest shut down in seconds", :type => :int, :default => nil
+  opt :delay, "Interval between checks for guest shut down in seconds", :type => :int, :default => nil
 end
 
 def shutdown_guest vms, opts
