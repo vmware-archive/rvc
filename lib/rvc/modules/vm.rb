@@ -617,10 +617,6 @@ def add_disk vm, opts
   filename = "#{File.dirname(vm.summary.config.vmPathName)}/#{id}.vmdk"
   _add_device vm, :create, VIM::VirtualDisk(
     :key => -1,
-    :deviceInfo => {
-      :summary => opts[:label],
-      :label => opts[:label]
-    },
     :backing => VIM.VirtualDiskFlatVer2BackingInfo(
       :fileName => filename,
       :diskMode => :persistent,
@@ -630,6 +626,8 @@ def add_disk vm, opts
     :controllerKey => controller.key,
     :unitNumber => unit_number
   )
+  new_device = vm.config.hardware.device.find { |x| x.controllerKey == controller.key && x.unitNumber == unit_number }
+  puts "Added device #{new_device.deviceInfo.label.inspect}"
 end
 
 
