@@ -53,9 +53,11 @@ class RbVmomi::VIM::HostSystem
   end
 
   def children
+    lazy_esxcli = esxcli
     {
       'vms' => RVC::FakeFolder.new(self, :ls_vms),
       'datastores' => RVC::FakeFolder.new(self, :ls_datastores),
+      'esxcli' => lazy_esxcli,
     }
   end
 
@@ -65,5 +67,31 @@ class RbVmomi::VIM::HostSystem
 
   def ls_datastores
     RVC::Util.collect_children self, :datastore
+  end
+end
+
+class VIM::EsxcliNamespace
+  include RVC::InventoryObject
+
+  def ls_text r
+    "/"
+  end
+
+  def children
+    @namespaces.merge(Hash[@commands.map { |k,v| [k, RVC::EsxcliMethod.new(self, v)] }])
+  end
+end
+
+class RVC::EsxcliMethod
+  include RVC::InventoryObject
+  attr_reader :ns, :info
+
+  def initialize ns, info
+    @ns = ns
+    @info = info
+  end
+
+  def ls_text r
+    ""
   end
 end

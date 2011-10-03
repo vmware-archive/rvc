@@ -138,4 +138,23 @@ class OptionParser < Trollop::Parser
   end
 end
 
+class RawOptionParser
+  def initialize cmd, summary
+    @cmd = cmd
+    @summary = summary
+  end
+
+  def summary?
+    @summary
+  end
+
+  def parse args
+    [args, {}]
+  end
+
+  def has_options?
+    false
+  end
+end
+
 end

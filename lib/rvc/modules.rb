@@ -39,7 +39,11 @@ class CmdModule
   end
 
   def opts cmd, &b
-    @opts[cmd] = b
+    @opts[cmd] = OptionParser.new cmd.to_s, &b
+  end
+
+  def raw_opts cmd, summary
+    @opts[cmd] = RawOptionParser.new cmd.to_s, summary
   end
 
   def opts_for cmd
