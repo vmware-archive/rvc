@@ -99,21 +99,16 @@ end
 # We can save the vnc pasword out to a file, then call vncviewer with it
 # directly so we don't need to "password" auth.
 def vnc_client ip, port, password
-
   unless VNC
     puts "no VNC client configured"
     return false
   end
 
-  unless VNC =~ /\/vncviewer/ # or other vnc clients that support the same -passwd
-    vnc_client_connect ip, port, password
-  else
-
-    file = Tempfile.new( 'rvcvncpass' )
+  if File.basename(VNC) == 'vncviewer' # or other vnc clients that support the same -passwd
+    file = Tempfile.new('rvcvncpass')
     filename = file.path
     begin
-
-      IO.popen( "vncpasswd #{filename}" , 'w+' ) do |vncpass| 
+      IO.popen("vncpasswd -f > #{filename}" , 'w+') do |vncpass|
         vncpass.puts password
         vncpass.puts password
       end
@@ -124,13 +119,15 @@ def vnc_client ip, port, password
       file.close
       file.unlink
     end
+  else
+    vnc_client_connect ip, port, password
   end
-
 end
 
 def vnc_client_connect ip, port, password, vnc_opts=nil
   fork do
-    $stderr.reopen("#{ENV['HOME']||'.'}/.rvc-vmrc.log", "w")
+    $stdout.reopen("#{ENV['HOME']||'.'}/.rvc-vnc.log", "w")
+    $stderr.reopen("#{ENV['HOME']||'.'}/.rvc-vnc.err", "w")
     Process.setpgrp
     exec [ VNC, vnc_opts, "#{ip}:#{port}" ].join ' '
   end
