@@ -133,6 +133,10 @@ if $interactive
   CMD.basic.ls RVC::Util.lookup_single('.')
 end
 
+trap "SIGCHLD" do |sig|
+  pid, status = Process.wait2
+end
+
 if $opts[:script]
   $shell.eval_ruby File.read($opts[:script]), $opts[:script]
 else
