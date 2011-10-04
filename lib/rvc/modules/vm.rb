@@ -585,18 +585,8 @@ def add_net_device vm, opts
   end
 end
 
-
-def _add_device vm, dev
-  spec = {
-    :deviceChange => [
-      { :operation => :add, :device => dev },
-    ]
-  }
-  vm.ReconfigVM_Task(:spec => spec).wait_for_completion
-end
-
 def _add_net_device vm, klass, network
-  _add_device vm, klass.new(
+  _add_device vm, nil, klass.new(
     :key => -1,
     :deviceInfo => {
       :summary => network,
@@ -610,6 +600,47 @@ def _add_net_device vm, klass, network
 end
 
 
+opts :add_disk do
+  summary "Add a hard drive to a virtual machine"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :label, 'Label', :type => :string
+  opt :size, 'Size', :default => '1G'
+end
+
+def add_disk vm, opts
+  existing_devices = vm.config.hardware.device
+  controller = existing_devices.find { |x| x.is_a? VIM::VirtualLsiLogicController }
+  used_unit_numbers =  existing_devices.select { |x| x.controllerKey == controller.key }.map(&:unitNumber)
+  unit_number = (used_unit_numbers.max||-1) + 1
+  id = "disk-#{controller.key}-#{unit_number}"
+  opts[:label] ||= id
+  filename = "#{File.dirname(vm.summary.config.vmPathName)}/#{id}.vmdk"
+  _add_device vm, :create, VIM::VirtualDisk(
+    :key => -1,
+    :backing => VIM.VirtualDiskFlatVer2BackingInfo(
+      :fileName => filename,
+      :diskMode => :persistent,
+      :thinProvisioned => true
+    ),
+    :capacityInKB => realdisksize(opts[:size]),
+    :controllerKey => controller.key,
+    :unitNumber => unit_number
+  )
+  new_device = vm.config.hardware.device.find { |x| x.controllerKey == controller.key && x.unitNumber == unit_number }
+  puts "Added device #{new_device.deviceInfo.label.inspect}"
+end
+
+
+def _add_device vm, fileOp, dev
+  spec = {
+    :deviceChange => [
+      { :operation => :add, :fileOperation => fileOp, :device => dev },
+    ]
+  }
+  vm.ReconfigVM_Task(:spec => spec).wait_for_completion
+end
+
+
 opts :remove_device do
   summary "Remove a virtual device"
   arg :vm, nil, :lookup => VIM::VirtualMachine
@@ -619,9 +650,10 @@ end
 def remove_device vm, label
   dev = vm.config.hardware.device.find { |x| x.deviceInfo.label == label }
   err "no such device" unless dev
+  fileOp = dev.backing.is_a?(VIM::VirtualDeviceFileBackingInfo) ? 'destroy' : nil
   spec = {
     :deviceChange => [
-      { :operation => :remove, :device => dev },
+      { :operation => :remove, :fileOperation => fileOp, :device => dev },
     ]
   }
   vm.ReconfigVM_Task(:spec => spec).wait_for_completion
