@@ -169,7 +169,7 @@ module Util
       tcsetpgrp
       exec cmd
     end
-    Process.waitpid2 pid
+    Process.waitpid2 pid rescue nil
     tcsetpgrp
     nil
   end
