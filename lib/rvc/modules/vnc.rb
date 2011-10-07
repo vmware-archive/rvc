@@ -105,7 +105,7 @@ def vnc_client ip, port, password
   end
 
   if File.basename(VNC) == 'vncviewer' # or other vnc clients that support the same -passwd
-    tightvnc = IO.popen([VNC, "--version", :err => [:child, :out]]).lines.first['TightVNC'] != nil
+    tightvnc = %x(#{VNC} --version 2>&1).lines.first['TightVNC'] != nil
     file = Tempfile.new('rvcvncpass')
     filename = file.path
     begin
