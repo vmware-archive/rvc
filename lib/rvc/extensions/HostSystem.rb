@@ -56,6 +56,7 @@ class RbVmomi::VIM::HostSystem
     {
       'vms' => RVC::FakeFolder.new(self, :ls_vms),
       'datastores' => RVC::FakeFolder.new(self, :ls_datastores),
+      'esxcli' => RVC::LazyEsxcliNamespace.new(self)
     }
   end
 
@@ -65,5 +66,85 @@ class RbVmomi::VIM::HostSystem
 
   def ls_datastores
     RVC::Util.collect_children self, :datastore
+  end
+end
+
+class RVC::LazyEsxcliNamespace
+  include RVC::InventoryObject
+  undef_method :children, :traverse_one
+
+  def initialize host
+    @host = host
+    @ns = nil
+  end
+
+  def method_missing *a
+    @ns ||= @host.esxcli
+    @ns.send *a
+  end
+end
+
+class VIM::EsxcliNamespace
+  include RVC::InventoryObject
+
+  def ls_text r
+    if cli_info
+      "/ - #{cli_info.help}"
+    else
+      "/"
+    end
+  end
+
+  def children
+    @namespaces.merge(Hash[@commands.map { |k,v| [k, RVC::EsxcliMethod.new(conn, self, v)] }])
+  end
+end
+
+class RVC::EsxcliMethod
+  include RVC::InventoryObject
+  attr_reader :conn, :ns, :info
+
+  def initialize conn, ns, info
+    @conn = conn
+    @ns = ns
+    @info = info
+  end
+
+  def ls_text r
+    " - #{cli_info.help}"
+  end
+
+  def cli_info
+    @cli_info ||= @ns.cli_info.method.find { |x| x.name == info.name }
+  end
+
+  def option_parser
+    parser = Trollop::Parser.new
+    parser.text cli_info.help
+    cli_info.param.each do |cli_param|
+      vmodl_param = info.paramTypeInfo.find { |x| x.name == cli_param.name }
+      opts = trollop_type(vmodl_param.type)
+      opts[:required] = vmodl_param.annotation.find { |a| a.name == "optional"} ? false : true
+      opts[:long] = cli_param.displayName
+      #pp opts.merge(:name => cli_param.name)
+      # XXX correct short options
+      parser.opt cli_param.name, cli_param.help, opts
+    end
+    parser
+  end
+
+  def trollop_type t
+    if t[-2..-1] == '[]'
+      multi = true
+      t = t[0...-2]
+    else
+      multi = false
+    end
+    type = case t
+    when 'string', 'boolean' then t.to_sym
+    when 'long' then :int
+    else fail "unexpected esxcli type #{t.inspect}"
+    end
+    { :type => type, :multi => multi }
   end
 end
