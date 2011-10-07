@@ -53,11 +53,10 @@ class RbVmomi::VIM::HostSystem
   end
 
   def children
-    lazy_esxcli = esxcli
     {
       'vms' => RVC::FakeFolder.new(self, :ls_vms),
       'datastores' => RVC::FakeFolder.new(self, :ls_datastores),
-      'esxcli' => lazy_esxcli,
+      'esxcli' => RVC::LazyEsxcliNamespace.new(self)
     }
   end
 
@@ -67,6 +66,21 @@ class RbVmomi::VIM::HostSystem
 
   def ls_datastores
     RVC::Util.collect_children self, :datastore
+  end
+end
+
+class RVC::LazyEsxcliNamespace
+  include RVC::InventoryObject
+  undef_method :children, :traverse_one
+
+  def initialize host
+    @host = host
+    @ns = nil
+  end
+
+  def method_missing *a
+    @ns ||= @host.esxcli
+    @ns.send *a
   end
 end
 
@@ -128,7 +142,4 @@ class RVC::EsxcliMethod
     end
     { :type => type, :multi => multi }
   end
-end
-
-class RVC::EsxcliOptionParser
 end
