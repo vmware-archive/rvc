@@ -88,7 +88,11 @@ class VIM::EsxcliNamespace
   include RVC::InventoryObject
 
   def ls_text r
-    "/"
+    if cli_info
+      "/ - #{cli_info.help}"
+    else
+      "/"
+    end
   end
 
   def children
@@ -107,7 +111,7 @@ class RVC::EsxcliMethod
   end
 
   def ls_text r
-    ""
+    " - #{cli_info.help}"
   end
 
   def cli_info
@@ -116,6 +120,7 @@ class RVC::EsxcliMethod
 
   def option_parser
     parser = Trollop::Parser.new
+    parser.text cli_info.help
     cli_info.param.each do |cli_param|
       vmodl_param = info.paramTypeInfo.find { |x| x.name == cli_param.name }
       opts = trollop_type(vmodl_param.type)
