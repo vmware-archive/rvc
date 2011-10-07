@@ -78,15 +78,16 @@ class VIM::EsxcliNamespace
   end
 
   def children
-    @namespaces.merge(Hash[@commands.map { |k,v| [k, RVC::EsxcliMethod.new(self, v)] }])
+    @namespaces.merge(Hash[@commands.map { |k,v| [k, RVC::EsxcliMethod.new(conn, self, v)] }])
   end
 end
 
 class RVC::EsxcliMethod
   include RVC::InventoryObject
-  attr_reader :ns, :info
+  attr_reader :conn, :ns, :info
 
-  def initialize ns, info
+  def initialize conn, ns, info
+    @conn = conn
     @ns = ns
     @info = info
   end
@@ -94,4 +95,40 @@ class RVC::EsxcliMethod
   def ls_text r
     ""
   end
+
+  def cli_info
+    @cli_info ||= @ns.cli_info.method.find { |x| x.name == info.name }
+  end
+
+  def option_parser
+    parser = Trollop::Parser.new
+    cli_info.param.each do |cli_param|
+      vmodl_param = info.paramTypeInfo.find { |x| x.name == cli_param.name }
+      opts = trollop_type(vmodl_param.type)
+      opts[:required] = vmodl_param.annotation.find { |a| a.name == "optional"} ? false : true
+      opts[:long] = cli_param.displayName
+      #pp opts.merge(:name => cli_param.name)
+      # XXX correct short options
+      parser.opt cli_param.name, cli_param.help, opts
+    end
+    parser
+  end
+
+  def trollop_type t
+    if t[-2..-1] == '[]'
+      multi = true
+      t = t[0...-2]
+    else
+      multi = false
+    end
+    type = case t
+    when 'string', 'boolean' then t.to_sym
+    when 'long' then :int
+    else fail "unexpected esxcli type #{t.inspect}"
+    end
+    { :type => type, :multi => multi }
+  end
+end
+
+class RVC::EsxcliOptionParser
 end
