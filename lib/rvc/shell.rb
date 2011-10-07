@@ -94,8 +94,7 @@ class Shell
 
       m = MODULES[module_name] or RVC::Util.err("unknown module #{module_name}")
 
-      opts_block = m.opts_for(cmd.to_sym)
-      parser = RVC::OptionParser.new cmd, &opts_block
+      parser = m.opts_for(cmd.to_sym)
 
       begin
         args, opts = parser.parse args
@@ -205,7 +204,7 @@ class RubyEvaluator
     rescue Exception => e
       bt = e.backtrace
       bt = bt.reverse.drop_while { |x| !(x =~ /toplevel/) }.reverse
-      bt[-1].gsub! ':in `toplevel\'', ''
+      bt[-1].gsub! ':in `toplevel\'', '' if bt[-1]
       e.set_backtrace bt
       raise
     end
