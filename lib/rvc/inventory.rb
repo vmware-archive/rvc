@@ -29,6 +29,16 @@ module InventoryObject
     def folder?
       false
     end
+
+    def fields
+      @fields ||= {}
+    end
+
+    def field name, &b
+      name = name.to_s
+      fields[name] = RVC::Field.new(name).tap { |f| f.instance_eval &b }
+      define_method(name) { field name }
+    end
   end
 
   def self.included m
@@ -72,6 +82,13 @@ module InventoryObject
     return if @rvc_parent
     @rvc_parent = parent
     @rvc_arc = arc
+  end
+
+  def field name
+    name = name.to_s
+    field = self.class.fields[name]
+    *props = collect *field.properties
+    field.block.call *props
   end
 end
 
@@ -128,5 +145,26 @@ class RbVmomi::VIM
 
   def self.folder?
     true
+  end
+end
+
+class RVC::Field
+  def initialize name
+    @name = name
+    @summary = nil
+    @properties = []
+    @block = nil
+  end
+
+  def summary x=nil
+    x ? (@summary = x) : @summary
+  end
+
+  def properties x=nil
+    x ? (@properties.concat x) : @properties
+  end
+
+  def block &x
+    x ? (@block = x) : @block
   end
 end
