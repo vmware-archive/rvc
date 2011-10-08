@@ -30,6 +30,7 @@ URI_REGEX = %r{
     @
   )?
   ([^@:]+)
+  (?::(\d{1,5}))?
   (?::(.*))?
   $
 }x
@@ -46,17 +47,19 @@ def connect uri, opts
   match = URI_REGEX.match uri
   Trollop.die "invalid hostname" unless match
 
+  pp match
   username = match[1] || ENV['RBVMOMI_USER']
   password = match[2] || ENV['RBVMOMI_PASSWORD']
   host = match[3]
-  path = match[4]
+  port = if match[4] then match[4] else 443 end
+  path = match[5]
   bad_cert = false
 
   vim = nil
   loop do
     begin
       vim = RbVmomi::VIM.new :host => host,
-                             :port => 443,
+                             :port => port,
                              :path => '/sdk',
                              :ns => 'urn:vim25',
                              :rev => (opts[:rev]||'4.0'),
