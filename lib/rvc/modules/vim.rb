@@ -30,6 +30,7 @@ URI_REGEX = %r{
     @
   )?
   ([^@:]+)
+  (?::([0-9a-z]{64}))?
   (?::(.*))?
   $
 }x
@@ -49,7 +50,8 @@ def connect uri, opts
   username = match[1] || ENV['RBVMOMI_USER']
   password = match[2] || ENV['RBVMOMI_PASSWORD']
   host = match[3]
-  path = match[4]
+  certdigest = match[4]
+  path = match[5]
   bad_cert = false
 
   vim = nil
@@ -73,9 +75,16 @@ def connect uri, opts
   end
 
   if bad_cert
-    # Fall back to SSH-style known_hosts
     peer_public_key = vim.http.peer_cert.public_key
-    check_known_hosts(host, peer_public_key)
+    # if user specified a hash on the commandline, verify against that
+    if certdigest
+      if certdigest != Digest::SHA2.hexdigest(peer_public_key.to_s())
+        err "Bad certificate digest specified for #{host}!"
+      end
+    else
+      # Fall back to SSH-style known_hosts
+      check_known_hosts(host, peer_public_key)
+    end
   end
 
   unless opts[:rev]
