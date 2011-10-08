@@ -132,7 +132,8 @@ rvc_alias :reload
 
 def reload opts
   RVC.reload_modules opts[:verbose]
-  typenames = Set.new VIM.loader.typenames
+
+  typenames = Set.new(VIM.loader.typenames.select { |x| VIM.const_defined? x })
   dirs = VIM.extension_dirs
   dirs.each do |path|
     Dir.open(path) do |dir|
