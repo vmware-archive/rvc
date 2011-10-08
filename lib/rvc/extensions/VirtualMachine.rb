@@ -35,6 +35,12 @@ class RbVmomi::VIM::VirtualMachine
     property 'config.template'
   end
 
+  field :uptime do
+    summary "VM's uptime in seconds"
+    properties %w(runtime.bootTime)
+    block { |t| (Time.now-t).to_i }
+  end
+
   def display_info
     config, runtime, guest = collect :config, :runtime, :guest
     RVC::Util.err "Information currently unavailable" unless config and runtime and guest
