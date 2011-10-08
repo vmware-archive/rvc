@@ -124,13 +124,26 @@ end
 
 
 opts :reload do
-  summary "Reload RVC command modules"
+  summary "Reload RVC command modules and extensions"
 end
 
 rvc_alias :reload
 
 def reload
   RVC.reload_modules
+  typenames = Set.new VIM.loader.typenames
+  dirs = VIM.extension_dirs
+  dirs.each do |path|
+    Dir.open(path) do |dir|
+      dir.each do |file|
+        next unless file =~ /\.rb$/
+        next unless typenames.member? $`
+        file_path = File.join(dir, file)
+        puts "loading #{$`} extensions from #{file_path}"
+        load file_path
+      end
+    end
+  end
 end
 
 
