@@ -125,12 +125,13 @@ end
 
 opts :reload do
   summary "Reload RVC command modules and extensions"
+  opt :verbose, "Display filenames loaded", :short => 'v', :default => false
 end
 
 rvc_alias :reload
 
-def reload
-  RVC.reload_modules
+def reload opts
+  RVC.reload_modules opts[:verbose]
   typenames = Set.new VIM.loader.typenames
   dirs = VIM.extension_dirs
   dirs.each do |path|
@@ -139,7 +140,7 @@ def reload
         next unless file =~ /\.rb$/
         next unless typenames.member? $`
         file_path = File.join(dir, file)
-        puts "loading #{$`} extensions from #{file_path}"
+        puts "loading #{$`} extensions from #{file_path}" if opts[:verbose]
         load file_path
       end
     end
