@@ -27,8 +27,12 @@ class RbVmomi::VIM::VirtualMachine
 
   field :ip do
     summary "The guest tools reported IP address."
-    properties %w(guest.ipAddress)
-    block { |ip| ip }
+    property 'guest.ipAddress'
+  end
+
+  field :template do
+    summary "Is this VM a template?"
+    property 'config.template'
   end
 
   def display_info

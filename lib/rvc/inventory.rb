@@ -167,4 +167,9 @@ class RVC::Field
   def block &x
     x ? (@block = x) : @block
   end
+
+  def property prop
+    @properties = [prop]
+    @block = lambda { |x| x }
+  end
 end
