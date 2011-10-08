@@ -47,11 +47,10 @@ def connect uri, opts
   match = URI_REGEX.match uri
   Trollop.die "invalid hostname" unless match
 
-  pp match
   username = match[1] || ENV['RBVMOMI_USER']
   password = match[2] || ENV['RBVMOMI_PASSWORD']
   host = match[3]
-  port = if match[4] then match[4] else 443 end
+  port = match[4] || 443
   path = match[5]
   bad_cert = false
 
