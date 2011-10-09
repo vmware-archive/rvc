@@ -22,7 +22,14 @@ class RbVmomi::VIM::DistributedVirtualPortgroup
   def summarize
     vds = self.config.distributedVirtualSwitch
     pc = vds._connection.propertyCollector
-    ports = vds.FetchDVPorts(:criteria => {:inside => true, :active => true})
+    ports = vds.FetchDVPorts(:criteria => {
+                               :portgroupKey => [self.key], :inside => true,
+                               :active => true})
+
+    if ports.empty?
+      puts "No active ports in portgroup"
+      return
+    end
 
     objects = []
     ports.each { |port|
