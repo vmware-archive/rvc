@@ -33,21 +33,31 @@ def summarize obj
   obj.summarize
 end
 
-# opts :create_portgroup do
-#   summary "Create a new portgroup on a vDS"
-#   arg :name, "vDS", :lookup_parent => VIM::DistributedVirtualSwitch
-#   #opt :pool, "Resource pool", :short => 'p', :type => :string, :lookup => VIM::ResourcePool
-#   #opt :host, "Host", :short => 'h', :type => :string, :lookup => VIM::HostSystem
-#   #opt :datastore, "Datastore", :short => 'd', :type => :string, :lookup => VIM::Datastore
-#   #opt :disksize, "Size in KB of primary disk (or add a unit of <M|G|T>)", :short => 's', :type => :string, :default => "4000000"
-#   #opt :memory, "Size in MB of memory", :short => 'm', :type => :int, :default => 128
-#   #opt :cpucount, "Number of CPUs", :short => 'c', :type => :int, :default => 1
-#   text <<-EOB
+opts :create_portgroup do
+  summary "Create a new potgroup on a vDS"
+  arg :vds, nil, :lookup => VIM::DistributedVirtualSwitch
+  arg :name, "Portgroup Name", :type => :string
+  opt :num_ports, "Number of Ports", :short => 'n', :type => :int
+  opt :type, "Portgroup Type (i.e. 'earlyBinding', 'ephemeral', 'lateBinding'",
+      :short => 't', :type => :string, :default => 'earlyBinding'
+end
 
-# Example:
-#   vm.create -p ~foo/resourcePool/pools/prod -d ~data/bigdisk -s 10g ~vms/new
+def create_portgroup vds, name, opts
+  tasks [vds], :AddDVPortgroup, :spec => [{ :name => name,
+                                            :type => opts[:type],
+                                            :numPorts => opts[:numPorts] }]
+end
 
-#   EOB
-# end
+opts :create do
+  summary "Create a new vDS"
+  arg :dest, "Destination", :lookup_parent => VIM::Folder
+  opt :vds_version, "vDS version (i.e. '5.0.0', '4.1.0', '4.0.0')",
+      :short => 'v', :type => :string
+end
 
-# def 
+def create dest, opts
+  folder, name = *dest
+  tasks [folder], :CreateDVS, :spec => { :configSpec => { :name => name },
+                                         :productInfo => {
+                                           :version => opts[:vds_version] } }
+end
