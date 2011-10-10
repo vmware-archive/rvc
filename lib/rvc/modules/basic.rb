@@ -162,6 +162,10 @@ rvc_alias :ls
 rvc_alias :ls, :l
 
 def ls obj
+  if obj.respond_to?(:rvc_ls)
+    return obj.rvc_ls
+  end
+
   children = obj.children
   name_map = children.invert
   children, fake_children = children.partition { |k,v| v.is_a? VIM::ManagedEntity }

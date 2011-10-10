@@ -158,6 +158,96 @@ class RbVmomi::VIM::DistributedVirtualPortgroup
     children
   end
 
+  def rvc_ls
+    children = self.children
+    name_map = children.invert
+    children, fake_children = children.partition { |k,v| v.is_a? VIM::ManagedEntity }
+    i = 0
+
+    pc = self.config.distributedVirtualSwitch._connection.propertyCollector
+
+    objects = []
+    fake_children.each do |name, port|
+      if port.respond_to?(:connectee)
+        objects << port.connectee.connectedEntity
+      end
+    end
+
+    spec = {
+      :objectSet => objects.map { |obj| { :obj => obj } },
+      :propSet => [{:type => "VirtualMachine",
+                     :pathSet => %w(guest.net config.hardware.device name)}]
+    }
+
+    prop_sets = pc.RetrieveProperties(:specSet => [spec])
+    #pp prop_sets
+
+    ips = {}
+    macs = {}
+    device_macs = {}
+    names = {}
+    prop_sets.each do |prop_set|
+      prop_set.propSet.each do |prop|
+        if prop.name == "guest.net"
+          prop.val.each do |nicinfo|
+            #XXX nicinfo.ipConfig has more info and IPv6
+            ips[prop_set.obj.to_s + nicinfo.deviceConfigId.to_s] = nicinfo.ipAddress
+            macs[prop_set.obj.to_s + nicinfo.deviceConfigId.to_s] = nicinfo.macAddress
+          end
+        elsif prop.name == "config.hardware.device"
+          prop.val.each do |device|
+            if device.class < VIM::VirtualEthernetCard
+              device_macs[prop_set.obj.to_s + device.key.to_s] = device.macAddress
+            end
+          end
+        elsif prop.name == "name"
+          names[prop_set.obj] = prop.val
+        end
+      end
+    end
+    #pp ip
+    #pp mac
+    #pp device_mac
+
+    fake_children.each do |name,child|
+      print "#{i} #{name}"
+      if child.class.folder?
+        print "/"
+      end
+      if child.respond_to?(:connectee)
+        name = names[child.connectee.connectedEntity]
+        mac = macs[child.connectee.connectedEntity.to_s + child.connectee.nicKey]
+        ip = ips[child.connectee.connectedEntity.to_s + child.connectee.nicKey]
+        device_mac = device_macs[child.connectee.connectedEntity.to_s + child.connectee.nicKey]
+        if mac and ip
+          puts " (#{mac} #{ip} #{name})"
+        elsif device_mac
+          puts " (#{device_mac} #{name})"
+        else
+          puts ""
+        end
+      else
+        puts ""
+      end
+      child.rvc_link self, name
+      CMD.mark.mark i.to_s, [child]
+      i += 1
+    end
+
+=begin
+    results.each do |r|
+      name = name_map[r.obj]
+      text = r.obj.ls_text(r) rescue " (error)"
+      realname = r['name'] if name != r['name']
+      colored_name = status_color name, r['overallStatus']
+      puts "#{i} #{colored_name}#{realname && " [#{realname}]"}#{text}"
+      r.obj.rvc_link obj, name
+      CMD.mark.mark i.to_s, [r.obj]
+      i += 1
+    end
+=end
+  end
+
   def get_all_ports
     hash = {}
     vds = self.config.distributedVirtualSwitch
