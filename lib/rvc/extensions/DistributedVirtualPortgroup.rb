@@ -138,16 +138,14 @@ class RbVmomi::VIM::DistributedVirtualPortgroup
 
     ports = vds.FetchDVPorts(:criteria => {:portgroupKey => [self.key],
                                :inside => true, :active => true})
-
     children = {}
-
-    #begin
-    # try to sort port keys in numeric order
-    keys = ports.map { |port| [port.key.to_i, port]}.sort { |x,y| x[0] <=> y[0] }.each { |i| children["port-#{i[0]}"] = i[1] }
-    #XXX (handle case if port keys are not numeric
-    #rescue
-    #  keys = ports.map { |port| port.key }
-    #end
+    begin
+      # try to sort port keys in numeric order
+      keys = ports.map {|port| [port.key.to_i, port]}.sort {|x,y| x[0] <=> y[0]}
+    rescue
+      keys = ports.map { |port| port.key }
+    end
+    keys.each { |i| children["port-#{i[0]}"] = i[1] }
     children['all'] = RVC::FakeFolder.new(self, :get_all_ports)
 
     children
@@ -185,13 +183,13 @@ class LazyDVPort
 end
 
 def metric num
-  if num > 1000000000000
+  if num >= 1000000000000
     (num / 1000000000000).to_s + 'T'
-  elsif num > 1000000000
+  elsif num >= 1000000000
     (num / 1000000000).to_s + 'G'
-  elsif num > 1000000
+  elsif num >= 1000000
     (num / 1000000).to_s + 'M'
-  elsif num > 1000
+  elsif num >= 1000
     (num / 1000).to_s + 'K'
   else
     num.to_s
