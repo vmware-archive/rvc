@@ -131,6 +131,18 @@ if $interactive
   $stderr.puts "VMRC is not installed. You will be unable to view virtual machine consoles. Use the vmrc.install command to install it." unless CMD.vmrc.find_vmrc 
   $stderr.puts "Use the 'connect' command to connect to an ESX or VC server." if $shell.connections.empty?
   CMD.basic.ls RVC::Util.lookup_single('.')
+
+  # Load the marks YAML file, and see if we have one defined for this host. Apply those marks if we do.
+  marks_fn = "#{ENV['HOME']}/.rvc-marks.yaml"
+  if File.exists? marks_fn 
+    marks = YAML.load_file marks_fn
+    connected_hostname = $shell.connections.first.first
+    if marks[connected_hostname]
+      marks[connected_hostname].each do |mark,path|
+        $shell.session.set_mark mark, [ RVC::Util.lookup_single( path ) ]
+      end
+    end
+  end
 end
 
 trap "SIGCHLD" do |sig|
