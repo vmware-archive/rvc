@@ -19,6 +19,28 @@
 # THE SOFTWARE.
 
 class RbVmomi::VIM::VirtualMachine
+  field :on do
+    summary "Is the VM powered on?"
+    properties %w(runtime.powerState)
+    block { |powerState| powerState == 'poweredOn' }
+  end
+
+  field :ip do
+    summary "The guest tools reported IP address."
+    property 'guest.ipAddress'
+  end
+
+  field :template do
+    summary "Is this VM a template?"
+    property 'config.template'
+  end
+
+  field :uptime do
+    summary "VM's uptime in seconds"
+    properties %w(runtime.bootTime)
+    block { |t| (Time.now-t).to_i }
+  end
+
   def display_info
     config, runtime, guest = collect :config, :runtime, :guest
     RVC::Util.err "Information currently unavailable" unless config and runtime and guest
