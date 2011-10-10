@@ -12,6 +12,7 @@ begin
     gem.add_dependency 'backports', '>= 1.18.2'
     gem.add_dependency 'highline', '>= 1.6.1'
     gem.add_dependency 'zip', '>= 2.0.2'
+    gem.add_dependency 'terminal-table', '>= 1.4.2'
     #gem.add_dependency 'ffi', '>= 1.0.7'
   end
 rescue LoadError

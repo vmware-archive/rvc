@@ -24,7 +24,10 @@ class RbVmomi::VIM::Folder
   end
 
   def children
-    RVC::Util.collect_children self, :childEntity
+    RVC::Util.collect_children(self, :childEntity).reject { |name, item|
+      # hack -- we want to display dvportgroups under the dvs folder
+      item.class == RbVmomi::VIM::DistributedVirtualPortgroup
+    }
   end
 
   def self.folder?

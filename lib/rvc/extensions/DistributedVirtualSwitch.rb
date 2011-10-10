@@ -30,11 +30,45 @@ class RbVmomi::VIM::DistributedVirtualSwitch
     puts "netIORM: #{config.networkResourceManagementEnabled}"
   end
 
-  def self.ls_properties
-    %w(name summary.description)
+  def summarize
+    t = table(['portgroup name', 'num ports', 'vlan', 'resource pool'])
+    self.portgroup.each { |pg|
+      vlanconfig = pg.config.defaultPortConfig.vlan
+      case vlanconfig.class
+      when RbVmomi::VIM::VmwareDistributedVirtualSwitchVlanIdSpec
+        vlan = if vlanconfig.vlanId != 0 then vlanconfig.vlanId else "-" end
+      when RbVmomi::VIM::VmwareDistributedVirtualSwitchTrunkVlanSpec
+        vlan = vlanconfig.vlanId.map { |range|
+          "#{range.start}-#{range.end}" }.join(',')
+      end
+
+      respool = pg.config.defaultPortConfig.networkResourcePoolKey.value
+      if respool == "-1"
+        respool = "-"
+      else
+        respool = self.networkResourcePool.find_all { |pool|
+          respool == pool.key
+        }[0].name
+      end
+
+      t << [pg.config.name, pg.config.numPorts, vlan, respool]
+    }
+    puts t
   end
 
+  def children
+    hash = {}
+    self.portgroup.each { |pg|
+      hash[pg.name] = pg
+    }
+    hash
+  end
+
+  #def self.ls_properties
+  #  %w(name summary.description)
+  #end
+
   def ls_text r
-    " (dvs)"
+    " (vds)"
   end
 end
