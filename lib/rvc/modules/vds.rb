@@ -112,8 +112,6 @@ opts :shaper do
   arg :obj, "vDS or portgroup",
       :lookup => [VIM::DistributedVirtualPortgroup,
                   VIM::DistributedVirtualSwitch]
-
-]
   opt :tx, "Apply Settings for Tx Shaping", :type => :bool
   opt :rx, "Apply Settings for Rx Shaping", :type => :bool
   opt :enable, "Enable Traffic Shaping", :type => :bool
