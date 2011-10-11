@@ -22,47 +22,69 @@ class RbVmomi::VIM::DistributedVirtualPort
   include RVC::InventoryObject
 
   def display_info
-    puts "name: #{self.config.name}"
-    puts "description: #{self.config.description}"
-    puts "host: #{if self.proxyHost then self.proxyHost.name end}"
-    puts "vds: #{self.dvsUuid}" #XXX map name
-    puts "portgroup: #{self.portgroupKey}" #XXX map name
-    #XXX scope?
-    puts "Settings:"
-    puts "  blocked: #{self.config.setting.blocked.value}"
-    puts "  Rx Shaper:"
-    policy = self.config.setting.inShapingPolicy
-    puts "    enabled: #{policy.enabled.value}"
-    puts "    average bw: #{metric(policy.averageBandwidth.value)}b/sec"
-    puts "    peak bw: #{metric(policy.peakBandwidth.value)}b/sec"
-    puts "    burst size: #{metric(policy.burstSize.value)}B"
-    puts "  Tx Shaper:"
-    policy = self.config.setting.inShapingPolicy
-    puts "    enabled: #{policy.enabled.value}"
-    puts "    average bw: #{metric(policy.averageBandwidth.value)}b/sec"
-    puts "    peak bw: #{metric(policy.peakBandwidth.value)}b/sec"
-    puts "    burst size: #{metric(policy.burstSize.value)}B"
-    puts "Connectee:"
-    conectee = self.connectee
-    if connectee
-      puts "  address hint: #{self.connectee.addressHint}"
-      puts "  connected entity: #{self.connectee.connectedEntity.name}"
-      puts "  nic key: #{self.connectee.nicKey}" #XXX map name?
-      puts "  type: #{self.connectee.type}"
-    end
-    puts "State:" #XXX
-    if self.state
-      if self.state.runtimeInfo
-        ri = self.state.runtimeInfo
-        puts "  link up: #{ri.linkUp}"
-        puts "  blocked: #{ri.blocked}"
-        puts "  vlan ids: #{ri.vlanIds}" #XXX map to something reasonable
-        puts "  trunk mode: #{ri.trunkingMode}"
-        puts "  mtu: #{ri.mtu}"
-        puts "  link peer: #{ri.linkPeer}"
-        puts "  mac address: #{ri.macAddress}"
-        puts "  status detail: #{ri.statusDetail}"
+    # if possible, get info about the connected VM
+    vm_name = ""
+    mac = ""
+    ip = ""
+    if self.connectee
+      vm = self.connectee.connectedEntity
+      if vm.class == VIM::VirtualMachine
+        vm_name = vm.name
+        mac = vm.config.hardware.device.reject { |device|
+          !(device.class < VIM::VirtualEthernetCard &&
+            device.key.to_s == self.connectee.nicKey)
+        }.first.macAddress
+        nicinfo = vm.guest.net.reject { |info|
+          info.deviceConfigId.to_s != self.connectee.nicKey.to_s
+        }.first
+
+        ip = nicinfo.ipAddress
+        if nicinfo.macAddress != nil and nicinfo.macAddress != ""
+          mac = nicinfo.macAddress
+        end
       end
+    end
+
+    # if possible, get info about the port configuration
+    poolName = "-"
+    vlan = "-"
+    link_up = false
+    if self.state.runtimeInfo
+      vds = self.rvc_parent.config.distributedVirtualSwitch
+      poolName = translate_respool vds, self.config.setting.networkResourcePoolKey
+      vlan = translate_vlan self.state.runtimeInfo.vlanIds
+      link_up = self.state.runtimeInfo.linkUp
+    end
+
+
+    #puts "name: #{self.config.name}"
+    puts_policy "blocked:", self.config.setting.blocked
+    puts        "link up: #{link_up}"
+    #puts       "vds: #{vds.name}"
+    #puts       "portgroup: #{self.rvc_parent.name}"
+    puts        "vlan: #{vlan}"
+    puts        "network resource pool: #{poolName}"
+    puts        "host: #{if self.proxyHost then self.proxyHost.name end}"
+    puts        "description: #{self.config.description}"
+    puts        "vm: #{vm_name}"
+    puts        "mac: #{mac}"
+    puts        "ip: #{ip}"
+    #XXX scope?
+    setting = self.config.setting
+    puts        "Rx Shaper:"
+    policy = setting.inShapingPolicy
+    puts_policy "  enabled:", policy.enabled
+    puts_policy("  average bw:", policy.averageBandwidth, "b/sec"){|v|metric(v)}
+    puts_policy("  peak bw:", policy.peakBandwidth, "b/sec") { |v| metric(v) }
+    puts_policy("  burst size:", policy.burstSize, "B") { |v| metric(v) }
+    puts        "Tx Shaper:"
+    policy = setting.inShapingPolicy
+    puts_policy "  enabled:", policy.enabled
+    puts_policy("  average bw:", policy.averageBandwidth, "b/sec"){|v|metric(v)}
+    puts_policy("  peak bw:", policy.peakBandwidth, "b/sec") { |v| metric(v) }
+    puts_policy("  burst size:", policy.burstSize, "B") { |v| metric(v) }
+    puts        "State:" #XXX
+    if self.state
       if self.state.stats
         puts "  Statistics:"
         stats = self.state.stats
@@ -80,16 +102,6 @@ class RbVmomi::VIM::DistributedVirtualPort
         }
       end
     end
-  end
-
-  #def self.ls_properties
-  #  #%w(connectee.connectedEntity.config.name
-  #end
-
-  def ls_text r
-    #XXX reading every VM name is slow and maybe not a great idea?
-    #" (#{self.proxyHost.name})"
-    " (#{self.connectee.connectedEntity.config.name} - #{self.proxyHost.name})"
   end
 
   def self.folder?
