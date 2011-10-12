@@ -110,8 +110,8 @@ class RbVmomi::VIM::DistributedVirtualPortgroup
     puts_policy "  allow promiscuous mode:", policy.allowPromiscuous
     puts_policy "  allow mac changes:", policy.macChanges
     puts_policy "  allow forged transmits:", policy.forgedTransmits
-    puts_policy "ipfixEnabled:", config.ipfixEnabled
-    puts_policy "txUplink:", config.txUplink
+    puts_policy "enable ipfix monitoring:", config.ipfixEnabled
+    puts_policy "forward all tx to uplink:", config.txUplink
   end
 
 
@@ -163,13 +163,18 @@ class RbVmomi::VIM::DistributedVirtualPortgroup
       end
     end
 
-    spec = {
-      :objectSet => objects.map { |obj| { :obj => obj } },
-      :propSet => [{:type => "VirtualMachine",
-                     :pathSet => %w(guest.net config.hardware.device name)}]
-    }
+    if objects.any? { |x| x.is_a? VIM::VirtualMachine }
+      spec = {
+        :objectSet => objects.map { |obj| { :obj => obj } },
+        :propSet => [{:type => "VirtualMachine",
+                       :pathSet => %w(guest.net config.hardware.device name)}]
+      }
 
-    prop_sets = pc.RetrieveProperties(:specSet => [spec])
+      prop_sets = pc.RetrieveProperties(:specSet => [spec])
+    else
+      prop_sets = []
+    end
+
     #pp prop_sets
 
     ips = {}

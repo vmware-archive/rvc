@@ -38,9 +38,11 @@ class RbVmomi::VIM::DistributedVirtualPort
           info.deviceConfigId.to_s != self.connectee.nicKey.to_s
         }.first
 
-        ip = nicinfo.ipAddress
-        if nicinfo.macAddress != nil and nicinfo.macAddress != ""
-          mac = nicinfo.macAddress
+        if nicinfo != nil
+          ip = nicinfo.ipAddress
+          if nicinfo.macAddress != nil and nicinfo.macAddress != ""
+            mac = nicinfo.macAddress
+          end
         end
       end
     end
@@ -64,8 +66,9 @@ class RbVmomi::VIM::DistributedVirtualPort
     #puts       "portgroup: #{self.rvc_parent.name}"
     puts        "vlan: #{vlan}"
     puts        "network resource pool: #{poolName}"
-    puts        "host: #{if self.proxyHost then self.proxyHost.name end}"
+    puts        "name: #{self.config.name}"
     puts        "description: #{self.config.description}"
+    puts        "host: #{if self.proxyHost then self.proxyHost.name end}"
     puts        "vm: #{vm_name}"
     puts        "mac: #{mac}"
     puts        "ip: #{ip}"
@@ -83,10 +86,11 @@ class RbVmomi::VIM::DistributedVirtualPort
     puts_policy("  average bw:", policy.averageBandwidth, "b/sec"){|v|metric(v)}
     puts_policy("  peak bw:", policy.peakBandwidth, "b/sec") { |v| metric(v) }
     puts_policy("  burst size:", policy.burstSize, "B") { |v| metric(v) }
-    puts        "State:" #XXX
+    puts_policy "enable ipfix monitoring:", self.config.setting.ipfixEnabled
+    puts_policy "forward all tx to uplink:", self.config.setting.txUplink
     if self.state
       if self.state.stats
-        puts "  Statistics:"
+        puts "Statistics:"
         stats = self.state.stats
         # normally, i would explicitly write this out, but in this case
         # the stats are pretty self explanatory, and require pretty much
@@ -98,7 +102,7 @@ class RbVmomi::VIM::DistributedVirtualPort
           if !num.is_a?(Integer) then next end
           # un-camelcase the name of the stat
           stat = stat.gsub(/[A-Z]/) { |p| ' ' + p.downcase}
-          puts "    #{stat}: #{num}"
+          puts "  #{stat}: #{num}"
         }
       end
     end

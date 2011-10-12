@@ -85,7 +85,6 @@ def apply_settings obj, port_spec
     config = obj.rvc_parent.config
     vds = config.distributedVirtualSwitch
     collapse_inheritance config.defaultPortConfig, port_spec
-    pp port_spec
     tasks [vds], :ReconfigureDVPort, :port => [{ :key => obj.key,
                                                  :operation => 'edit',
                                                  :setting => port_spec }]
@@ -245,12 +244,16 @@ def vlan_trunk obj, vlan, opts
     ranges = merge_ranges(ranges)
   end
 
-  if ranges == [] then ranges = [0..0] end
-
   spec = VIM::VMwareDVSPortSetting.new()
   spec.vlan = VIM::VmwareDistributedVirtualSwitchTrunkVlanSpec.new()
   spec.vlan.vlanId = ranges.map { |r| { :start => r.first, :end => r.last } }
   spec.vlan.inherited = false
+
+  if ranges.empty?
+    # if we excluded all ranges, just allow everything
+    vlan_switchtag obj, 0
+    return
+  end
 
   inherited_spec = get_inherited_config(obj)
   if inherited_spec != nil then inherited_spec = inherited_spec.vlan end
@@ -295,7 +298,11 @@ end
 
 def merge_ranges(ranges)
   ranges = ranges.sort_by {|r| r.first }
-  *outages = ranges.shift
+  if !ranges.empty?
+    *outages = ranges.shift
+  else
+    outages = []
+  end
   ranges.each do |r|
     lastr = outages[-1]
     if lastr.last >= r.first - 1
