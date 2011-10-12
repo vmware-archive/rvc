@@ -139,9 +139,12 @@ class OptionParser < Trollop::Parser
 end
 
 class RawOptionParser
+  attr_reader :applicable
+
   def initialize cmd, summary
     @cmd = cmd
     @summary = summary
+    @applicable = []
   end
 
   def summary?
@@ -154,6 +157,10 @@ class RawOptionParser
 
   def has_options?
     false
+  end
+
+  def educate
+    # XXX
   end
 end
 

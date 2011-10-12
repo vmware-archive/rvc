@@ -44,20 +44,18 @@ HELP_ORDER = %w(basic vm)
 def help path
   if mod = RVC::MODULES[path]
     opts = mod.instance_variable_get(:@opts)
-    opts.each do |method_name,method_opts|
-      parser = RVC::OptionParser.new method_name, &method_opts
+    opts.each do |method_name,parser|
       help_summary parser, path, method_name
     end
     return
   elsif tgt = RVC::ALIASES[path]
     fail unless tgt =~ /^(.+)\.(.+)$/
-    opts_block = RVC::MODULES[$1].opts_for($2.to_sym)
-    RVC::OptionParser.new(tgt, &opts_block).educate
+    RVC::MODULES[$1].opts_for($2.to_sym).educate
     return
   elsif path =~ /^(.+)\.(.+)$/ and
         mod = RVC::MODULES[$1] and
-        opts_block = mod.opts_for($2.to_sym)
-    RVC::OptionParser.new(path, &opts_block).educate
+        parser = mod.opts_for($2.to_sym)
+    parser.educate
     return
   end
 
@@ -73,8 +71,7 @@ def help path
     HELP_ORDER.index(mod_name) || HELP_ORDER.size
   end.each do |mod_name,mod|
     opts = mod.instance_variable_get(:@opts)
-    opts.each do |method_name,method_opts|
-      parser = RVC::OptionParser.new method_name, &method_opts
+    opts.each do |method_name,parser|
       next unless obj.nil? or parser.applicable.any? { |x| obj.is_a? x }
       help_summary parser, mod_name, method_name
     end
