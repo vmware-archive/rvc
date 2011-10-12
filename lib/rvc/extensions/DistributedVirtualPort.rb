@@ -21,6 +21,44 @@
 class RbVmomi::VIM::DistributedVirtualPort
   include RVC::InventoryObject
 
+  field :ip do
+    summary "The guest tools reported IP address."
+    property 'connectee'
+    block do |c|
+      ip = nil
+      vm = c.connectedEntity
+      if vm.is_a? VIM::VirtualMachine
+        info = vm.guest.net.reject { |info|
+          info.deviceConfigId.to_s != c.nicKey
+        }.first
+        if info != nil
+          #XXX deal with multiple ips?
+          ip = info.ipAddress[0]
+        end
+      end
+      ip
+    end
+  end
+
+  field :mac do
+    summary "The guest tools reported IP address."
+    property 'connectee'
+    block do |c|
+      mac = nil
+      vm = c.connectedEntity
+      if vm.is_a? VIM::VirtualMachine
+        info = vm.config.hardware.device.reject { |device|
+          !(device.class < VIM::VirtualEthernetCard &&
+            device.key.to_s == c.nicKey)
+        }.first
+        if info != nil
+          mac = info.macAddress
+        end
+      end
+      mac
+    end
+  end
+
   def display_info
     # if possible, get info about the connected VM
     vm_name = ""
