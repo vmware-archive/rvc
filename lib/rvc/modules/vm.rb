@@ -352,21 +352,22 @@ def kill vms
   CMD.basic.destroy vms unless vms.empty?
 end
 
-
 opts :answer do
   summary "Answer a VM question"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
   arg :choice, "Answer ID"
+  arg :vm, nil, :lookup => VIM::VirtualMachine, :multi => true
 end
 
-def answer vm, str
-  q = vm.runtime.question
-  err "no question" unless q
-  choice = q.choice.choiceInfo.find { |x| x.label == str }
-  err("invalid answer") unless choice
-  vm.AnswerVM :questionid => q.path, :answerChoice => choice.key
+def answer str, vms
+  vms.each do |vm|
+    q = vm.runtime.question
+    if q
+      choice = q.choice.choiceInfo.find { |x| x.label == str }
+      err("invalid answer") unless choice
+      vm.AnswerVM :questionId => q.id, :answerChoice => choice.key
+    end
+  end
 end
-
 
 opts :layout do
   summary "Display info about VM files"
