@@ -519,6 +519,34 @@ def rvc vm, opts
   system_fg(cmd, env)
 end
 
+opts :rdp do
+  summary "Connect via RDP"
+  arg :vms, nil, :lookup => VIM::VirtualMachine, :multi => true
+  opt :resolution, "Desired resolution", :type => :string, :default => ($rdpResolution ? $rdpResolution : '1024x768')
+  opt :username, "Username", :type => :string, :default => 'Administrator'
+  opt :password, "Password", :type => :string, :default => ($rdpDefaultPassword ? $rdpDefaultPassword : '')
+end
+
+rvc_alias :rdp, :rdp
+
+def rdp vms, h
+  resolution = h[:resolution]
+  if !resolution
+    resolution = $rdpResolution ? $rdpResolution : '1024x768'  
+  end
+  vms.each do |vm|
+    ip = vm_ip vm
+
+    begin
+      timeout(1) { TCPSocket.new ip, 3389; up = true }
+    rescue
+      puts "#{vm.name}: Warning: Looks like the RDP port is not responding"
+    end
+    
+    cmd = "rdesktop -u '#{h[:username]}' -p '#{h[:password]}' -g#{resolution} #{ip} >/dev/null 2>&1 &"
+    system(cmd)
+  end
+end
 
 opts :ping do
   summary "Ping a VM"
