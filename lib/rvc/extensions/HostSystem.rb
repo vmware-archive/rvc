@@ -71,7 +71,13 @@ end
 
 class RVC::LazyEsxcliNamespace
   include RVC::InventoryObject
-  undef_method :children, :traverse_one
+
+  [:children, :traverse_one].each do |sym|
+    begin
+      undef_method sym
+    rescue NameError
+    end
+  end
 
   def initialize host
     @host = host
