@@ -102,26 +102,15 @@ class VIM::EsxcliNamespace
   end
 
   def children
-    @namespaces.merge(Hash[@commands.map { |k,v| [k, RVC::EsxcliMethod.new(conn, self, v)] }])
+    @namespaces.merge(@commands)
   end
 end
 
-class RVC::EsxcliMethod
+class VIM::EsxcliCommand
   include RVC::InventoryObject
-  attr_reader :conn, :ns, :info
-
-  def initialize conn, ns, info
-    @conn = conn
-    @ns = ns
-    @info = info
-  end
 
   def ls_text r
     " - #{cli_info.help}"
-  end
-
-  def cli_info
-    @cli_info ||= @ns.cli_info.method.find { |x| x.name == info.name }
   end
 
   def option_parser

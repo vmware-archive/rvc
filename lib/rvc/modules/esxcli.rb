@@ -2,11 +2,11 @@ raw_opts :execute, "Execute an esxcli command"
 
 def execute *args
   path = args.shift
-  o = lookup_single! path, [RVC::EsxcliMethod, VIM::EsxcliNamespace]
+  o = lookup_single! path, [VIM::EsxcliCommand, VIM::EsxcliNamespace]
   case o
-  when RVC::EsxcliMethod
-    m = o
-    parser = m.option_parser
+  when VIM::EsxcliCommand
+    cmd = o
+    parser = cmd.option_parser
     begin
       opts = parser.parse args
     rescue Trollop::CommandlineError
@@ -16,24 +16,25 @@ def execute *args
       return
     end
     begin
-      pp m.ns.call(m.info.name, opts)
+      pp cmd.call(opts)
     rescue RbVmomi::Fault
       puts "cause: #{$!.faultCause}" if $!.faultCause
       $!.faultMessage.each { |x| puts x }
       $!.errMsg.each { |x| puts "error: #{x}" }
     end
   when VIM::EsxcliNamespace
-    unless o.commands.empty?
+    ns = o
+    unless ns.commands.empty?
       puts "Available commands:"
-      o.commands.each do |k,v|
-        puts k
+      ns.commands.each do |k,v|
+        puts "#{k}: #{v.help}"
       end
-      puts unless o.namespaces.empty?
+      puts unless ns.namespaces.empty?
     end
-    unless o.namespaces.empty?
+    unless ns.namespaces.empty?
       puts "Available namespaces:"
-      o.namespaces.each do |k,v|
-        puts k
+      ns.namespaces.each do |k,v|
+        puts "#{k}: #{v.help}"
       end
     end
   end
