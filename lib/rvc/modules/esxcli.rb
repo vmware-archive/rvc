@@ -1,7 +1,7 @@
 raw_opts :execute, "Execute an esxcli command"
 
 def execute *args
-  path = args.shift
+  path = args.shift or err "esxcli path argument required"
   o = lookup_single! path, [VIM::EsxcliCommand, VIM::EsxcliNamespace]
   case o
   when VIM::EsxcliCommand
