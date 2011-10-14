@@ -87,7 +87,18 @@ module InventoryObject
   def field name
     name = name.to_s
     field = self.class.fields[name]
-    *props = collect *field.properties
+    if self.class < VIM::ManagedObject
+      *props = collect *field.properties
+    elsif field == nil
+      return nil
+    else
+      props = []
+      field.properties.each do |propstr|
+        obj = self
+        propstr.split('.').each { |prop| obj = obj.send(prop) }
+        props << obj
+      end
+    end
     field.block.call *props
   end
 end

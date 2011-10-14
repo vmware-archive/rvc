@@ -33,40 +33,39 @@ class RbVmomi::VIM::DistributedVirtualSwitch
   def summarize
     t = table(['portgroup name', 'num ports', 'vlan', 'resource pool'])
     self.portgroup.each { |pg|
-      vlanconfig = pg.config.defaultPortConfig.vlan
-      case vlanconfig.class
-      when RbVmomi::VIM::VmwareDistributedVirtualSwitchVlanIdSpec
-        vlan = if vlanconfig.vlanId != 0 then vlanconfig.vlanId else "-" end
-      when RbVmomi::VIM::VmwareDistributedVirtualSwitchTrunkVlanSpec
-        vlan = vlanconfig.vlanId.map { |range|
-          "#{range.start}-#{range.end}" }.join(',')
-      end
+      respool = translate_respool self, pg.config.defaultPortConfig.networkResourcePoolKey
+      vlan = pg.config.defaultPortConfig.vlan
 
-      respool = pg.config.defaultPortConfig.networkResourcePoolKey.value
-      if respool == "-1"
-        respool = "-"
-      else
-        respool = self.networkResourcePool.find_all { |pool|
-          respool == pool.key
-        }[0].name
-      end
-
-      t << [pg.config.name, pg.config.numPorts, vlan, respool]
+      t << [pg.config.name, pg.config.numPorts, translate_vlan(vlan), respool]
     }
     puts t
   end
 
-  def children
-    hash = {}
+  def portgroup_children
+   portgroups = {}
     self.portgroup.each { |pg|
-      hash[pg.name] = pg
+      portgroups[pg.name] = pg
     }
-    hash
+
+    portgroups
   end
 
-  #def self.ls_properties
-  #  %w(name summary.description)
-  #end
+  def respool_children
+    respools = {}
+    self.networkResourcePool.each do |pool|
+      respools[pool.name] = pool
+    end
+
+    respools
+  end
+
+  def children
+    {
+      'portgroups' => RVC::FakeFolder.new(self, :portgroup_children),
+      'respools' => RVC::FakeFolder.new(self, :respool_children)
+    }
+  end
+
 
   def ls_text r
     " (vds)"

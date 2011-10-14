@@ -62,9 +62,19 @@ def create dest, opts
                                            :version => opts[:vds_version] } }
 end
 
+def get_inherited_config obj
+  if obj.is_a?(VIM::DistributedVirtualSwitch)
+    nil
+  elsif obj.is_a?(VIM::DistributedVirtualPortgroup)
+    obj.config.distributedVirtualSwitch.config.defaultPortConfig
+  elsif obj.is_a?(VIM::DistributedVirtualPort)
+    obj.rvc_parent.config.defaultPortConfig
+  end
+end
+
 def apply_settings obj, port_spec
   if obj.is_a?(VIM::DistributedVirtualSwitch)
-    tasks [vds], :ReconfigureDvs, :spec => { :defaultPortConfig => port_spec }
+    tasks [obj], :ReconfigureDvs, :spec => { :defaultPortConfig => port_spec }
   elsif obj.is_a?(VIM::DistributedVirtualPortgroup)
     vds = obj.config.distributedVirtualSwitch
     collapse_inheritance vds.config.defaultPortConfig, port_spec
@@ -75,7 +85,6 @@ def apply_settings obj, port_spec
     config = obj.rvc_parent.config
     vds = config.distributedVirtualSwitch
     collapse_inheritance config.defaultPortConfig, port_spec
-    pp port_spec
     tasks [vds], :ReconfigureDVPort, :port => [{ :key => obj.key,
                                                  :operation => 'edit',
                                                  :setting => port_spec }]
@@ -109,8 +118,9 @@ end
 
 opts :shaper do
   summary "Configure a traffic shaping on a vDS or portgroup"
-  arg :obj, "vDS or portgroup",
-      :lookup => [VIM::DistributedVirtualPortgroup,
+  arg :obj, nil,
+      :lookup => [VIM::DistributedVirtualPort,
+                  VIM::DistributedVirtualPortgroup,
                   VIM::DistributedVirtualSwitch]
   opt :tx, "Apply Settings for Tx Shaping", :type => :bool
   opt :rx, "Apply Settings for Rx Shaping", :type => :bool
@@ -166,7 +176,7 @@ end
 
 opts :block do
   summary "Block traffic on a vDS, portgroup, or port"
-  arg :obj, "vDS, portgroup, or port",
+  arg :obj, nil,
       :lookup => [VIM::DistributedVirtualPort,
                   VIM::DistributedVirtualPortgroup,
                   VIM::DistributedVirtualSwitch]
@@ -178,7 +188,7 @@ end
 
 opts :unblock do
   summary "Unblock traffic on a vDS, portgroup, or port"
-  arg :obj, "vDS, portgroup, or port",
+  arg :obj, nil,
       :lookup => [VIM::DistributedVirtualPort,
                   VIM::DistributedVirtualPortgroup,
                   VIM::DistributedVirtualSwitch]
@@ -189,17 +199,18 @@ def unblock obj
 end
 
 # XXX pvlan?
-opts :vlan do
-  summary "Configure a VLAN on a vDS or portgroup"
-  arg :obj, "vDS or portgroup",
-      :lookup => [VIM::DistributedVirtualSwitch,
-                  VIM::DistributedVirtualPortgroup]
+opts :vlan_trunk do
+  summary "Configure a VLAN range on a vDS or portgroup to be trunked"
+  arg :obj, nil,
+      :lookup => [VIM::DistributedVirtualPort,
+                  VIM::DistributedVirtualPortgroup,
+                  VIM::DistributedVirtualSwitch]
   arg :vlan, "VLAN Configuration (i.e. '1000-2000', '2012', '2012,3013', '1000-2000,2012')", :type => :string
   opt :append, "Append new VLAN settings to configuration, rather than replacing the existing settings", :type => :bool
   opt :exclude, "Remove a specific range of VLAN settings from configuration. ", :type => :bool
 end
 
-def vlan obj, vlan, opts
+def vlan_trunk obj, vlan, opts
   ranges = []
   vlan.sub(' ', '').split(',').each do |range_str|
     range_val = range_str.split('-')
@@ -214,7 +225,8 @@ def vlan obj, vlan, opts
   if opts[:append] or opts[:exclude]
     old_vlan = obj.config.defaultPortConfig.vlan
     if old_vlan.class == VIM::VmwareDistributedVirtualSwitchVlanIdSpec
-      old_vlan = [old_vlan.vlanId..old_vlan.vlanId]
+      puts "Can't append/exclude trunk range to switch tagging configuration!"
+      return
     elsif old_vlan.class == VIM::VmwareDistributedVirtualSwitchTrunkVlanSpec
       old_vlan = old_vlan.vlanId.map { |r| r.start..r.end }
     end
@@ -229,27 +241,68 @@ def vlan obj, vlan, opts
 
   if opts[:exclude]
     ranges = subtract_ranges(old_vlan, ranges)
+    ranges = merge_ranges(ranges)
   end
 
-  if ranges == [] then ranges = [0..0] end
-
   spec = VIM::VMwareDVSPortSetting.new()
-  if ranges.length == 1 and ranges[0].first == ranges[0].last
-    spec.vlan = VIM::VmwareDistributedVirtualSwitchVlanIdSpec.new()
-    spec.vlan.vlanId = ranges[0].first
-    spec.vlan.inherited = false
-  else
-    spec.vlan = VIM::VmwareDistributedVirtualSwitchTrunkVlanSpec.new()
-    spec.vlan.vlanId = ranges.map { |r| { :start => r.first, :end => r.last } }
-    spec.vlan.inherited = false
+  spec.vlan = VIM::VmwareDistributedVirtualSwitchTrunkVlanSpec.new()
+  spec.vlan.vlanId = ranges.map { |r| { :start => r.first, :end => r.last } }
+  spec.vlan.inherited = false
+
+  if ranges.empty?
+    # if we excluded all ranges, just allow everything
+    vlan_switchtag obj, 0
+    return
+  end
+
+  inherited_spec = get_inherited_config(obj)
+  if inherited_spec != nil then inherited_spec = inherited_spec.vlan end
+
+  if inherited_spec.class == VIM::VmwareDistributedVirtualSwitchTrunkVlanSpec
+    inherited_ranges = inherited.vlanId.map { |range| range.start..range.end }
+    if (merge_ranges(inherited_ranges) - ranges) == []
+      spec.vlan.inherited = true
+    end
   end
 
   apply_settings obj, spec
 end
 
+opts :vlan_switchtag do
+  summary "Configure a VLAN on a vDS or portgroup for vSwitch tagging"
+  arg :obj, nil,
+      :lookup => [VIM::DistributedVirtualPort,
+                  VIM::DistributedVirtualPortgroup,
+                  VIM::DistributedVirtualSwitch]
+  arg :vlan, "VLAN id", :type => :int
+end
+
+def vlan_switchtag obj, vlan
+  # if it matches, inherit settings from switch or portgroup
+  inherited = false
+  inherited_spec = get_inherited_config(obj)
+  if inherited_spec != nil then inherited_spec = inherited_spec.vlan end
+
+  if inherited_spec.class == VIM::VmwareDistributedVirtualSwitchVlanIdSpec
+    if inherited_spec.vlanId.to_s == vlan.to_s
+      inherited = true
+    end
+  end
+
+  spec = VIM::VMwareDVSPortSetting.new()
+  spec.vlan = VIM::VmwareDistributedVirtualSwitchVlanIdSpec.new()
+  spec.vlan.vlanId = vlan
+  spec.vlan.inherited = inherited
+  apply_settings obj, spec
+end
+
 def merge_ranges(ranges)
   ranges = ranges.sort_by {|r| r.first }
-  *outages = ranges.shift
+  if !ranges.empty?
+    *outages = ranges.shift
+  else
+    outages = []
+  end
   ranges.each do |r|
     lastr = outages[-1]
     if lastr.last >= r.first - 1
@@ -301,8 +354,9 @@ end
 
 opts :security do
   summary "Configure a security settings on a vDS or portgroup"
-  arg :obj, "vDS or portgroup",
-      :lookup => [VIM::DistributedVirtualPortgroup,
+  arg :obj, nil,
+      :lookup => [VIM::DistributedVirtualPort,
+                  VIM::DistributedVirtualPortgroup,
                   VIM::DistributedVirtualSwitch]
   opt :allow_promisc, "Allow VMs to enter promiscuous mode", :type => :bool
   opt :deny_promisc,  "Prevent VMs from entering promiscuous mode", :type => :bool
@@ -339,8 +393,38 @@ def security obj, opts
     policy[:forgedTransmits] = { :inherited => false, :value => false }
   end
 
+  inherited_spec = get_inherited_config(obj)
+  if inherited_spec != nil
+    collapse_inheritance inherited_spec.securityPolicy, policy
+  end
+
   spec = VIM::VMwareDVSPortSetting.new()
   spec.securityPolicy = policy
 
   apply_settings obj, spec
+end
+
+opts :unset_respool do
+  summary "Remove vDS portgroup or port from a network resource pool"
+  arg :obj, nil,
+      :lookup => [VIM::DistributedVirtualPort,
+                  VIM::DistributedVirtualPortgroup]
+end
+
+def unset_respool obj
+  apply_settings obj, {:networkResourcePoolKey => {:inherited => false,
+                                                   :value => nil} }
+end
+
+opts :set_respool do
+  summary "Remove vDS portgroup or port from a network resource pool"
+  arg :obj, nil,
+      :lookup => [VIM::DistributedVirtualPort,
+                  VIM::DistributedVirtualPortgroup]
+  arg :respool, nil, :lookup => [VIM::DVSNetworkResourcePool]
+end
+
+def set_respool obj, respool
+  apply_settings obj, {:networkResourcePoolKey => {:inherited => false,
+                                                   :value => respool.key} }
 end
