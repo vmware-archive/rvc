@@ -165,6 +165,29 @@ def http_path dc_name, ds_name, path
 end
 
 
+opts :delete do
+  summary "Deletes the specified files or folders from the datastore"
+  arg :objs, nil, :multi => true, :lookup => RVC::InventoryObject
+end
+
+def delete objs
+  fm = nil
+  tasks = objs.map do |obj|
+    isFolder = obj.is_a?(RbVmomi::VIM::Datastore::FakeDatastoreFolder) 
+    isFile = obj.is_a?(RbVmomi::VIM::Datastore::FakeDatastoreFile)
+    err "Parameter is neither file nor folder" if !isFolder && !isFile
+     
+    ds = obj.datastore
+    dc = ds.path.find{|x| x[0].is_a? RbVmomi::VIM::Datacenter}[0]
+    fm ||= ds._connection.serviceContent.fileManager
+    dsPath = "[#{ds.name}] #{obj.path}"
+    puts "Deleting #{dsPath}"
+    fm.DeleteDatastoreFile_Task(:name => dsPath, :datacenter => dc)
+  end
+  progress(tasks)
+end
+
+
 opts :findOrphans do
   summary "Finds directories on the datastore that don't belong to any registered VM"
   arg :ds, nil, :lookup => VIM::Datastore
