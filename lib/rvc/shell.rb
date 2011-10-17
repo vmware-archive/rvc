@@ -116,7 +116,11 @@ class Shell
     result = @ruby_evaluator.do_eval input, file
     if $interactive
       if input =~ /\#$/
-        introspect_object result
+        if result.is_a? Class
+          introspect_class result
+        else
+          introspect_object result
+        end
       else
         pp result
       end
