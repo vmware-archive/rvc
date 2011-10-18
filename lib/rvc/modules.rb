@@ -70,10 +70,12 @@ def self.complete_for_cmd line, word
   if line == nil
     return []
   end
-  argnum = Shellwords.split(line[0..Readline.point]).size - 1
+  mod, cmd, args = Shell.parse_input line
   #XXX assumes you aren't going to have any positional arguments with spaces
   if(/ $/.match(line))
-    argnum = argnum + 1
+    argnum = args.size
+  else
+    argnum = args.size - 1
   end
 
   cmd = line.split(' ').first

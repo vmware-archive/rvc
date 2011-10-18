@@ -238,11 +238,14 @@ end
 rvc_alias :show
 
 rvc_completor :show do |line, word, index|
-  #if index == 1
-  #  ['!!!']
+  #if index == 0
+  #  ['zero']
+  #elsif index == 1
+  #  ['one']
   #else
-    []
+  #  ['other']
   #end
+  []
 end
 
 def show path
