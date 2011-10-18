@@ -60,7 +60,7 @@ module Completion
   def self.complete word, line
     candidates = if line
       if line[' ']
-        child_candidates(word)
+        child_candidates(word) + RVC::complete_for_cmd(line, word)
       else
         cmd_candidates(word)
       end
@@ -70,7 +70,9 @@ module Completion
 
     candidates += mark_candidates(word)
 
-    if candidates.size == 1 and cmd_candidates(word).member?(candidates[0])
+    if candidates.size == 1 and
+        (cmd_candidates(word).member?(candidates[0]) or
+         RVC::complete_for_cmd(line, word).member?(candidates[0]))
       append_char = ' '
     else
       append_char = '/'

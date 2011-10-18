@@ -225,10 +225,32 @@ end
 opts :info do
   summary "Display information about an object"
   arg :path, nil, :lookup => Object
-end  
+end
 
 rvc_alias :info
 rvc_alias :info, :i
+
+opts :show do
+  summary "Display information about an object"
+  arg :path, nil, :lookup => Object
+end
+
+rvc_alias :show
+
+rvc_completor :show do |line, word, index|
+  #if index == 0
+  #  ['zero']
+  #elsif index == 1
+  #  ['one']
+  #else
+  #  ['other']
+  #end
+  []
+end
+
+def show path
+  info path
+end
 
 def info obj
   puts "path: #{obj.rvc_path_str}"
@@ -264,15 +286,15 @@ def reload_entity objs
 end
 
 
-opts :show do
+opts :what do
   summary "Basic information about the given objects"
   arg :obj, nil, :multi => true, :required => false, :lookup => Object
 end
 
-rvc_alias :show
-rvc_alias :show, :w
+rvc_alias :what
+rvc_alias :what, :w
 
-def show objs
+def what objs
   objs.each do |obj|
     puts "#{obj.rvc_path_str}: #{obj.class}"
   end

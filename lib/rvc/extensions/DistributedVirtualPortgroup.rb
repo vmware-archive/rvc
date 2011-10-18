@@ -64,54 +64,8 @@ class RbVmomi::VIM::DistributedVirtualPortgroup
   end
 
   def display_info
-    # we really just want to show the default port configuration
-    config = self.config.defaultPortConfig
     vds = self.config.distributedVirtualSwitch
-
-    # map network respool to human-readable name
-    poolName  = translate_respool vds, config.networkResourcePoolKey
-
-    puts_policy "blocked:", config.blocked
-    puts_policy("vlan:", config.vlan, "", nil) { |v| translate_vlan v }
-    puts        "network resource pool: #{poolName}"
-    puts        "Rx Shaper: "
-    policy = config.inShapingPolicy
-    puts_policy "  enabled:", policy.enabled
-    puts_policy("  average bw:", policy.averageBandwidth, "b/sec"){|v|metric(v)}
-    puts_policy("  peak bw:", policy.peakBandwidth, "b/sec") { |v| metric(v) }
-    puts_policy("  burst size:", policy.burstSize, "B") { |v| metric(v) }
-    puts        "Tx Shaper:"
-    policy = config.outShapingPolicy
-    puts_policy "  enabled:", policy.enabled
-    puts_policy("  average bw:", policy.averageBandwidth, "b/sec"){|v|metric(v)}
-    puts_policy("  peak bw:", policy.peakBandwidth, "b/sec") { |v| metric(v) }
-    puts_policy("  burst size:", policy.burstSize, "B") { |v| metric(v) }
-    puts        "Uplink Teaming Policy:"
-    policy = config.uplinkTeamingPolicy
-    puts_policy "  policy:", policy.policy  #XXX map the strings values
-    puts_policy "  reverse policy:", policy.reversePolicy
-    puts_policy "  notify switches:", policy.notifySwitches
-    puts_policy "  rolling order:", policy.rollingOrder
-    puts        "  Failure Criteria: "
-    criteria = policy.failureCriteria
-    puts_policy "    check speed:", criteria.checkSpeed
-    puts_policy("    speed:", criteria.speed, "Mb/sec") { |v| metric(v) }
-    puts_policy "    check duplex:", criteria.checkDuplex
-    puts_policy "    full duplex:", criteria.fullDuplex
-    puts_policy "    check error percentage:", criteria.checkErrorPercent
-    puts_policy "    max error percentage:", criteria.percentage, "%"
-    puts_policy "    check beacon:", criteria.checkBeacon
-    puts        "  Uplink Port Order:"
-    order = policy.uplinkPortOrder
-    puts_policy("    active:", order, "", :activeUplinkPort) { |v| v.join(',') }
-    puts_policy("    standby:", order, "", :standbyUplinkPort) {|v| v.join(',')}
-    puts        "Security:"
-    policy = config.securityPolicy
-    puts_policy "  allow promiscuous mode:", policy.allowPromiscuous
-    puts_policy "  allow mac changes:", policy.macChanges
-    puts_policy "  allow forged transmits:", policy.forgedTransmits
-    puts_policy "enable ipfix monitoring:", config.ipfixEnabled
-    puts_policy "forward all tx to uplink:", config.txUplink
+    self.config.defaultPortConfig.dump_config vds, ""
   end
 
 
@@ -313,7 +267,7 @@ def translate_vlan vlan
   config
 end
 
-def translate_respool vds, pk
+def translate_respool vds, pk, show_inheritance = true
   if pk.value == '-1'
     poolName = "-"
   else
@@ -322,24 +276,8 @@ def translate_respool vds, pk
     }[0].name
   end
 
-  if !pk.inherited
+  if show_inheritance and !pk.inherited
     poolName += "*"
   end
   poolName
-end
-
-
-def puts_policy prefix, policy, suffix = "", prop = :value, &b
-  b ||= lambda { |v| v }
-  if prop != nil
-    v = policy.send(prop)
-  else
-    v = policy
-  end
-  print "#{prefix} #{b.call(v)}"
-  if policy.inherited == false
-    puts "*"
-    else
-    puts ""
-  end
 end
