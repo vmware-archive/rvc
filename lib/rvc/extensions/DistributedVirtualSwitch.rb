@@ -28,6 +28,8 @@ class RbVmomi::VIM::DistributedVirtualSwitch
     puts "standalone ports: #{config.numStandalonePorts}"
     puts "maximum ports: #{config.maxPorts}"
     puts "netIORM: #{config.networkResourceManagementEnabled}"
+    puts "Default Port Configuration:"
+    config.defaultPortConfig.dump_config self, "  ", false
   end
 
   def summarize
@@ -42,11 +44,10 @@ class RbVmomi::VIM::DistributedVirtualSwitch
   end
 
   def portgroup_children
-   portgroups = {}
+    portgroups = {}
     self.portgroup.each { |pg|
       portgroups[pg.name] = pg
     }
-
     portgroups
   end
 
@@ -59,13 +60,22 @@ class RbVmomi::VIM::DistributedVirtualSwitch
     respools
   end
 
+  def hosts_children
+    hosts = {}
+    self.config.host.each do |hostinfo|
+      host = hostinfo.config.host
+      hosts[host.collect(:name).first] = host
+    end
+    hosts
+  end
+
   def children
     {
       'portgroups' => RVC::FakeFolder.new(self, :portgroup_children),
-      'respools' => RVC::FakeFolder.new(self, :respool_children)
+      'respools' => RVC::FakeFolder.new(self, :respool_children),
+      'hosts' => RVC::FakeFolder.new(self, :hosts_children),
     }
   end
-
 
   def ls_text r
     " (vds)"

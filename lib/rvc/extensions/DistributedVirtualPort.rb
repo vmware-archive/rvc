@@ -98,34 +98,20 @@ class RbVmomi::VIM::DistributedVirtualPort
 
 
     #puts "name: #{self.config.name}"
-    puts_policy "blocked:", self.config.setting.blocked
     puts        "link up: #{link_up}"
     #puts       "vds: #{vds.name}"
     #puts       "portgroup: #{self.rvc_parent.name}"
-    puts        "vlan: #{vlan}"
-    puts        "network resource pool: #{poolName}"
+    #puts        "vlan: #{vlan}"
+    #puts        "network resource pool: #{poolName}"
     puts        "name: #{self.config.name}"
     puts        "description: #{self.config.description}"
     puts        "host: #{if self.proxyHost then self.proxyHost.name end}"
     puts        "vm: #{vm_name}"
     puts        "mac: #{mac}"
     puts        "ip: #{ip}"
+    puts        "Port Settings:"
     #XXX scope?
-    setting = self.config.setting
-    puts        "Rx Shaper:"
-    policy = setting.inShapingPolicy
-    puts_policy "  enabled:", policy.enabled
-    puts_policy("  average bw:", policy.averageBandwidth, "b/sec"){|v|metric(v)}
-    puts_policy("  peak bw:", policy.peakBandwidth, "b/sec") { |v| metric(v) }
-    puts_policy("  burst size:", policy.burstSize, "B") { |v| metric(v) }
-    puts        "Tx Shaper:"
-    policy = setting.inShapingPolicy
-    puts_policy "  enabled:", policy.enabled
-    puts_policy("  average bw:", policy.averageBandwidth, "b/sec"){|v|metric(v)}
-    puts_policy("  peak bw:", policy.peakBandwidth, "b/sec") { |v| metric(v) }
-    puts_policy("  burst size:", policy.burstSize, "B") { |v| metric(v) }
-    puts_policy "enable ipfix monitoring:", self.config.setting.ipfixEnabled
-    puts_policy "forward all tx to uplink:", self.config.setting.txUplink
+    self.config.setting.dump_config vds, "  ", true, false
     if self.state
       if self.state.stats
         puts "Statistics:"
