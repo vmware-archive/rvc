@@ -71,6 +71,7 @@ def self.complete_for_cmd line, word
     return []
   end
   mod, cmd, args = Shell.parse_input line
+  return [] unless mod != nil
   #XXX assumes you aren't going to have any positional arguments with spaces
   if(/ $/.match(line))
     argnum = args.size
@@ -78,21 +79,16 @@ def self.complete_for_cmd line, word
     argnum = args.size - 1
   end
 
-  cmd = line.split(' ').first
-  if cmd.include? '.'
-    module_name, cmd, = cmd.split '.'
-  elsif ALIASES.member? cmd
-    module_name, cmd, = ALIASES[cmd].split '.'
-  else
-    return []
-  end
-
-  m = MODULES[module_name] or return []
-  completor = m.completor_for(cmd.to_sym)
+  completor = mod.completor_for(cmd.to_sym)
   if completor == nil
     return []
   end
-  completor.call(line, word, argnum)
+  words = completor.call(line, args, word, argnum)
+  if words == nil
+    []
+  else
+    words.select{|i| /^#{word}/.match i}
+  end
 end
 
 BULTIN_MODULE_PATH = [File.expand_path(File.join(File.dirname(__FILE__), 'modules')),
