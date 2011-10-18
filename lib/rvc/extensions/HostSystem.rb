@@ -71,6 +71,7 @@ end
 
 class RVC::LazyEsxcliNamespace
   include RVC::InventoryObject
+  attr_reader :ns
 
   [:children, :traverse_one].each do |sym|
     begin
@@ -117,7 +118,7 @@ class VIM::EsxcliCommand
     parser = Trollop::Parser.new
     parser.text cli_info.help
     cli_info.param.each do |cli_param|
-      vmodl_param = info.paramTypeInfo.find { |x| x.name == cli_param.name }
+      vmodl_param = type_info.paramTypeInfo.find { |x| x.name == cli_param.name }
       opts = trollop_type(vmodl_param.type)
       opts[:required] = vmodl_param.annotation.find { |a| a.name == "optional"} ? false : true
       opts[:long] = cli_param.displayName

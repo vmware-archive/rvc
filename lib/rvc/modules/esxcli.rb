@@ -18,23 +18,24 @@ def execute *args
     begin
       pp cmd.call(opts)
     rescue RbVmomi::Fault
-      puts "cause: #{$!.faultCause}" if $!.faultCause
-      $!.faultMessage.each { |x| puts x }
-      $!.errMsg.each { |x| puts "error: #{x}" }
+      puts "#{$!.message}"
+      puts "cause: #{$!.faultCause}" if $!.respond_to? :faultCause and $!.faultCause
+      $!.faultMessage.each { |x| puts x } if $!.respond_to? :faultMessage
+      $!.errMsg.each { |x| puts "error: #{x}" } if $!.respond_to? :errMsg
     end
   when VIM::EsxcliNamespace
     ns = o
     unless ns.commands.empty?
       puts "Available commands:"
       ns.commands.each do |k,v|
-        puts "#{k}: #{v.help}"
+        puts "#{k}: #{v.cli_info.help}"
       end
       puts unless ns.namespaces.empty?
     end
     unless ns.namespaces.empty?
       puts "Available namespaces:"
       ns.namespaces.each do |k,v|
-        puts "#{k}: #{v.help}"
+        puts "#{k}: #{v.cli_info.help}"
       end
     end
   end
