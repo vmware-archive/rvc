@@ -237,15 +237,19 @@ end
 
 rvc_alias :show
 
-rvc_completor :show do |line, word, index|
+rvc_completor :show do |line, args, word, index|
+  choices = []
   #if index == 0
-  #  ['zero']
+  #  choices << 'running-config'
+  #  choices << 'portgroup'
+  #  choices << 'vlan'
+  #  #choices << 'lldp'
+  #  #choices << 'cdp'
   #elsif index == 1
-  #  ['one']
-  #else
-  #  ['other']
+  #  if args[0] == 'vlan'# or args[0] == ''
+  #    choices << 'summary'
+  #  end
   #end
-  []
 end
 
 def show path
