@@ -19,6 +19,7 @@
 # THE SOFTWARE.
 
 require 'rvc/util'
+require 'shellwords'
 
 module RVC
 
@@ -31,6 +32,7 @@ class CmdModule
   def initialize module_name
     @module_name = module_name
     @opts = {}
+    @completors = {}
     super()
   end
 
@@ -50,10 +52,42 @@ class CmdModule
     @opts[cmd]
   end
 
+  def rvc_completor cmd, &b
+    @completors[cmd] = b
+  end
+
+  def completor_for cmd
+    @completors[cmd]
+  end
+
   def rvc_alias cmd, target=nil
     target ||= cmd
     RVC::ALIASES[target.to_s] = "#{@module_name}.#{cmd}"
   end
+end
+
+def self.complete_for_cmd line, word
+  argnum = Shellwords.split(line[0..Readline.point]).size - 1
+  #XXX assumes you aren't going to have any positional arguments with spaces
+  if(/ $/.match(line))
+    argnum = argnum + 1
+  end
+
+  cmd = line.split(' ').first
+  if cmd.include? '.'
+    module_name, cmd, = cmd.split '.'
+  elsif ALIASES.member? cmd
+    module_name, cmd, = ALIASES[cmd].split '.'
+  else
+    return []
+  end
+
+  m = MODULES[module_name] or return []
+  completor = m.completor_for(cmd.to_sym)
+  if completor == nil
+    return []
+  end
+  completor.call(line, word, argnum)
 end
 
 BULTIN_MODULE_PATH = [File.expand_path(File.join(File.dirname(__FILE__), 'modules')),
