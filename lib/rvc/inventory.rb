@@ -87,10 +87,10 @@ module InventoryObject
   def field name
     name = name.to_s
     field = self.class.fields[name]
-    if self.class < VIM::ManagedObject
-      *props = collect *field.properties
-    elsif field == nil
+    if field == nil
       return nil
+    elsif self.class < VIM::ManagedObject
+      *props = collect *field.properties
     else
       props = []
       field.properties.each do |propstr|
