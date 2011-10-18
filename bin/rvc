@@ -135,8 +135,8 @@ if defined? Ocra
 end
 
 if $interactive
-  $stderr.puts "VMRC is not installed. You will be unable to view virtual machine consoles. Use the vmrc.install command to install it." unless CMD.vmrc.find_vmrc 
-  $stderr.puts "Use the 'connect' command to connect to an ESX or VC server." if $shell.connections.empty?
+  #$stderr.puts "VMRC is not installed. You will be unable to view virtual machine consoles. Use the vmrc.install command to install it." unless CMD.vmrc.find_vmrc 
+  #$stderr.puts "Use the 'connect' command to connect to an ESX or VC server." if $shell.connections.empty?
   CMD.basic.ls RVC::Util.lookup_single('.')
 end
 

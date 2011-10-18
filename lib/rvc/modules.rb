@@ -67,6 +67,9 @@ class CmdModule
 end
 
 def self.complete_for_cmd line, word
+  if line == nil
+    return []
+  end
   argnum = Shellwords.split(line[0..Readline.point]).size - 1
   #XXX assumes you aren't going to have any positional arguments with spaces
   if(/ $/.match(line))

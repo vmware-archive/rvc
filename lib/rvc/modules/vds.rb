@@ -182,9 +182,13 @@ opts :block do
                   VIM::DistributedVirtualSwitch]
 end
 
+rvc_alias :block, :shut
+
 def block obj
   apply_settings obj, { :blocked => { :value => true, :inherited => false } }
 end
+
+rvc_alias :block, :noshut
 
 opts :unblock do
   summary "Unblock traffic on a vDS, portgroup, or port"
