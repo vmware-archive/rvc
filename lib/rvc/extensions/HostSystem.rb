@@ -71,7 +71,14 @@ end
 
 class RVC::LazyEsxcliNamespace
   include RVC::InventoryObject
-  undef_method :children, :traverse_one
+  attr_reader :ns
+
+  [:children, :traverse_one].each do |sym|
+    begin
+      undef_method sym
+    rescue NameError
+    end
+  end
 
   def initialize host
     @host = host
@@ -96,33 +103,22 @@ class VIM::EsxcliNamespace
   end
 
   def children
-    @namespaces.merge(Hash[@commands.map { |k,v| [k, RVC::EsxcliMethod.new(conn, self, v)] }])
+    @namespaces.merge(@commands)
   end
 end
 
-class RVC::EsxcliMethod
+class VIM::EsxcliCommand
   include RVC::InventoryObject
-  attr_reader :conn, :ns, :info
-
-  def initialize conn, ns, info
-    @conn = conn
-    @ns = ns
-    @info = info
-  end
 
   def ls_text r
     " - #{cli_info.help}"
-  end
-
-  def cli_info
-    @cli_info ||= @ns.cli_info.method.find { |x| x.name == info.name }
   end
 
   def option_parser
     parser = Trollop::Parser.new
     parser.text cli_info.help
     cli_info.param.each do |cli_param|
-      vmodl_param = info.paramTypeInfo.find { |x| x.name == cli_param.name }
+      vmodl_param = type_info.paramTypeInfo.find { |x| x.name == cli_param.name }
       opts = trollop_type(vmodl_param.type)
       opts[:required] = vmodl_param.annotation.find { |a| a.name == "optional"} ? false : true
       opts[:long] = cli_param.displayName

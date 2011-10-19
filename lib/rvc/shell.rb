@@ -84,12 +84,12 @@ class Shell
     elsif ALIASES.member? cmd
       module_name, cmd, = ALIASES[cmd].split '.'
     end
-    [MODULES[module_name], cmd, args]
+    [MODULES[module_name], cmd.to_sym, args]
   end
 
   def eval_command input
     m, cmd, args = Shell.parse_input input
-    RVC::Util.err "invalid command" unless m != nil and cmd.is_a? String
+    RVC::Util.err "invalid command" unless m != nil and cmd.is_a? Symbol
     parser = m.opts_for(cmd.to_sym)
 
     begin
@@ -110,7 +110,11 @@ class Shell
     result = @ruby_evaluator.do_eval input, file
     if $interactive
       if input =~ /\#$/
-        introspect_object result
+        if result.is_a? Class
+          introspect_class result
+        else
+          introspect_object result
+        end
       else
         pp result
       end

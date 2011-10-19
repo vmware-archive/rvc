@@ -58,21 +58,25 @@ module Completion
   end
 
   def self.complete word, line
-    candidates = if line
-      if line[' ']
-        child_candidates(word) + RVC::complete_for_cmd(line, word)
-      else
-        cmd_candidates(word)
-      end
+    line ||= ''
+    first_whitespace_index = line.index(' ')
+
+    if !first_whitespace_index || first_whitespace_index >= Readline.point
+      # Completing command
+      slash_candidates = []
+      space_candidates = cmd_candidates(word)
     else
-      child_candidates(word) + cmd_candidates(word)
+      # Completing arguments
+      mod, cmd, args = Shell.parse_input line
+      slash_candidates = child_candidates(word) +
+                         mark_candidates(word)
+      space_candidates = RVC::complete_for_cmd(line, word) +
+                         long_option_candidates(mod, cmd, word)
     end
 
-    candidates += mark_candidates(word)
+    candidates = slash_candidates + space_candidates
 
-    if candidates.size == 1 and
-        (cmd_candidates(word).member?(candidates[0]) or
-         RVC::complete_for_cmd(line, word).member?(candidates[0]))
+    if candidates.size == 1 and space_candidates.member?(candidates[0])
       append_char = ' '
     else
       append_char = '/'
@@ -89,6 +93,13 @@ module Completion
     end
     ret.concat ALIASES.keys
     ret.sort.select { |e| e.match(prefix_regex) }
+  end
+
+  def self.long_option_candidates mod, cmd, word
+    parser = mod.opts_for cmd
+    return [] unless parser
+    prefix_regex = /^#{Regexp.escape(word)}/
+    parser.specs.map { |k,v| "--#{v[:long]}" }.grep(prefix_regex).sort
   end
 
   # TODO convert to globbing

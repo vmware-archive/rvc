@@ -101,6 +101,7 @@ end
 def vnc_client ip, port, password
   unless VNC
     puts "no VNC client configured"
+    puts "#{ip}:#{port} password: #{password}"
     return false
   end
 
