@@ -352,21 +352,22 @@ def kill vms
   CMD.basic.destroy vms unless vms.empty?
 end
 
-
 opts :answer do
   summary "Answer a VM question"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
   arg :choice, "Answer ID"
+  arg :vm, nil, :lookup => VIM::VirtualMachine, :multi => true
 end
 
-def answer vm, str
-  q = vm.runtime.question
-  err "no question" unless q
-  choice = q.choice.choiceInfo.find { |x| x.label == str }
-  err("invalid answer") unless choice
-  vm.AnswerVM :questionid => q.path, :answerChoice => choice.key
+def answer str, vms
+  vms.each do |vm|
+    q = vm.runtime.question
+    if q
+      choice = q.choice.choiceInfo.find { |x| x.label == str }
+      err("invalid answer") unless choice
+      vm.AnswerVM :questionId => q.id, :answerChoice => choice.key
+    end
+  end
 end
-
 
 opts :layout do
   summary "Display info about VM files"
@@ -518,6 +519,34 @@ def rvc vm, opts
   system_fg(cmd, env)
 end
 
+opts :rdp do
+  summary "Connect via RDP"
+  arg :vms, nil, :lookup => VIM::VirtualMachine, :multi => true
+  opt :resolution, "Desired resolution", :type => :string, :default => ($rdpResolution ? $rdpResolution : '1024x768')
+  opt :username, "Username", :type => :string, :default => 'Administrator'
+  opt :password, "Password", :type => :string, :default => ($rdpDefaultPassword ? $rdpDefaultPassword : '')
+end
+
+rvc_alias :rdp, :rdp
+
+def rdp vms, h
+  resolution = h[:resolution]
+  if !resolution
+    resolution = $rdpResolution ? $rdpResolution : '1024x768'  
+  end
+  vms.each do |vm|
+    ip = vm_ip vm
+
+    begin
+      timeout(1) { TCPSocket.new ip, 3389; up = true }
+    rescue
+      puts "#{vm.name}: Warning: Looks like the RDP port is not responding"
+    end
+    
+    cmd = "rdesktop -u '#{h[:username]}' -p '#{h[:password]}' -g#{resolution} #{ip} >/dev/null 2>&1 &"
+    system(cmd)
+  end
+end
 
 opts :ping do
   summary "Ping a VM"
