@@ -58,17 +58,18 @@ module Completion
   end
 
   def self.complete word, line
-    candidates = if line
-      if line[' ']
-        child_candidates(word) + RVC::complete_for_cmd(line, word)
-      else
-        cmd_candidates(word)
-      end
-    else
-      child_candidates(word) + cmd_candidates(word)
-    end
+    line ||= ''
+    first_whitespace_index = line.index(' ')
 
-    candidates += mark_candidates(word)
+    candidates =
+      if !first_whitespace_index || first_whitespace_index >= Readline.point
+        # Completing command
+        cmd_candidates(word)
+      else
+        # Completing arguments
+        mod, cmd, args = Shell.parse_input line
+        child_candidates(word) + RVC::complete_for_cmd(line, word) + mark_candidates(word)
+      end
 
     if candidates.size == 1 and
         (cmd_candidates(word).member?(candidates[0]) or
@@ -89,6 +90,9 @@ module Completion
     end
     ret.concat ALIASES.keys
     ret.sort.select { |e| e.match(prefix_regex) }
+  end
+
+  def self.long_option_candidates word
   end
 
   # TODO convert to globbing
