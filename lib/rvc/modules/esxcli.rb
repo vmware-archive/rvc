@@ -17,13 +17,14 @@ def execute *args
     end
     begin
       opts.reject! { |k,v| v.nil? }
-      pp cmd.call(opts)
+      result = cmd.call(opts)
     rescue RbVmomi::Fault
       puts "#{$!.message}"
       puts "cause: #{$!.faultCause}" if $!.respond_to? :faultCause and $!.faultCause
       $!.faultMessage.each { |x| puts x } if $!.respond_to? :faultMessage
       $!.errMsg.each { |x| puts "error: #{x}" } if $!.respond_to? :errMsg
     end
+    output_formatted cmd, result
   when VIM::EsxcliNamespace
     ns = o
     unless ns.commands.empty?
@@ -44,3 +45,53 @@ end
 
 rvc_alias :execute, :esxcli
 rvc_alias :execute, :x
+
+def output_formatted cmd, result
+  hints = Hash[cmd.cli_info.hints]
+  formatter = hints['formatter']
+  formatter = "none" if formatter == ""
+  sym = :"output_formatted_#{formatter}"
+  if respond_to? sym
+    send sym, result, cmd.cli_info, hints
+  else
+    puts "Unknown formatter #{formatter.inspect}"
+    pp result
+  end
+end
+
+def output_formatted_none result, info, hints
+  pp result if result != true
+end
+
+def output_formatted_simple result, info, hints
+  pp result
+end
+
+def table_key str
+  str.downcase.gsub(/[^\w\d_]/, '')
+end
+
+def output_formatted_table result, info, hints
+  columns = hints['table-columns'].split ','
+  ordering = columns.map { |x| table_key x }
+  units = Hash[hints.select { |k,v| k =~ /^units:/ }.map { |k,v| [table_key(k.match(/[^.]+$/).to_s), v] }]
+  table = Terminal::Table.new :headings => columns
+  result.each do |r|
+    row = []
+    r.class.full_props_desc.each do |desc|
+      name = desc['name']
+      key = table_key name
+      next unless idx = ordering.index(key)
+      val = r.send name
+      unit = units[key]
+      row[idx] =
+        case unit
+        when nil then val
+        when '%' then "#{val}#{unit}"
+        else "#{val} #{unit}"
+        end
+    end
+    table.add_row row
+  end
+  puts table
+end
