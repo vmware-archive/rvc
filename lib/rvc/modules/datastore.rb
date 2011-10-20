@@ -170,9 +170,10 @@ end
 opts :find_orphans do
   summary "Finds directories on the datastore that don't belong to any registered VM"
   arg :datastore, nil, :lookup => VIM::Datastore
+  opt :mark, "Name of the mark to save results in", :required => false, :type => :string
 end
 
-def find_orphans ds
+def find_orphans ds, opts
   pc = ds._connection.serviceContent.propertyCollector
   vms = ds.vm
   
@@ -200,6 +201,17 @@ def find_orphans ds
   if addedVms.length > 0
     puts "Processing #{addedVms.length} new VMs ..."
     vmFiles.merge!(pc.collectMultiple addedVms, 'layoutEx.file')
+  end
+  
+  begin 
+    perDSUsage = pc.collectMultiple vms, 'storage.perDatastoreUsage'
+  rescue RbVmomi::Fault => ex
+    if ex.fault.is_a?(RbVmomi::VIM::ManagedObjectNotFound)
+      vms = vms - [ex.fault.obj]
+      retry
+    end
+    perDSUsage = []
+    raise
   end
 
   puts "Cross-referencing VM files with files on datastore '#{dsName}' ..."
@@ -248,6 +260,39 @@ def find_orphans ds
       add_row [dir, "#{dirSize.metric}B", numFiles]
     end
   end)
+
+  puts
+
+  totalSize = data.map{|x| x[1]}.sum
+  dsSummary = ds.summary
+  vmDsUsage = perDSUsage.map{|vm, x| x['storage.perDatastoreUsage'].find{|y| y.datastore == ds}}.reject{|x| x == nil}
+  committed = vmDsUsage.map{|x| x.committed}.sum
+  unshared = vmDsUsage.map{|x| x.unshared}.sum
+  otherSpace = (dsSummary.capacity - dsSummary.freeSpace) - unshared
+  puts "Provisioned on Datastore: %.3f TB" % (dsSummary.uncommitted.to_f / 10**12)
+  puts "Capacity of Datastore: %.3f TB" % (dsSummary.capacity.to_f / 10**12)
+  puts "Free Space on Datastore: %.3f TB" % (dsSummary.freeSpace.to_f / 10**12)
+  puts "VMs Provisioned on Datastore: %.3f TB" % (vmDsUsage.map{|x| x.uncommitted}.sum.to_f / 10**12)
+  puts "VMs Used on Datastore: %.3f TB" % (committed.to_f / 10**12)
+  puts "VMs Unshared on Datastore: %.3f TB" % (vmDsUsage.map{|x| x.unshared}.sum.to_f / 10**12)
+  puts "Unaccounted space: %.2f GB" % (otherSpace.to_f/10**9)
+  puts "Total size of detected potential orphans: %.2f GB" % (totalSize.to_f/10**9)
+  puts
+
+  results = data.map do |dirInfo|
+    RbVmomi::VIM::Datastore::FakeDatastoreFolder.new(ds, "#{dirInfo[0]}")
+  end
+  opts[:mark] ||= "#{dsName}_orphans"
+  CMD.mark.mark opts[:mark], results
+  puts "Saved results to mark '#{opts[:mark]}'"
+
+  i = 0
+  results.each do |r|
+    display_path = r.path
+    puts "#{i} #{display_path}"
+    CMD.mark.mark i.to_s, [r]
+    i += 1
+  end
 end
 
 
