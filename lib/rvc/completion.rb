@@ -96,6 +96,7 @@ module Completion
   end
 
   def self.long_option_candidates mod, cmd, word
+    return [] unless mod and cmd
     parser = mod.opts_for cmd
     return [] unless parser.is_a? RVC::OptionParser
     prefix_regex = /^#{Regexp.escape(word)}/
