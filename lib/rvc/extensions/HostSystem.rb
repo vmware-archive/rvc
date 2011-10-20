@@ -103,7 +103,10 @@ class VIM::EsxcliNamespace
   end
 
   def children
-    @namespaces.merge(@commands)
+    {}.tap do |h|
+      h.merge! @namespaces
+      h.merge! @commands
+    end
   end
 end
 
