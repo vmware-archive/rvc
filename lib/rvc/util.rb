@@ -207,5 +207,25 @@ module Util
   def status_color str, status
     $terminal.color(str, *VIM::ManagedEntity::STATUS_COLORS[status])
   end
+
+  def metric num
+    if num >= 1000000000000
+      (num / 1000000000000).to_s + 'T'
+    elsif num >= 1000000000
+      (num / 1000000000).to_s + 'G'
+    elsif num >= 1000000
+      (num / 1000000).to_s + 'M'
+    elsif num >= 1000
+      (num / 1000).to_s + 'K'
+    else
+      num.to_s
+    end
+  end
 end
+end
+
+class Numeric
+  def metric
+    RVC::Util.metric self
+  end
 end
