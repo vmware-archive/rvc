@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+include RVC::Util
+
 class RbVmomi::VIM::DVPortSetting
   def dump_config vds, prefix, show_inheritance = true, show_uplinkinfo = true
     @show_inheritance = show_inheritance
