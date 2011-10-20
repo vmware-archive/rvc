@@ -1,8 +1,53 @@
 raw_opts :execute, "Execute an esxcli command"
 
+EsxcliCache = TTLCache.new 60
+
+def lookup_esxcli host, args
+  cur = EsxcliCache[host, :esxcli]
+  i = 0
+  while i < args.length
+    k = args[i]
+    if cur.namespaces.member? k
+      cur = cur.namespaces[k]
+    elsif cur.commands.member? k
+      cur = cur.commands[k]
+      break
+    else
+      err "nonexistent esxcli namespace or command #{k.inspect}"
+    end
+    i += 1
+  end
+  return cur
+end
+
+rvc_completor :execute do |line, args, word, argnum|
+  if argnum == 0
+    # HostSystem argument
+    []
+  else
+    # esxcli namespace/method/arguments
+    host = lookup_single! args[0], VIM::HostSystem
+    o = lookup_esxcli host, args[1...argnum]
+
+    case o
+    when VIM::EsxcliCommand
+      # TODO complete long options
+      candidates = []
+    when VIM::EsxcliNamespace
+      candidates = o.children.keys
+    else
+      fail "unreachable"
+    end
+
+    candidates.grep(/^#{Regexp.escape word}/)
+  end
+end
+
 def execute *args
-  path = args.shift or err "esxcli path argument required"
-  o = lookup_single! path, [VIM::EsxcliCommand, VIM::EsxcliNamespace]
+  host_path = args.shift or err "host argument required"
+  host = lookup_single! host_path, VIM::HostSystem
+  o = lookup_esxcli host, args
+
   case o
   when VIM::EsxcliCommand
     cmd = o

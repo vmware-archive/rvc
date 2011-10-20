@@ -153,7 +153,13 @@ if $opts[:script]
 else
   while true
     begin
-      input = $opts[:cmd].shift || Readline.readline($shell.prompt, false) or break
+      begin
+        input = $opts[:cmd].shift || Readline.readline($shell.prompt, false) or break
+      rescue
+        puts "\n#{$!.class} during readline: #{$!.message}"
+        $!.backtrace.each { |x| puts x }
+        next
+      end
       input = input.strip
       next if input.empty?
       (history.puts input; Readline::HISTORY << input) unless input == Readline::HISTORY.to_a[-1]
