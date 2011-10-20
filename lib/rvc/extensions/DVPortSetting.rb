@@ -54,7 +54,7 @@ class RbVmomi::VIM::DVPortSetting
       puts        "#{prefix}  Failure Criteria: "
       c = p.failureCriteria
       puts_policy "#{prefix}    check speed:", c.checkSpeed
-      puts_policy("#{prefix}    speed:", c.speed, "Mb/sec") { |v| metric(v) }
+      puts_policy("#{prefix}    speed:", c.speed, "Mb/sec")# { |v| metric(v) }
       puts_policy "#{prefix}    check duplex:", c.checkDuplex
       puts_policy "#{prefix}    full duplex:", c.fullDuplex
       puts_policy "#{prefix}    check error percentage:",  c.checkErrorPercent
@@ -81,7 +81,7 @@ class RbVmomi::VIM::DVPortSetting
     else
       v = policy
     end
-    print "#{prefix} #{b.call(v)}"
+    print "#{prefix} #{b.call(v)}#{suffix}"
     if @show_inheritance and policy.inherited == false
       puts "*"
     else
