@@ -16,7 +16,7 @@ def execute *args
       return
     end
     begin
-      opts.reject! { |k,v| v.nil? }
+      opts.reject! { |k,v| !opts.member? :"#{k}_given" }
       result = cmd.call(opts)
     rescue RbVmomi::Fault
       puts "#{$!.message}"
