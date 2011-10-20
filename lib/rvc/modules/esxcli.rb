@@ -65,6 +65,11 @@ end
 
 def output_formatted_simple result, info, hints
   case result
+  when Array
+    result.each do |r|
+      output_formatted_simple r, info, hints
+      puts
+    end
   when RbVmomi::BasicTypes::DataObject
     prop_descs = result.class.ancestors.
                         take_while { |x| x != RbVmomi::BasicTypes::DataObject &&
