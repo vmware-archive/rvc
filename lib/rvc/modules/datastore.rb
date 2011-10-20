@@ -269,14 +269,14 @@ def find_orphans ds, opts
   committed = vmDsUsage.map{|x| x.committed}.sum
   unshared = vmDsUsage.map{|x| x.unshared}.sum
   otherSpace = (dsSummary.capacity - dsSummary.freeSpace) - unshared
-  puts "Provisioned on Datastore: %.3f TB" % (dsSummary.uncommitted.to_f / 10**12)
-  puts "Capacity of Datastore: %.3f TB" % (dsSummary.capacity.to_f / 10**12)
-  puts "Free Space on Datastore: %.3f TB" % (dsSummary.freeSpace.to_f / 10**12)
-  puts "VMs Provisioned on Datastore: %.3f TB" % (vmDsUsage.map{|x| x.uncommitted}.sum.to_f / 10**12)
-  puts "VMs Used on Datastore: %.3f TB" % (committed.to_f / 10**12)
-  puts "VMs Unshared on Datastore: %.3f TB" % (vmDsUsage.map{|x| x.unshared}.sum.to_f / 10**12)
-  puts "Unaccounted space: %.2f GB" % (otherSpace.to_f/10**9)
-  puts "Total size of detected potential orphans: %.2f GB" % (totalSize.to_f/10**9)
+  puts "Provisioned on Datastore:  #{dsSummary.uncommitted.metric}B"
+  puts "Capacity of Datastore: #{dsSummary.capacity.metric}B"
+  puts "Free Space on Datastore: #{dsSummary.freeSpace.metric}B"
+  puts "VMs Provisioned on Datastore: #{vmDsUsage.map(&:uncommitted).sum.metric}B"
+  puts "VMs Used on Datastore: #{committed.metric}B"
+  puts "VMs Unshared on Datastore: #{vmDsUsage.map(&:unshared).sum.metric}B"
+  puts "Unaccounted space: #{otherSpace.metric}B"
+  puts "Total size of detected potential orphans: #{totalSize.metric}B"
   puts
 
   results = data.map do |dirInfo|
