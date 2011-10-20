@@ -220,20 +220,6 @@ class LazyDVPort
   end
 end
 
-def metric num
-  if num >= 1000000000000
-    (num / 1000000000000).to_s + 'T'
-  elsif num >= 1000000000
-    (num / 1000000000).to_s + 'G'
-  elsif num >= 1000000
-    (num / 1000000).to_s + 'M'
-  elsif num >= 1000
-    (num / 1000).to_s + 'K'
-  else
-    num.to_s
-  end
-end
-
 def translate_vlan vlan
   case "#{vlan.class}"
   when "VmwareDistributedVirtualSwitchVlanIdSpec"
