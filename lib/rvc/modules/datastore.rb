@@ -170,9 +170,10 @@ end
 opts :find_orphans do
   summary "Finds directories on the datastore that don't belong to any registered VM"
   arg :datastore, nil, :lookup => VIM::Datastore
+  opt :mark, "Name of the mark to save results in", :required => false, :type => :string
 end
 
-def find_orphans ds
+def find_orphans ds, opts
   pc = ds._connection.serviceContent.propertyCollector
   vms = ds.vm
   
@@ -200,6 +201,17 @@ def find_orphans ds
   if addedVms.length > 0
     puts "Processing #{addedVms.length} new VMs ..."
     vmFiles.merge!(pc.collectMultiple addedVms, 'layoutEx.file')
+  end
+  
+  begin 
+    perDSUsage = pc.collectMultiple vms, 'storage.perDatastoreUsage'
+  rescue RbVmomi::Fault => ex
+    if ex.fault.is_a?(RbVmomi::VIM::ManagedObjectNotFound)
+      vms = vms - [ex.fault.obj]
+      retry
+    end
+    perDSUsage = []
+    raise
   end
 
   puts "Cross-referencing VM files with files on datastore '#{dsName}' ..."
@@ -248,6 +260,39 @@ def find_orphans ds
       add_row [dir, "#{dirSize.metric}B", numFiles]
     end
   end)
+
+  puts
+
+  totalSize = data.map{|x| x[1]}.sum
+  dsSummary = ds.summary
+  vmDsUsage = perDSUsage.map{|vm, x| x['storage.perDatastoreUsage'].find{|y| y.datastore == ds}}.reject{|x| x == nil}
+  committed = vmDsUsage.map{|x| x.committed}.sum
+  unshared = vmDsUsage.map{|x| x.unshared}.sum
+  otherSpace = (dsSummary.capacity - dsSummary.freeSpace) - unshared
+  puts "Provisioned on Datastore:  #{dsSummary.uncommitted.metric}B"
+  puts "Capacity of Datastore: #{dsSummary.capacity.metric}B"
+  puts "Free Space on Datastore: #{dsSummary.freeSpace.metric}B"
+  puts "VMs Provisioned on Datastore: #{vmDsUsage.map(&:uncommitted).sum.metric}B"
+  puts "VMs Used on Datastore: #{committed.metric}B"
+  puts "VMs Unshared on Datastore: #{vmDsUsage.map(&:unshared).sum.metric}B"
+  puts "Unaccounted space: #{otherSpace.metric}B"
+  puts "Total size of detected potential orphans: #{totalSize.metric}B"
+  puts
+
+  results = data.map do |dirInfo|
+    RbVmomi::VIM::Datastore::FakeDatastoreFolder.new(ds, "#{dirInfo[0]}")
+  end
+  opts[:mark] ||= "#{dsName}_orphans"
+  CMD.mark.mark opts[:mark], results
+  puts "Saved results to mark '#{opts[:mark]}'"
+
+  i = 0
+  results.each do |r|
+    display_path = r.path
+    puts "#{i} #{display_path}"
+    CMD.mark.mark i.to_s, [r]
+    i += 1
+  end
 end
 
 

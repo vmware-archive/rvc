@@ -208,18 +208,13 @@ module Util
     $terminal.color(str, *VIM::ManagedEntity::STATUS_COLORS[status])
   end
 
+  METRIC_PREFIXES = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'H']
+
   def metric num
-    if num >= 1000000000000
-      (num / 1000000000000).to_s + 'T'
-    elsif num >= 1000000000
-      (num / 1000000000).to_s + 'G'
-    elsif num >= 1000000
-      (num / 1000000).to_s + 'M'
-    elsif num >= 1000
-      (num / 1000).to_s + 'K'
-    else
-      num.to_s
-    end
+    num = num.to_f
+    i = (0...(METRIC_PREFIXES.size)).find { |i| num / (1000**i) < 1000 }
+    i ||= METRIC_PREFIXES.size - 1
+    "%0.2f %s" % [num/(1000**i), METRIC_PREFIXES[i]]
   end
 end
 end
