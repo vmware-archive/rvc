@@ -47,6 +47,7 @@ def term x
     lambda do |o|
       v = o.field($1)
       v2 = coerce_str v.class, $'
+      return false if v == nil and $2 != '='
       case $2
       when '=' then v == v2
       when '!=' then v != v2
