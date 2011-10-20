@@ -64,7 +64,19 @@ def output_formatted_none result, info, hints
 end
 
 def output_formatted_simple result, info, hints
-  pp result
+  case result
+  when RbVmomi::BasicTypes::DataObject
+    prop_descs = result.class.ancestors.
+                        take_while { |x| x != RbVmomi::BasicTypes::DataObject &&
+                                         x != VIM::DynamicData }.
+                        map(&:props_desc).flatten(1)
+    prop_descs.each do |desc|
+      print "#{desc['name']}: "
+      pp result.send desc['name']
+    end
+  else
+    pp result
+  end
 end
 
 def table_key str
