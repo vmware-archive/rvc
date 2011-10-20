@@ -84,9 +84,22 @@ def table_key str
 end
 
 def output_formatted_table result, info, hints
-  columns = hints['table-columns'].split ','
+  if result.empty?
+    puts "Empty result"
+    return
+  end
+
+  columns =
+    if hints.member? 'table-columns'
+      hints['table-columns'].split ','
+    elsif k = hints.keys.find { |k| k =~ /^fields:/ }
+      hints[k].split ','
+    else []
+    end
   ordering = columns.map { |x| table_key x }
+
   units = Hash[hints.select { |k,v| k =~ /^units:/ }.map { |k,v| [table_key(k.match(/[^.]+$/).to_s), v] }]
+
   table = Terminal::Table.new :headings => columns
   result.each do |r|
     row = []
