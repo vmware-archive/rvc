@@ -40,10 +40,16 @@ module Completion
 
   Completor = lambda do |word|
     return unless word
-    line = Readline.line_buffer if Readline.respond_to? :line_buffer
-    append_char, candidates = RVC::Completion.complete word, line
-    Readline.completion_append_character = append_char
-    candidates
+    begin
+      line = Readline.line_buffer if Readline.respond_to? :line_buffer
+      append_char, candidates = RVC::Completion.complete word, line
+      Readline.completion_append_character = append_char
+      candidates
+    rescue RVC::Util::UserError
+      puts
+      puts $!.message
+      Readline.refresh_line
+    end
   end
 
   def self.install
