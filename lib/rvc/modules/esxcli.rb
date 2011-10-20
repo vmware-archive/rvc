@@ -31,8 +31,8 @@ rvc_completor :execute do |line, args, word, argnum|
 
     case o
     when VIM::EsxcliCommand
-      # TODO complete long options
-      candidates = []
+      parser = o.option_parser
+      candidates = parser.specs.map { |k,v| "--#{v[:long]}" }.sort
     when VIM::EsxcliNamespace
       candidates = o.children.keys
     else
