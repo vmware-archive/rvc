@@ -74,10 +74,13 @@ module Completion
     else
       # Completing arguments
       mod, cmd, args = Shell.parse_input line
-      slash_candidates = child_candidates(word) +
-                         mark_candidates(word)
-      space_candidates = RVC::complete_for_cmd(line, word) +
-                         long_option_candidates(mod, cmd, word)
+      if mod.completor_for cmd
+        slash_candidates = []
+        space_candidates = RVC::complete_for_cmd(line, word)
+      else
+        slash_candidates = child_candidates(word) + mark_candidates(word)
+        space_candidates = long_option_candidates(mod, cmd, word)
+      end
     end
 
     candidates = slash_candidates + space_candidates
