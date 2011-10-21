@@ -142,4 +142,9 @@ class RbVmomi::VIM::DistributedVirtualPort
       'host' => self.proxyHost
     }
   end
+
+  def invalidate vds
+    port = vds.FetchDVPorts(:criteria => { :portKey => [self.key] }).first
+    @props = port.props
+  end
 end
