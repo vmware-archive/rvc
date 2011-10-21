@@ -21,6 +21,11 @@
 class RbVmomi::VIM::ManagedEntity
   include RVC::InventoryObject
 
+  field :name do
+    summary "Name"
+    property 'name'
+  end
+
   STATUS_COLORS = {
     'gray' => [],
     'red' => [:red],

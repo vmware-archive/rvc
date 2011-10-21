@@ -102,7 +102,7 @@ rvc_alias :debug
 def debug
   debug = $shell.debug = !$shell.debug
   $shell.connections.each do |name,conn|
-    conn.debug = debug
+    conn.debug = debug if conn.respond_to? :debug
   end
 end
 
@@ -386,3 +386,50 @@ def events obj, opts
 ensure
   collector.DestroyCollector if collector
 end
+
+
+opts :fields do
+  summary "Show available fields on an object"
+  arg :obj, nil, :required => false, :default => '.', :lookup => RVC::InventoryObject
+end
+
+def fields obj
+  obj.class.ancestors.select { |x| x.respond_to? :fields }.each do |klass|
+    fields = klass.fields false
+    next if fields.empty?
+    puts "Fields on #{klass}:"
+    fields.each do |name,field|
+      puts " #{name}: #{field.summary}"
+    end
+  end
+end
+
+rvc_alias :fields
+
+
+opts :table do
+  summary "Display a table with the selected fields"
+  arg :obj, nil, :multi => true, :lookup => RVC::InventoryObject
+  opt :field, "Field to display", :multi => true, :default => 'name'
+  opt :sort, "Field to sort by", :type => :string
+end
+
+def table objs, opts
+  fields = opts[:field]
+
+  data = objs.map do |obj|
+    Hash[fields.map { |k| [k, obj.field(k)] }]
+  end
+
+  if opts[:sort]
+    data.sort_by! { |h| h[opts[:sort]] }
+  end
+
+  table = Terminal::Table.new(:headings => opts[:field])
+  data.each do |h|
+    table.add_row(opts[:field].map { |f| h[f] || 'N/A' })
+  end
+  puts table
+end
+
+rvc_alias :table

@@ -30,13 +30,19 @@ module InventoryObject
       false
     end
 
-    def fields
+    def fields inherited=true
       @fields ||= {}
+      if inherited and superclass.respond_to? :fields
+        superclass.fields.merge @fields
+      else
+        @fields.dup
+      end
     end
 
     def field name, &b
       name = name.to_s
-      fields[name] = RVC::Field.new(name).tap { |f| f.instance_eval &b }
+      @fields ||= {}
+      @fields[name] = RVC::Field.new(name).tap { |f| f.instance_eval &b }
       define_method(name) { field name }
     end
   end
