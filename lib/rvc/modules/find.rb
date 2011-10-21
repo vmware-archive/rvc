@@ -43,18 +43,22 @@ def term x
   when /^!/
     t2 = term $'
     lambda { |o| !t2[o] }
-  when /^(\w+)(=|!=|>|>=|<|<=)/
+  when /^(\w+)(=|!=|>|>=|<|<=|~)/
+    lhs = $1
+    op = $2
+    rhs = $'
     lambda do |o|
-      v = o.field($1)
-      v2 = coerce_str v.class, $'
-      return false if v == nil and $2 != '='
-      case $2
-      when '=' then v == v2
-      when '!=' then v != v2
-      when '>' then v > v2
-      when '>=' then v >= v2
-      when '<' then v < v2
-      when '<=' then v <= v2
+      a = o.field(lhs)
+      b = coerce_str a.class, rhs
+      return false if a == nil and op != '='
+      case op
+      when '=' then a == b
+      when '!=' then a != b
+      when '>' then a > b
+      when '>=' then a >= b
+      when '<' then a < b
+      when '<=' then a <= b
+      when '~' then a =~ Regexp.new(b)
       end
     end
   when /^\w+$/
@@ -65,7 +69,7 @@ def term x
 end
 
 def coerce_str type, v
-  fail unless v.is_a? String
+  fail "expected String, got #{v.class}" unless v.is_a? String
   if type <= Integer then v.to_i
   elsif type == Float then v.to_f
   elsif type == TrueClass or type == FalseClass then v == 'true'
