@@ -69,26 +69,29 @@ module Completion
 
     if !first_whitespace_index || first_whitespace_index >= Readline.point
       # Completing command
-      slash_candidates = []
-      space_candidates = cmd_candidates(word)
+      candidates = cmd_candidates(word)
     else
       # Completing arguments
       mod, cmd, args = Shell.parse_input line
-      slash_candidates = child_candidates(word) +
-                         mark_candidates(word)
-      space_candidates = RVC::complete_for_cmd(line, word) +
-                         long_option_candidates(mod, cmd, word)
+      if mod.completor_for cmd
+        candidates = RVC::complete_for_cmd(line, word)
+      else
+        candidates = fs_candidates(word) +
+                     long_option_candidates(mod, cmd, word)
+      end
     end
 
-    candidates = slash_candidates + space_candidates
-
-    if candidates.size == 1 and space_candidates.member?(candidates[0])
-      append_char = ' '
+    if candidates.size == 1
+      append_char = candidates[0][1]
     else
-      append_char = '/'
+      append_char = '?' # should never be displayed
     end
 
-    return append_char, candidates
+    return append_char, candidates.map(&:first)
+  end
+
+  def self.fs_candidates word
+    child_candidates(word) + mark_candidates(word)
   end
 
   def self.cmd_candidates word
@@ -98,7 +101,8 @@ module Completion
       m.commands.each { |s| ret << "#{name}.#{s}" }
     end
     ret.concat ALIASES.keys
-    ret.sort.select { |e| e.match(prefix_regex) }
+    ret.grep(prefix_regex).sort.
+        map { |x| [x, ' '] }
   end
 
   def self.long_option_candidates mod, cmd, word
@@ -106,7 +110,9 @@ module Completion
     parser = mod.opts_for cmd
     return [] unless parser.is_a? RVC::OptionParser
     prefix_regex = /^#{Regexp.escape(word)}/
-    parser.specs.map { |k,v| "--#{v[:long]}" }.grep(prefix_regex).sort
+    parser.specs.map { |k,v| "--#{v[:long]}" }.
+                 grep(prefix_regex).sort.
+                 map { |x| [x, ' '] }
   end
 
   # TODO convert to globbing
@@ -121,13 +127,15 @@ module Completion
     children.
       select { |k,v| k.gsub(' ', '\\ ') =~ /^#{Regexp.escape(last)}/ }.
       map { |k,v| (arcs+[k])*'/' }.
-      map { |x| x.gsub ' ', '\\ ' }
+      map { |x| x.gsub ' ', '\\ ' }.
+      map { |x| [x, '/'] }
   end
 
   def self.mark_candidates word
     return [] unless word.empty? || word[0..0] == '~'
     prefix_regex = /^#{Regexp.escape(word[1..-1] || '')}/
-    $shell.session.marks.sort.grep(prefix_regex).map { |x| "~#{x}" }
+    $shell.session.marks.grep(prefix_regex).sort.
+                         map { |x| ["~#{x}", '/'] }
   end
 end
 end

@@ -23,7 +23,7 @@ end
 rvc_completor :execute do |line, args, word, argnum|
   if argnum == 0
     # HostSystem argument
-    []
+    RVC::Completion.fs_candidates word
   else
     # esxcli namespace/method/arguments
     host = lookup_single! args[0], VIM::HostSystem
@@ -31,15 +31,16 @@ rvc_completor :execute do |line, args, word, argnum|
 
     case o
     when VIM::EsxcliCommand
-      # TODO complete long options
-      candidates = []
+      parser = o.option_parser
+      candidates = parser.specs.map { |k,v| "--#{v[:long]}" }.sort
     when VIM::EsxcliNamespace
       candidates = o.children.keys
     else
       fail "unreachable"
     end
 
-    candidates.grep(/^#{Regexp.escape word}/)
+    candidates.grep(/^#{Regexp.escape word}/).
+               map { |x| [x, ' '] }
   end
 end
 
