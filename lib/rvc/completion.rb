@@ -67,17 +67,27 @@ module Completion
     line ||= ''
     first_whitespace_index = line.index(' ')
 
-    if !first_whitespace_index || first_whitespace_index >= Readline.point
-      # Completing command
-      candidates = cmd_candidates(word)
+    if Readline.respond_to? :point
+      do_complete_cmd = !first_whitespace_index || first_whitespace_index >= Readline.point
+      do_complete_args = !do_complete_cmd
     else
-      # Completing arguments
+      do_complete_cmd = true
+      do_complete_args = true
+    end
+
+    candidates = []
+
+    if do_complete_cmd
+      candidates.concat cmd_candidates(word)
+    end
+
+    if do_complete_args
       mod, cmd, args = Shell.parse_input line
-      if mod.completor_for cmd
-        candidates = RVC::complete_for_cmd(line, word)
+      if mod and mod.completor_for cmd
+        candidates.concat RVC::complete_for_cmd(line, word)
       else
-        candidates = fs_candidates(word) +
-                     long_option_candidates(mod, cmd, word)
+        candidates.concat(fs_candidates(word) +
+                          long_option_candidates(mod, cmd, word))
       end
     end
 
