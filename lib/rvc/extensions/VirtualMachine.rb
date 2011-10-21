@@ -75,6 +75,11 @@ class RbVmomi::VIM::VirtualMachine
       guest_net = guest.net.find { |x| x.macAddress == dev.macAddress }
       puts " #{dev.deviceInfo.label}: #{backing_info} #{dev.connectable.connected ? :connected : :disconnected} #{dev.macAddress} #{guest_net ? (guest_net.ipAddress * ' ') : ''}"
     end
+
+    puts "storage:"
+    storage.perDatastoreUsage.map do |usage|
+      puts " #{usage.datastore.name}: committed=#{usage.committed.metric}B uncommitted=#{usage.uncommitted.metric}B unshared=#{usage.unshared.metric}B"
+    end
   end
 
   def self.ls_properties

@@ -360,11 +360,14 @@ end
 
 def answer str, vms
   vms.each do |vm|
-    q = vm.runtime.question
-    if q
-      choice = q.choice.choiceInfo.find { |x| x.label == str }
-      err("invalid answer") unless choice
-      vm.AnswerVM :questionId => q.id, :answerChoice => choice.key
+    begin
+      if q = vm.runtime.question
+        choice = q.choice.choiceInfo.find { |x| x.label == str }
+        err("invalid answer") unless choice
+        vm.AnswerVM :questionId => q.id, :answerChoice => choice.key
+      end
+    rescue
+      puts "#{vm.name rescue vm}: #{$!.message}"
     end
   end
 end

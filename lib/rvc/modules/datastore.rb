@@ -223,7 +223,7 @@ def find_orphans ds, opts
   end]
   filenames = vmFilenameHash.values.flatten(1)
   vmDirectories = filenames.map{ |x| x.split('/').first }.uniq
-  orphanDirectories = (dsDirectories - vmDirectories)
+  orphanDirectories = (dsDirectories - vmDirectories).reject { |x| x =~ /^\./ }
   puts "Found #{orphanDirectories.length} potentially orphaned directories"
   
   puts "Composing list of potentially orphaned files ... (this may take a while)"
