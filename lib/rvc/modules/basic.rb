@@ -419,8 +419,8 @@ def table objs, opts
 
   data = retrieve_fields(objs, fields).values
 
-  if opts[:sort]
-    data.sort_by! { |h| h[opts[:sort]] }
+  if f = opts[:sort]
+    data.sort! { |a,b| table_sort_compare a[f], b[f] }
   end
 
   table = Terminal::Table.new(:headings => fields)
@@ -428,6 +428,14 @@ def table objs, opts
     table.add_row(opts[:field].map { |f| h[f] || 'N/A' })
   end
   puts table
+end
+
+def table_sort_compare a, b
+  return a <=> b if a != nil and b != nil
+  return 0 if a == nil and b == nil
+  return -1 if a == nil
+  return 1 if b == nil
+  fail
 end
 
 rvc_alias :table
