@@ -88,6 +88,7 @@ def apply_settings obj, port_spec
     tasks [vds], :ReconfigureDVPort, :port => [{ :key => obj.key,
                                                  :operation => 'edit',
                                                  :setting => port_spec }]
+    obj.invalidate vds
   end
 end
 
