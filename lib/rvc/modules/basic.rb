@@ -102,7 +102,7 @@ rvc_alias :debug
 def debug
   debug = $shell.debug = !$shell.debug
   $shell.connections.each do |name,conn|
-    conn.debug = debug
+    conn.debug = debug if conn.respond_to? :debug
   end
 end
 
