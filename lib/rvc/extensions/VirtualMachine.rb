@@ -19,11 +19,6 @@
 # THE SOFTWARE.
 
 class RbVmomi::VIM::VirtualMachine
-  field :name do
-    summary "Name"
-    property 'name'
-  end
-
   field :on do
     summary "Is the VM powered on?"
     properties %w(runtime.powerState)

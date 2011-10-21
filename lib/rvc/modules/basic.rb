@@ -386,3 +386,22 @@ def events obj, opts
 ensure
   collector.DestroyCollector if collector
 end
+
+
+opts :fields do
+  summary "Show available fields on an object"
+  arg :obj, nil, :required => false, :default => '.', :lookup => RVC::InventoryObject
+end
+
+def fields obj
+  obj.class.ancestors.select { |x| x.respond_to? :fields }.each do |klass|
+    fields = klass.fields false
+    next if fields.empty?
+    puts "Fields on #{klass}:"
+    fields.each do |name,field|
+      puts " #{name}: #{field.summary}"
+    end
+  end
+end
+
+rvc_alias :fields
