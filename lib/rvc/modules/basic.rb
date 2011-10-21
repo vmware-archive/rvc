@@ -405,3 +405,31 @@ def fields obj
 end
 
 rvc_alias :fields
+
+
+opts :table do
+  summary "Display a table with the selected fields"
+  arg :obj, nil, :multi => true, :lookup => RVC::InventoryObject
+  opt :field, "Field to display", :multi => true, :default => 'name'
+  opt :sort, "Field to sort by", :type => :string
+end
+
+def table objs, opts
+  fields = opts[:field]
+
+  data = objs.map do |obj|
+    Hash[fields.map { |k| [k, obj.field(k)] }]
+  end
+
+  if opts[:sort]
+    data.sort_by! { |h| h[opts[:sort]] }
+  end
+
+  table = Terminal::Table.new(:headings => opts[:field])
+  data.each do |h|
+    table.add_row(opts[:field].map { |f| h[f] || 'N/A' })
+  end
+  puts table
+end
+
+rvc_alias :table
