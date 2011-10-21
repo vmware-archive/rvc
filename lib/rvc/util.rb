@@ -216,6 +216,10 @@ module Util
     i ||= METRIC_PREFIXES.size - 1
     "%0.2f %s" % [num/(1000**i), METRIC_PREFIXES[i]]
   end
+
+  def retrieve_fields objs, fields
+    Hash[objs.map { |o| [o, Hash[fields.map { |f| [f, o.field(f)] }]] }]
+  end
 end
 end
 

@@ -417,15 +417,13 @@ end
 def table objs, opts
   fields = opts[:field]
 
-  data = objs.map do |obj|
-    Hash[fields.map { |k| [k, obj.field(k)] }]
-  end
+  data = retrieve_fields(objs, fields).values
 
   if opts[:sort]
     data.sort_by! { |h| h[opts[:sort]] }
   end
 
-  table = Terminal::Table.new(:headings => opts[:field])
+  table = Terminal::Table.new(:headings => fields)
   data.each do |h|
     table.add_row(opts[:field].map { |f| h[f] || 'N/A' })
   end
