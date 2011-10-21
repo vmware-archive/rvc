@@ -83,11 +83,13 @@ def self.complete_for_cmd line, word
   if completor == nil
     return []
   end
-  words = completor.call(line, args, word, argnum)
-  if words == nil
+
+  candidates = completor.call(line, args, word, argnum)
+  if candidates == nil
     []
   else
-    words.select{|i| /^#{word}/.match i}
+    prefix_regex = /^#{Regexp.escape word}/
+    candidates.select { |x,a| x =~ prefix_regex }
   end
 end
 
