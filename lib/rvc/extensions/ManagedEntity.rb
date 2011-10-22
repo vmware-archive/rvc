@@ -27,6 +27,12 @@ class RbVmomi::VIM::ManagedEntity
     default
   end
 
+  field 'status' do
+    summary 'Status (green/yellow/red/gray)'
+    property 'overallStatus'
+    default
+  end
+
   STATUS_COLORS = {
     'gray' => [],
     'red' => [:red],
