@@ -410,12 +410,18 @@ rvc_alias :fields
 opts :table do
   summary "Display a table with the selected fields"
   arg :obj, nil, :multi => true, :lookup => RVC::InventoryObject
-  opt :field, "Field to display", :multi => true, :default => 'name'
+  opt :field, "Field to display", :multi => true, :type => :string
   opt :sort, "Field to sort by", :type => :string
 end
 
 def table objs, opts
-  fields = opts[:field]
+  if opts[:field_given]
+    fields = opts[:field]
+  else
+    fields = objs.map(&:class).uniq.
+                  map { |x| x.fields.select { |k,v| v.default? } }.
+                  map(&:keys).flatten(1).uniq
+  end
 
   data = retrieve_fields(objs, fields).values
 
@@ -437,7 +443,7 @@ def table objs, opts
   header_rows.each { |row| table.add_row row }
   table.add_separator
   data.each do |h|
-    table.add_row(opts[:field].map { |f| h[f] == nil ? 'N/A' : h[f] })
+    table.add_row(fields.map { |f| h[f] == nil ? 'N/A' : h[f] })
   end
   puts table
 end

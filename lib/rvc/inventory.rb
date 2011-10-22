@@ -170,6 +170,7 @@ class RVC::Field
     @summary = nil
     @properties = []
     @block = nil
+    @default = false
   end
 
   def summary x=nil
@@ -183,6 +184,12 @@ class RVC::Field
   def block &x
     x ? (@block = x) : @block
   end
+
+  def default
+    @default = true
+  end
+
+  def default?; @default; end
 
   def property prop
     @properties = [prop]

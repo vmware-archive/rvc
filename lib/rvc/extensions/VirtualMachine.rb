@@ -23,6 +23,7 @@ class RbVmomi::VIM::VirtualMachine
     summary "Is the VM powered on?"
     properties %w(runtime.powerState)
     block { |powerState| powerState == 'poweredOn' }
+    default
   end
 
   field 'ip' do

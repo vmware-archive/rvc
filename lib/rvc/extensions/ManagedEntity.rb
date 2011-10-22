@@ -24,6 +24,7 @@ class RbVmomi::VIM::ManagedEntity
   field 'name' do
     summary "Name"
     property 'name'
+    default
   end
 
   STATUS_COLORS = {
