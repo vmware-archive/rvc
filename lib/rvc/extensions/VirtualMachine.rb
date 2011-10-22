@@ -41,6 +41,14 @@ class RbVmomi::VIM::VirtualMachine
     block { |t| t ? TimeDiff.new(Time.now-t) : nil }
   end
 
+  field :storage do
+    summary "Total storage committed"
+    properties %w(storage)
+    block do |storage|
+      storage.perDatastoreUsage.map(&:committed).sum
+    end
+  end
+
   def display_info
     config, runtime, guest = collect :config, :runtime, :guest
     RVC::Util.err "Information currently unavailable" unless config and runtime and guest
