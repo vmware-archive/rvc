@@ -385,6 +385,14 @@ shown by the "fields" command.
   opt :reverse, "Reverse sort order"
 end
 
+rvc_completor :table do |line, args, word, argnum|
+  if argnum > 0 and args[argnum-1] == '-f'
+    RVC::Field::ALL_FIELD_NAMES.map { |x| [x, ' '] }
+  else
+    RVC::Completion.fs_candidates word
+  end
+end
+
 def table objs, opts
   if opts[:field_given]
     fields = opts[:field].map { |x| x.split ':' }.flatten(1)

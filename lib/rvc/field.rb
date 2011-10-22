@@ -58,12 +58,15 @@ module ObjectWithFields
 end
 
 class Field
+  ALL_FIELD_NAMES = Set.new
+
   def initialize name
     @name = name
     @summary = nil
     @properties = []
     @block = nil
     @default = false
+    ALL_FIELD_NAMES << name
   end
 
   def summary x=nil
