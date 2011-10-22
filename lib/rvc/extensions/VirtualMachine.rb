@@ -38,7 +38,7 @@ class RbVmomi::VIM::VirtualMachine
   field :uptime do
     summary "VM's uptime in seconds"
     properties %w(runtime.bootTime)
-    block { |t| t ? (Time.now-t).to_i : nil }
+    block { |t| t ? TimeDiff.new(Time.now-t) : nil }
   end
 
   def display_info

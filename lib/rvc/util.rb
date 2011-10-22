@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'delegate'
+
 module RVC
 module Util
   extend self
@@ -226,5 +228,21 @@ end
 class Numeric
   def metric
     RVC::Util.metric self
+  end
+end
+
+class TimeDiff < SimpleDelegator
+  def initialize val
+    super
+  end
+
+  def to_s
+    i = self.to_i
+    seconds = i % 60
+    i /= 60
+    minutes = i % 60
+    i /= 60
+    hours = i
+    [hours, minutes, seconds].join ':'
   end
 end
