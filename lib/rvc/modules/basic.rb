@@ -423,7 +423,19 @@ def table objs, opts
     data.sort! { |a,b| table_sort_compare a[f], b[f] }
   end
 
-  table = Terminal::Table.new(:headings => fields)
+  # Invert field components to get an array of header rows
+  field_components = fields.map { |x| x.split '.' }
+  header_rows = []
+  field_components.each_with_index do |cs,i|
+    cs.each_with_index do |c,j|
+      header_rows[j] ||= [nil]*field_components.length
+      header_rows[j][i] = c
+    end
+  end
+  
+  table = Terminal::Table.new
+  header_rows.each { |row| table.add_row row }
+  table.add_separator
   data.each do |h|
     table.add_row(opts[:field].map { |f| h[f] == nil ? 'N/A' : h[f] })
   end
