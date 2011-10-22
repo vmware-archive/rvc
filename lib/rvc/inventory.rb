@@ -18,31 +18,22 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/field'
+
 module RVC
 
 module InventoryObject
+  include ObjectWithFields
+
   module ClassMethods
+    include ObjectWithFields::ClassMethods
+
     def ls_properties
       %w()
     end
 
     def folder?
       false
-    end
-
-    def fields inherited=true
-      @fields ||= {}
-      if inherited and superclass.respond_to? :fields
-        superclass.fields.merge @fields
-      else
-        @fields.dup
-      end
-    end
-
-    def field name, &b
-      name = name.to_s
-      @fields ||= {}
-      @fields[name] = RVC::Field.new(name).tap { |f| f.instance_eval &b }
     end
   end
 
@@ -87,24 +78,6 @@ module InventoryObject
     return if @rvc_parent
     @rvc_parent = parent
     @rvc_arc = arc
-  end
-
-  def field name
-    name = name.to_s
-    field = self.class.fields[name]
-    if field == nil
-      return nil
-    elsif self.class < VIM::ManagedObject
-      *props = collect *field.properties
-    else
-      props = []
-      field.properties.each do |propstr|
-        obj = self
-        propstr.split('.').each { |prop| obj = obj.send(prop) }
-        props << obj
-      end
-    end
-    field.block.call *props
   end
 end
 
@@ -161,38 +134,5 @@ class RbVmomi::VIM
 
   def self.folder?
     true
-  end
-end
-
-class RVC::Field
-  def initialize name
-    @name = name
-    @summary = nil
-    @properties = []
-    @block = nil
-    @default = false
-  end
-
-  def summary x=nil
-    x ? (@summary = x) : @summary
-  end
-
-  def properties x=nil
-    x ? (@properties.concat x) : @properties
-  end
-
-  def block &x
-    x ? (@block = x) : @block
-  end
-
-  def default
-    @default = true
-  end
-
-  def default?; @default; end
-
-  def property prop
-    @properties = [prop]
-    @block = lambda { |x| x }
   end
 end
