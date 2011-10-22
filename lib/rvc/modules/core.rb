@@ -19,6 +19,9 @@ end
 rvc_alias :reload
 
 def reload opts
+  old_verbose = $VERBOSE
+  $VERBOSE = nil unless opts[:verbose]
+
   RVC.reload_modules opts[:verbose]
 
   typenames = Set.new(VIM.loader.typenames.select { |x| VIM.const_defined? x })
@@ -34,4 +37,7 @@ def reload opts
       end
     end
   end
+
+ensure
+  $VERBOSE = old_verbose
 end
