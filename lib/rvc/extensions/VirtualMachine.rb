@@ -41,11 +41,27 @@ class RbVmomi::VIM::VirtualMachine
     block { |t| t ? TimeDiff.new(Time.now-t) : nil }
   end
 
-  field 'storage' do
-    summary "Total storage committed"
+  field 'storage.used' do
+    summary "Total storage used"
     properties %w(storage)
     block do |storage|
       MetricNumber.new(storage.perDatastoreUsage.map(&:committed).sum, 'B')
+    end
+  end
+
+  field 'storage.unshared' do
+    summary "Total storage unshared"
+    properties %w(storage)
+    block do |storage|
+      MetricNumber.new(storage.perDatastoreUsage.map(&:unshared).sum, 'B')
+    end
+  end
+
+  field 'storage.provisioned' do
+    summary "Total storage provisioned"
+    properties %w(storage)
+    block do |storage|
+      MetricNumber.new(storage.perDatastoreUsage.map { |x| x.uncommitted + x.committed }.sum, 'B')
     end
   end
 
