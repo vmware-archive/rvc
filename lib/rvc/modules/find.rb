@@ -43,7 +43,7 @@ def term x
   when /^!/
     t2 = term $'
     lambda { |o| !t2[o] }
-  when /^(\w+)(=|!=|>|>=|<|<=|~)/
+  when /^([\w.]+)(=|!=|>|>=|<|<=|~)/
     lhs = $1
     op = $2
     rhs = $'
