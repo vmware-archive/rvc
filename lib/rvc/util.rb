@@ -223,7 +223,7 @@ module Util
     Hash[objs.map do |o|
       begin
         [o, Hash[fields.map { |f| [f, o.field(f)] }]]
-      rescue ManagedObjectNotFound
+      rescue VIM::ManagedObjectNotFound
         next
       end
     end]
