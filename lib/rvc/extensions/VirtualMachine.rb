@@ -66,6 +66,11 @@ class RbVmomi::VIM::VirtualMachine
     end
   end
 
+  field 'guest.id' do
+    summary 'Guest OS identifier'
+    property 'summary.config.guestId'
+  end
+
   def display_info
     config, runtime, guest = collect :config, :runtime, :guest
     RVC::Util.err "Information currently unavailable" unless config and runtime and guest
