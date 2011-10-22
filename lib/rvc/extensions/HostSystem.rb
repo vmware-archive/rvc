@@ -56,7 +56,6 @@ class RbVmomi::VIM::HostSystem
     {
       'vms' => RVC::FakeFolder.new(self, :ls_vms),
       'datastores' => RVC::FakeFolder.new(self, :ls_datastores),
-      'esxcli' => RVC::LazyEsxcliNamespace.new(self)
     }
   end
 
@@ -69,54 +68,7 @@ class RbVmomi::VIM::HostSystem
   end
 end
 
-class RVC::LazyEsxcliNamespace
-  include RVC::InventoryObject
-  attr_reader :ns
-
-  [:children, :traverse_one].each do |sym|
-    begin
-      undef_method sym
-    rescue NameError
-    end
-  end
-
-  def initialize host
-    @host = host
-    @ns = nil
-  end
-
-  def method_missing *a
-    @ns ||= @host.esxcli
-    @ns.send *a
-  end
-end
-
-class VIM::EsxcliNamespace
-  include RVC::InventoryObject
-
-  def ls_text r
-    if cli_info
-      "/ - #{cli_info.help}"
-    else
-      "/"
-    end
-  end
-
-  def children
-    {}.tap do |h|
-      h.merge! @namespaces
-      h.merge! @commands
-    end
-  end
-end
-
 class VIM::EsxcliCommand
-  include RVC::InventoryObject
-
-  def ls_text r
-    " - #{cli_info.help}"
-  end
-
   def option_parser
     parser = Trollop::Parser.new
     parser.text cli_info.help

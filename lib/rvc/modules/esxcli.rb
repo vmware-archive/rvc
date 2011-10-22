@@ -54,7 +54,7 @@ rvc_completor :execute do |line, args, word, argnum|
       parser = o.option_parser
       candidates = parser.specs.map { |k,v| "--#{v[:long]}" }.sort
     when VIM::EsxcliNamespace
-      candidates = o.children.keys
+      candidates = o.namespaces.keys + o.commands.keys
     else
       fail "unreachable"
     end
