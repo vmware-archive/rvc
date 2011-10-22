@@ -43,7 +43,6 @@ module InventoryObject
       name = name.to_s
       @fields ||= {}
       @fields[name] = RVC::Field.new(name).tap { |f| f.instance_eval &b }
-      define_method(name) { field name }
     end
   end
 
