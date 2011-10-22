@@ -71,6 +71,18 @@ class RbVmomi::VIM::VirtualMachine
     property 'summary.config.guestId'
   end
 
+  field 'tools.running' do
+    summary 'Are guest tools running?'
+    properties %w(guest.toolsRunningStatus)
+    block { |status| status == 'guestToolsRunning' }
+  end
+
+  field 'tools.uptodate' do
+    summary "Are guest tools up to date?"
+    properties %w(guest.toolsVersionStatus)
+    block { |status| status == 'guestToolsCurrent' }
+  end
+
   def display_info
     config, runtime, guest = collect :config, :runtime, :guest
     RVC::Util.err "Information currently unavailable" unless config and runtime and guest
