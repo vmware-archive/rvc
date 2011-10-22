@@ -21,7 +21,7 @@
 class RbVmomi::VIM::ManagedEntity
   include RVC::InventoryObject
 
-  field :name do
+  field 'name' do
     summary "Name"
     property 'name'
   end

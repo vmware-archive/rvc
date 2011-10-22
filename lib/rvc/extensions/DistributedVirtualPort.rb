@@ -21,7 +21,7 @@
 class RbVmomi::VIM::DistributedVirtualPort
   include RVC::InventoryObject
 
-  field :ip do
+  field 'ip' do
     summary "The guest tools reported IP address."
     property 'connectee'
     block do |c|
@@ -40,7 +40,7 @@ class RbVmomi::VIM::DistributedVirtualPort
     end
   end
 
-  field :mac do
+  field 'mac' do
     summary "The guest tools reported IP address."
     property 'connectee'
     block do |c|

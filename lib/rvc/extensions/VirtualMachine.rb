@@ -19,29 +19,29 @@
 # THE SOFTWARE.
 
 class RbVmomi::VIM::VirtualMachine
-  field :on do
+  field 'on' do
     summary "Is the VM powered on?"
     properties %w(runtime.powerState)
     block { |powerState| powerState == 'poweredOn' }
   end
 
-  field :ip do
+  field 'ip' do
     summary "The guest tools reported IP address."
     property 'guest.ipAddress'
   end
 
-  field :template do
+  field 'template' do
     summary "Is this VM a template?"
     property 'config.template'
   end
 
-  field :uptime do
+  field 'uptime' do
     summary "VM's uptime in seconds"
     properties %w(runtime.bootTime)
     block { |t| t ? TimeDiff.new(Time.now-t) : nil }
   end
 
-  field :storage do
+  field 'storage' do
     summary "Total storage committed"
     properties %w(storage)
     block do |storage|
