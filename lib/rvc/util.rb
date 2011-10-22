@@ -220,7 +220,13 @@ module Util
   end
 
   def retrieve_fields objs, fields
-    Hash[objs.map { |o| [o, Hash[fields.map { |f| [f, o.field(f)] }]] }]
+    Hash[objs.map do |o|
+      begin
+        [o, Hash[fields.map { |f| [f, o.field(f)] }]]
+      rescue ManagedObjectNotFound
+        next
+      end
+    end]
   end
 end
 end
@@ -247,7 +253,7 @@ class TimeDiff < SimpleDelegator
     seconds = a[0].to_i rescue 0
     minutes = a[1].to_i rescue 0
     hours = a[2].to_i rescue 0
-    hours * 3600 + minutes * 60 + seconds
+    TimeDiff.new(hours * 3600 + minutes * 60 + seconds)
   end
 end
 
@@ -259,5 +265,26 @@ class MetricNumber < SimpleDelegator
 
   def to_s
     RVC::Util.metric(self) + @unit
+  end
+
+  def self.parse str
+    if str =~ /^([0-9,.]+)([mgt])?/i
+      x = $1.delete(',').to_f
+      prefix = $2.downcase
+      units = $'
+
+      result = case prefix
+      when 'k' then x * (1000 ** 1)
+      when 'm' then x * (1000 ** 2)
+      when 'g' then x * (1000 ** 3)
+      when 't' then x * (1000 ** 4)
+      when nil then x
+      else raise "Unknown SI prefix '#{prefix}'"
+      end
+
+      new result, units
+    else
+      raise "Problem parsing SI number #{str.inspect}"
+    end
   end
 end
