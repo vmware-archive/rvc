@@ -141,7 +141,7 @@ Example:
   EOB
 end
 
-
+# XXX replace with MetricNumber.parse
 def realdisksize( size )
   size.downcase!
   if size =~ /([0-9][0-9,]*)([mgt])?/i

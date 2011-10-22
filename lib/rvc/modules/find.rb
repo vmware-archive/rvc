@@ -76,6 +76,7 @@ def coerce_str type, v
   elsif type == NilClass then v == 'nil' ? nil : !nil
   elsif v == 'nil' then nil
   elsif type == String then v
+  elsif type.respond_to? :parse then type.parse(v)
   else fail "unexpected coercion type #{type}"
   end
 end

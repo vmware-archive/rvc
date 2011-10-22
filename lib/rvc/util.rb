@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'delegate'
+
 module RVC
 module Util
   extend self
@@ -216,11 +218,73 @@ module Util
     i ||= METRIC_PREFIXES.size - 1
     "%0.2f %s" % [num/(1000**i), METRIC_PREFIXES[i]]
   end
+
+  def retrieve_fields objs, fields
+    Hash[objs.map do |o|
+      begin
+        [o, Hash[fields.map { |f| [f, o.field(f)] }]]
+      rescue ManagedObjectNotFound
+        next
+      end
+    end]
+  end
 end
 end
 
 class Numeric
   def metric
     RVC::Util.metric self
+  end
+end
+
+class TimeDiff < SimpleDelegator
+  def to_s
+    i = self.to_i
+    seconds = i % 60
+    i /= 60
+    minutes = i % 60
+    i /= 60
+    hours = i
+    [hours, minutes, seconds].join ':'
+  end
+
+  def self.parse str
+    a = str.split(':', 3).reverse
+    seconds = a[0].to_i rescue 0
+    minutes = a[1].to_i rescue 0
+    hours = a[2].to_i rescue 0
+    TimeDiff.new(hours * 3600 + minutes * 60 + seconds)
+  end
+end
+
+class MetricNumber < SimpleDelegator
+  def initialize val, unit
+    @unit = unit
+    super val
+  end
+
+  def to_s
+    RVC::Util.metric(self) + @unit
+  end
+
+  def self.parse str
+    if str =~ /^([0-9,.]+)([mgt])?/i
+      x = $1.delete(',').to_f
+      prefix = $2.downcase
+      units = $'
+
+      result = case prefix
+      when 'k' then x * (1000 ** 1)
+      when 'm' then x * (1000 ** 2)
+      when 'g' then x * (1000 ** 3)
+      when 't' then x * (1000 ** 4)
+      when nil then x
+      else raise "Unknown SI prefix '#{prefix}'"
+      end
+
+      new result, units
+    else
+      raise "Problem parsing SI number #{str.inspect}"
+    end
   end
 end
