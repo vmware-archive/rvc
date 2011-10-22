@@ -425,7 +425,7 @@ def table objs, opts
 
   table = Terminal::Table.new(:headings => fields)
   data.each do |h|
-    table.add_row(opts[:field].map { |f| h[f] || 'N/A' })
+    table.add_row(opts[:field].map { |f| h[f] == nil ? 'N/A' : h[f] })
   end
   puts table
 end
