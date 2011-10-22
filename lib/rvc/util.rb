@@ -232,10 +232,6 @@ class Numeric
 end
 
 class TimeDiff < SimpleDelegator
-  def initialize val
-    super
-  end
-
   def to_s
     i = self.to_i
     seconds = i % 60
@@ -244,5 +240,16 @@ class TimeDiff < SimpleDelegator
     i /= 60
     hours = i
     [hours, minutes, seconds].join ':'
+  end
+end
+
+class MetricNumber < SimpleDelegator
+  def initialize val, unit
+    @unit = unit
+    super val
+  end
+
+  def to_s
+    RVC::Util.metric(self) + @unit
   end
 end

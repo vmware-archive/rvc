@@ -45,7 +45,7 @@ class RbVmomi::VIM::VirtualMachine
     summary "Total storage committed"
     properties %w(storage)
     block do |storage|
-      storage.perDatastoreUsage.map(&:committed).sum
+      MetricNumber.new(storage.perDatastoreUsage.map(&:committed).sum, 'B')
     end
   end
 
