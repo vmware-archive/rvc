@@ -409,6 +409,15 @@ rvc_alias :fields
 
 opts :table do
   summary "Display a table with the selected fields"
+
+  text <<-EOS
+
+You may specify the fields to display using multiple -f options, or
+separate them with ':'. The available fields for an object are
+shown by the "fields" command.
+  EOS
+  text ""
+
   arg :obj, nil, :multi => true, :lookup => RVC::InventoryObject
   opt :field, "Field to display", :multi => true, :type => :string
   opt :sort, "Field to sort by", :type => :string
@@ -417,7 +426,7 @@ end
 
 def table objs, opts
   if opts[:field_given]
-    fields = opts[:field]
+    fields = opts[:field].map { |x| x.split ':' }.flatten(1)
   else
     fields = objs.map(&:class).uniq.
                   map { |x| x.fields.select { |k,v| v.default? } }.
