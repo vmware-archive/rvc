@@ -241,6 +241,14 @@ class TimeDiff < SimpleDelegator
     hours = i
     [hours, minutes, seconds].join ':'
   end
+
+  def self.parse str
+    a = str.split(':', 3).reverse
+    seconds = a[0].to_i rescue 0
+    minutes = a[1].to_i rescue 0
+    hours = a[2].to_i rescue 0
+    hours * 3600 + minutes * 60 + seconds
+  end
 end
 
 class MetricNumber < SimpleDelegator
