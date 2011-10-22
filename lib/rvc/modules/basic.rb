@@ -412,6 +412,7 @@ opts :table do
   arg :obj, nil, :multi => true, :lookup => RVC::InventoryObject
   opt :field, "Field to display", :multi => true, :type => :string
   opt :sort, "Field to sort by", :type => :string
+  opt :reverse, "Reverse sort order"
 end
 
 def table objs, opts
@@ -427,6 +428,7 @@ def table objs, opts
 
   if f = opts[:sort]
     data.sort! { |a,b| table_sort_compare a[f], b[f] }
+    data.reverse! if opts[:reverse]
   end
 
   # Invert field components to get an array of header rows
