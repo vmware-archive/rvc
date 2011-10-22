@@ -106,13 +106,18 @@ def self.reload_modules verbose=true
   Dir.glob(globs) do |f|
     module_name = File.basename(f)[0...-3]
     puts "loading #{module_name} from #{f}" if verbose
-    code = File.read f
-    unless RVC::MODULES.member? module_name
-      m = CmdModule.new module_name
-      CMD.define_singleton_method(module_name.to_sym) { m }
-      RVC::MODULES[module_name] = m
+    begin
+      code = File.read f
+      unless RVC::MODULES.member? module_name
+        m = CmdModule.new module_name
+        CMD.define_singleton_method(module_name.to_sym) { m }
+        RVC::MODULES[module_name] = m
+      end
+      RVC::MODULES[module_name].instance_eval code, f
+    rescue
+      puts "#{$!.class} while loading #{f}: #{$!.message}"
+      $!.backtrace.each { |x| puts x }
     end
-    RVC::MODULES[module_name].instance_eval code, f
   end
 end
 
