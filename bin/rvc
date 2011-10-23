@@ -157,7 +157,7 @@ else
         input = $opts[:cmd].shift || Readline.readline($shell.prompt, false) or break
       rescue
         puts "\n#{$!.class} during readline: #{$!.message}"
-        $!.backtrace.each { |x| puts x }
+        $!.backtrace.each { |x| puts x } if $shell.debug
         next
       end
       input = input.strip
