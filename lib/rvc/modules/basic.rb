@@ -104,6 +104,7 @@ def debug
   $shell.connections.each do |name,conn|
     conn.debug = debug if conn.respond_to? :debug
   end
+  puts "debug mode #{debug ? 'en' : 'dis'}abled"
 end
 
 
