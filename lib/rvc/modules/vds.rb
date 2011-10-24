@@ -48,14 +48,14 @@ def create_portgroup vds, name, opts
                                             :numPorts => opts[:numPorts] }]
 end
 
-opts :create do
+opts :create_vds do
   summary "Create a new vDS"
   arg :dest, "Destination", :lookup_parent => VIM::Folder
   opt :vds_version, "vDS version (i.e. '5.0.0', '4.1.0', '4.0.0')",
       :type => :string
 end
 
-def create dest, opts
+def create_vds dest, opts
   folder, name = *dest
   tasks [folder], :CreateDVS, :spec => { :configSpec => { :name => name },
                                          :productInfo => {
@@ -351,7 +351,6 @@ def subtract_ranges(ranges, minus_ranges)
   end
   outages
 end
-
 
 opts :security do
   summary "Configure a security settings on a vDS or portgroup"
