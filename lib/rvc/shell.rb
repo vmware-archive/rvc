@@ -73,6 +73,8 @@ class Shell
     rescue Exception
       puts "#{$!.class}: #{$!.message}"
       puts $!.backtrace * "\n"
+    ensure
+      $stdout.flush
     end
   end
 
