@@ -278,3 +278,49 @@ def tasks
     view.DestroyView if view
   end
 end
+
+
+opts :vmsupport do
+  summary "Download log bundles"
+  arg :vim, "VIM connection", :lookup => RbVmomi::VIM
+end
+
+DEFAULT_SERVER_PLACEHOLDER = '0.0.0.0'
+
+def vmsupport vim
+  diagMgr = vim.serviceContent.diagnosticManager
+  name = VIM.to_s
+  ip = 'ip'
+
+  puts "#{Time.now}: Generating log bundle for #{name} ..."
+  bundles =
+    begin
+      diagMgr.GenerateLogBundles_Task(:includeDefault => true).wait_for_completion
+    rescue VIM::TaskInProgress
+      $!.task.wait_for_completion
+    end
+
+  dest_path = nil
+  bundles.each do |b|
+    uri = URI.parse(b.url.sub('*', DEFAULT_SERVER_PLACEHOLDER))
+    dest_path = File.join(logDir, "#{name}-#{ip}-" + File.basename(uri.path))
+    puts "#{Time.now}: Downloading bundle #{b.url} to #{dest_path}"
+    if uri.host == DEFAULT_SERVER_PLACEHOLDER
+      vim.http.request_get(uri.path) do |res|
+        File.open dest_path, 'w' do |io|
+          res.read_body do |data|
+            io.write data
+            if $stdout.tty?
+              $stdout.write '.'
+              $stdout.flush
+            end
+          end
+        end
+        puts if $stdout.tty?
+      end
+    else
+      fail "Can't download logbundle, URI not supported"
+    end
+  end
+  dest_path
+end
