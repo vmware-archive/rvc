@@ -280,17 +280,18 @@ def tasks
 end
 
 
-opts :vmsupport do
+opts :logbundles do
   summary "Download log bundles"
   arg :vim, "VIM connection", :lookup => RbVmomi::VIM
+  opt :dest, "Destination directory", :default => '.'
 end
 
 DEFAULT_SERVER_PLACEHOLDER = '0.0.0.0'
 
-def vmsupport vim
+def logbundles vim, opts
   diagMgr = vim.serviceContent.diagnosticManager
-  name = VIM.to_s
-  ip = 'ip'
+  name = vim.host
+  FileUtils.mkdir_p opts[:dest]
 
   puts "#{Time.now}: Generating log bundle for #{name} ..."
   bundles =
@@ -303,7 +304,7 @@ def vmsupport vim
   dest_path = nil
   bundles.each do |b|
     uri = URI.parse(b.url.sub('*', DEFAULT_SERVER_PLACEHOLDER))
-    dest_path = File.join(logDir, "#{name}-#{ip}-" + File.basename(uri.path))
+    dest_path = File.join(opts[:dest], "#{name}-" + File.basename(uri.path))
     puts "#{Time.now}: Downloading bundle #{b.url} to #{dest_path}"
     if uri.host == DEFAULT_SERVER_PLACEHOLDER
       vim.http.request_get(uri.path) do |res|
