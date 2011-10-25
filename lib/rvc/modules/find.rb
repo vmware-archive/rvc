@@ -37,25 +37,39 @@ def find args, opts
   args[:root] ||= ['.']
   args[:term] ||= []
 
-  # TODO
-  err "only 1 root supported" if args[:root].size > 1
-  root_name = args[:root].first
-  root = lookup_single root_name
-
+  roots = args[:root].map { |x| lookup x }.flatten(1)
   terms = args[:term].map { |x| term x[1..-1] }
 
-  candidates = root.children.map { |k,v| FindResult.new [root_name,k], v }
-  results = candidates.select { |r| terms.all? { |t| t[r.obj] } }
+  candidates = leaves roots
+  results = candidates.select { |r| terms.all? { |t| t[r] } }
 
-  CMD.mark.mark opts[:mark], results.map(&:obj)
+  CMD.mark.mark opts[:mark], results
 
   i = 0
+  cwd = $shell.fs.cur.rvc_path_str
+  cwd_prefix = /^#{Regexp.escape cwd}\//
   results.each do |r|
-    display_path = r.path.reject { |x| x == '.' }.join('/')
-    puts "#{i} #{display_path}"
-    CMD.mark.mark i.to_s, [r.obj]
+    puts "#{i} #{r.rvc_path_str.gsub(cwd_prefix, '')}"
+    CMD.mark.mark i.to_s, [r]
     i += 1
   end
+end
+
+def leaves roots
+  leaves = Set.new
+  new_nodes = roots
+  while not new_nodes.empty?
+    nodes = new_nodes
+    new_nodes = Set.new
+    nodes.each do |node|
+      if node.class.folder?
+        node.children.each { |k,v| v.rvc_link(node, k); new_nodes << v }
+      else
+        leaves << node
+      end
+    end
+  end
+  leaves
 end
 
 def term x
@@ -98,14 +112,5 @@ def coerce_str type, v
   elsif type == String then v
   elsif type.respond_to? :parse then type.parse(v)
   else fail "unexpected coercion type #{type}"
-  end
-end
-
-class FindResult
-  attr_reader :path, :obj
-
-  def initialize path, obj
-    @path = path
-    @obj = obj
   end
 end
