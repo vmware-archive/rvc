@@ -83,16 +83,19 @@ def term x
     rhs = $'
     lambda do |o|
       a = o.field(lhs)
-      b = coerce_str a.class, rhs
-      return false if a == nil and op != '='
+      a = [a].compact unless a.is_a? Enumerable
+      return false if a.empty?
+      type = a.first.class
+      fail "all objects in field #{lhs.inspect} must have the same type" unless a.all? { |x| x.is_a? type }
+      b = coerce_str type, rhs
       case op
-      when '=' then a == b
-      when '!=' then a != b
-      when '>' then a > b
-      when '>=' then a >= b
-      when '<' then a < b
-      when '<=' then a <= b
-      when '~' then a =~ Regexp.new(b)
+      when '='  then a.any? { |x| x == b }
+      when '!=' then a.all? { |x| x != b }
+      when '>'  then a.any? { |x| x > b }
+      when '>=' then a.any? { |x| x >= b }
+      when '<'  then a.any? { |x| x < b }
+      when '<=' then a.any? { |x| x <= b }
+      when '~'  then a.any? { |x| x =~ Regexp.new(b) }
       end
     end
   when /^\w+$/

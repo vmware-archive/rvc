@@ -83,6 +83,12 @@ class RbVmomi::VIM::VirtualMachine
     block { |status| status == 'guestToolsCurrent' }
   end
 
+  field 'mac' do
+    summary "Mac address"
+    properties %w(config.hardware)
+    block { |hw| hw.device.grep(VIM::VirtualEthernetCard).map(&:macAddress) }
+  end
+
   def display_info
     config, runtime, guest = collect :config, :runtime, :guest
     RVC::Util.err "Information currently unavailable" unless config and runtime and guest
