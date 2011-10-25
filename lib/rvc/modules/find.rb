@@ -22,6 +22,7 @@ opts :find do
   summary "Find objects matching certain criteria"
   arg :args, "Paths or +terms", :required => false, :multi => true
   opt :mark, "Store results in an aggregate mark", :default => 'A'
+  opt :type, "Type of objects to return", :multi => true, :type => :string
 end
 
 rvc_alias :find
@@ -39,8 +40,9 @@ def find args, opts
 
   roots = args[:root].map { |x| lookup x }.flatten(1)
   terms = args[:term].map { |x| term x[1..-1] }
+  opts[:type].each { |t| terms <<  term("type=#{t}") }
 
-  candidates = leaves roots
+  candidates = leaves roots, opts[:type]
   results = candidates.select { |r| terms.all? { |t| t[r] } }
 
   CMD.mark.mark opts[:mark], results
@@ -55,14 +57,15 @@ def find args, opts
   end
 end
 
-def leaves roots
+def leaves roots, types = []
   leaves = Set.new
   new_nodes = roots
   while not new_nodes.empty?
     nodes = new_nodes
     new_nodes = Set.new
     nodes.each do |node|
-      if node.class.folder?
+      if (node.class.folder? or roots.member? node) and
+          (types & (node.field('type') || [])).empty?
         node.children.each { |k,v| v.rvc_link(node, k); new_nodes << v }
       else
         leaves << node
@@ -87,7 +90,6 @@ def term x
       fail "all objects in field #{lhs.inspect} must have the same type" unless a.all? { |x| x.is_a? type }
       b = coerce_str type, rhs
       a.any? do |x|
-        p [x, op, b]
         case op
         when '='  then x == b
         when '>'  then x > b
