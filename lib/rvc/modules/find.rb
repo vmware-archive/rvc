@@ -74,29 +74,29 @@ end
 
 def term x
   case x
-  when /^!/
-    t2 = term $'
-    lambda { |o| !t2[o] }
-  when /^([\w.]+)(=|!=|>|>=|<|<=|~)/
+  when /^([\w.]+)(!)?(>=|<=|=|>|<|~)/
     lhs = $1
-    op = $2
+    negate = $2 != nil
+    op = $3
     rhs = $'
     lambda do |o|
       a = o.field(lhs)
       a = [a].compact unless a.is_a? Enumerable
-      return false if a.empty?
+      return negate if a.empty?
       type = a.first.class
       fail "all objects in field #{lhs.inspect} must have the same type" unless a.all? { |x| x.is_a? type }
       b = coerce_str type, rhs
-      case op
-      when '='  then a.any? { |x| x == b }
-      when '!=' then a.all? { |x| x != b }
-      when '>'  then a.any? { |x| x > b }
-      when '>=' then a.any? { |x| x >= b }
-      when '<'  then a.any? { |x| x < b }
-      when '<=' then a.any? { |x| x <= b }
-      when '~'  then a.any? { |x| x =~ Regexp.new(b) }
-      end
+      a.any? do |x|
+        p [x, op, b]
+        case op
+        when '='  then x == b
+        when '>'  then x > b
+        when '>=' then x >= b
+        when '<'  then x < b
+        when '<=' then x <= b
+        when '~'  then x =~ Regexp.new(b)
+        end
+      end ^ negate
     end
   when /^\w+$/
     lambda { |o| o.field(x) }
