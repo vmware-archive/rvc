@@ -187,6 +187,8 @@ def block obj
   apply_settings obj, { :blocked => { :value => true, :inherited => false } }
 end
 
+rvc_alias :block, :shut
+
 opts :unblock do
   summary "Unblock traffic on a vDS, portgroup, or port"
   arg :obj, nil,
@@ -198,6 +200,8 @@ end
 def unblock obj
   apply_settings obj, { :blocked => { :value => false, :inherited => false } }
 end
+
+rvc_alias :unblock, :"no-shut"
 
 # XXX pvlan?
 opts :vlan_trunk do
