@@ -19,6 +19,13 @@
 # THE SOFTWARE.
 
 class RbVmomi::VIM::DistributedVirtualSwitch
+  field 'type' do
+    summary 'Type of the object'
+    block do
+      ['vds']
+    end
+  end
+
   def display_info
     config, = collect(:config)
     puts "name: #{config.name}"
@@ -70,8 +77,14 @@ class RbVmomi::VIM::DistributedVirtualSwitch
   end
 
   def children
+    portgroups = RVC::FakeFolder.new(self, :portgroup_children)
+    portgroups.define_singleton_method :display_info, lambda {
+      vds = self.rvc_parent
+      RVC::MODULES['basic'].table vds.portgroup, {}
+    }
+
     {
-      'portgroups' => RVC::FakeFolder.new(self, :portgroup_children),
+      'portgroups' => portgroups,
       'respools' => RVC::FakeFolder.new(self, :respool_children),
       'hosts' => RVC::FakeFolder.new(self, :hosts_children),
     }
@@ -79,5 +92,9 @@ class RbVmomi::VIM::DistributedVirtualSwitch
 
   def ls_text r
     " (vds)"
+  end
+
+  def self.folder?
+    true
   end
 end

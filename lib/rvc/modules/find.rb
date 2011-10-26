@@ -35,15 +35,7 @@ def find args, opts
     end
   end
 
-  args[:root] ||= ['.']
-  args[:term] ||= []
-
-  roots = args[:root].map { |x| lookup x }.flatten(1)
-  terms = args[:term].map { |x| term x[1..-1] }
-  opts[:type].each { |t| terms <<  term("type=#{t}") }
-
-  candidates = leaves roots, opts[:type]
-  results = candidates.select { |r| terms.all? { |t| t[r] } }
+  results = find_items args[:term], args[:root], opts[:type]
 
   CMD.mark.mark opts[:mark], results
 
@@ -55,6 +47,18 @@ def find args, opts
     CMD.mark.mark i.to_s, [r]
     i += 1
   end
+end
+
+def find_items terms = nil, roots = nil, types = nil
+  roots ||= ['.']
+  terms ||= []
+
+  types.each { |t| terms <<  "+type=#{t}" }
+  roots = roots.map { |x| lookup x }.flatten(1)
+  terms = terms.map { |x| term x[1..-1] }
+
+  candidates = leaves roots, types
+  results = candidates.select { |r| terms.all? { |t| t[r] } }
 end
 
 def leaves roots, types = []

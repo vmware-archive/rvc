@@ -194,28 +194,60 @@ rvc_alias :info, :i
 
 opts :show do
   summary "Display information about an object"
-  arg :path, nil, :lookup => Object
+  arg :arg0, nil, :type => :string
+  arg :arg1, nil, :type => :string, :required => false
 end
 
 rvc_alias :show
 
 rvc_completor :show do |line, args, word, index|
-  choices = []
-  #if index == 0
-  #  choices << 'running-config'
-  #  choices << 'portgroup'
-  #  choices << 'vlan'
-  #  #choices << 'lldp'
-  #  #choices << 'cdp'
+  choices = RVC::Completion.fs_candidates word
+  obj = lookup_single '.'
+  if index == 0
+    if obj.class == VIM::Datacenter || obj.class == VIM
+      choices << ['portgroups', ' ']
+    end
+    if obj.class < VIM::DistributedVirtualSwitch
+      choices << ['running-config', ' ']
+      choices << ['vlan', ' ']
+      #choices << ['lldp', ' ']
+      #choices << ['cdp', ' ']
+    end
   #elsif index == 1
-  #  if args[0] == 'vlan'# or args[0] == ''
-  #    choices << 'summary'
+  #  if args[0] == 'vlan'
+  #    choices << ['summary', ' ']
   #  end
-  #end
+  end
+  choices
 end
 
-def show path
-  info path
+def show arg0, arg1
+  arg1 ||= '.'
+  begin
+    obj = lookup_single arg1
+  rescue
+    obj = nil
+  end
+
+  case arg0
+  when 'running-config'
+    if obj.class < VIM::DistributedVirtualSwitch
+      MODULES['vds'].show_running_config obj
+    else
+      if arg1 != '.'
+        err "'#{arg1}' is not a vDS!"
+      else
+        err "you need to be inside a vDS"
+      end
+    end
+  when 'portgroups'
+      MODULES['vds'].show_all_portgroups [obj]
+  when 'vlan'
+
+  else
+    path = lookup_single arg0
+    info path
+  end
 end
 
 def info obj

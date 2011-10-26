@@ -19,6 +19,39 @@
 # THE SOFTWARE.
 
 class RbVmomi::VIM::DistributedVirtualPortgroup
+  field 'vlan' do
+    summary 'VLAN configuration for the portgroup'
+    property 'config.defaultPortConfig'
+    block do |config|
+      translate_vlan config.vlan
+    end
+    default
+  end
+
+  field 'vds_name' do
+    summary 'Parent vDS of the portgroup'
+    property 'config.distributedVirtualSwitch'
+    block { |vds| vds.config.name }
+  end
+
+  #field 'active ports' do
+  #  summary 'number of active ports'
+  #  property 'config'
+  #  block do |config|
+  #    vds = config.distributedVirtualSwitch
+  #    ports = vds.FetchDVPorts(:criteria => {
+  #                               :portgroupKey => [self.key], :inside => true,
+  #                               :active => true})
+  #    ports.size
+  #  end
+  #  default
+  #end
+
+  field 'status' do
+    default false
+  end
+
+
   def summarize
     vds = self.config.distributedVirtualSwitch
     pc = vds._connection.propertyCollector

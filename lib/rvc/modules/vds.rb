@@ -432,3 +432,39 @@ def set_respool obj, respool
   apply_settings obj, {:networkResourcePoolKey => {:inherited => false,
                                                    :value => respool.key} }
 end
+
+opts :show_running_config do
+  summary "Dump the configuration of a vDS and all child portgroups"
+  arg :vds, nil, :lookup => [VIM::DistributedVirtualSwitch]
+end
+
+def show_running_config vds
+  MODULES['basic'].info vds
+  portgroups = vds.children['portgroups']
+  portgroups.rvc_link vds, 'portgroups'
+  vds.children['portgroups'].children.each do |name, pg|
+    pg.rvc_link portgroups, name
+    puts '---'
+    MODULES['basic'].info pg
+  end
+end
+
+opts :show_all_portgroups do
+  summary "Show all portgroups in a given path."
+  arg :path, nil, :lookup => InventoryObject, :multi => true, :required => false
+end
+
+def show_all_portgroups path
+  paths = path.map { |p| p.rvc_path_str }
+  if paths.empty?
+    paths = nil
+  end
+
+  vds = MODULES['find'].find_items nil, paths, ['vds']
+  pgs = []
+  vds.each do |v|
+    v.portgroup.each { |pg| pgs << pg}
+  end
+  RVC::MODULES['basic'].table pgs, { :field => ["vds_name", "name", "vlan"],
+                                     :field_given => true }
+end

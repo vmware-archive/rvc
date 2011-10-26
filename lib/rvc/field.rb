@@ -81,8 +81,8 @@ class Field
     x ? (@block = x) : @block
   end
 
-  def default
-    @default = true
+  def default val=true
+    @default = val
   end
 
   def default?; @default; end

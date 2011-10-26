@@ -33,4 +33,8 @@ class RbVmomi::VIM::Datacenter
       'host' => hostFolder,
     }
   end
+
+  def self.folder?
+    true
+  end
 end
