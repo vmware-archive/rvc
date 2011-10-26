@@ -468,3 +468,19 @@ def show_all_portgroups path
   RVC::MODULES['basic'].table pgs, { :field => ["vds_name", "name", "vlan"],
                                      :field_given => true }
 end
+
+opts :show_all_vds do
+  summary "Show all vDS's in a given path."
+  arg :path, nil, :lookup => InventoryObject, :multi => true, :required => false
+end
+
+def show_all_vds path
+  paths = path.map { |p| p.rvc_path_str }
+  if paths.empty?
+    paths = nil
+  end
+
+  vds = MODULES['find'].find_items nil, paths, ['vds']
+  RVC::MODULES['basic'].table vds, { :field => ['name', 'vlans', 'hosts'],
+                                     :field_given => true }
+end
