@@ -24,10 +24,12 @@ module ObjectWithFields
   module ClassMethods
     def fields inherited=true
       @fields ||= {}
-      if inherited and superclass.respond_to? :fields
-        superclass.fields.merge @fields
+      if inherited
+        ancestors.select { |x| x.respond_to? :fields }.
+                  map { |x| x.fields(false) }.
+                  reverse.inject({}) { |b,v| b.merge v }
       else
-        @fields.dup
+        @fields
       end
     end
 
@@ -53,6 +55,7 @@ module ObjectWithFields
         props << obj
       end
     end
+    props = [self] if props.empty?
     field.block.call *props
   end
 end

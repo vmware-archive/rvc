@@ -24,6 +24,7 @@ module RVC
 
 module InventoryObject
   include ObjectWithFields
+  extend ObjectWithFields::ClassMethods
 
   module ClassMethods
     include ObjectWithFields::ClassMethods
@@ -39,6 +40,10 @@ module InventoryObject
 
   def self.included m
     m.extend ClassMethods
+  end
+
+  field 'rel_path' do
+    block { |me| me.rvc_relative_path_str($shell.fs.cur) }
   end
 
   attr_reader :rvc_parent, :rvc_arc
@@ -72,6 +77,22 @@ module InventoryObject
 
   def rvc_path_str
     rvc_path.map { |k,v| k } * '/'
+  end
+
+  def rvc_relative_path ref
+    my_path = rvc_path
+    ref_path = ref.rvc_path
+    ref_objs = Set.new(ref_path.map { |x| x[1] })
+    common = my_path.take_while { |x| ref_objs.member? x[1] }
+    fail unless common
+    path_to_ref = my_path.reverse.take_while { |x| x[1] != common.last[1] }.reverse
+    num_ups = ref_path.size - common.size
+    ups = (['..']*num_ups).zip(ref_path.reverse[1..-1].map(&:first))
+    ups + path_to_ref
+  end
+
+  def rvc_relative_path_str ref
+    rvc_relative_path(ref).map { |k,v| k } * '/'
   end
 
   def rvc_link parent, arc
