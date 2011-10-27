@@ -132,10 +132,6 @@ class RbVmomi::VIM::DistributedVirtualPort
     end
   end
 
-  def self.folder?
-    true
-  end
-
   def children
     {
       'vm' => self.connectee.connectedEntity,

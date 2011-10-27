@@ -26,6 +26,61 @@ class RbVmomi::VIM::DistributedVirtualSwitch
     end
   end
 
+  field 'hosts' do
+    summary 'Host members of the vDS'
+    property 'config'
+    block do |config|
+      hostnames = config.host.map { |host| host.config.host.name }
+      size = hostnames.size
+      if size > 10
+        hostnames = hostnames[0..10]
+        size -= 10
+        hostnames << "(and #{size} more...)"
+      end
+      hostnames.join "\n"
+    end
+    default
+  end
+
+  field 'vlans' do
+    summary 'VLANs in use by the vDS'
+    property 'portgroup'
+    block do |portgroups|
+      trunk_ranges = []
+      tag_ranges = []
+      portgroups.each do |pg|
+        vlan = pg.config.defaultPortConfig.vlan
+        if vlan.class == VIM::VmwareDistributedVirtualSwitchVlanIdSpec
+          if vlan.vlanId != 0
+            tag_ranges << Range.new(vlan.vlanId,vlan.vlanId)
+          end
+        elsif vlan.class == VIM::VmwareDistributedVirtualSwitchTrunkVlanSpec
+          vlan.vlanId.each { |range| trunk_ranges << Range.new(range.start,range.end) }
+        end
+      end
+      trunks = RVC::MODULES['vds'].merge_ranges(trunk_ranges).map { |r|
+        if r.begin == r.end then "#{r.begin}" else "#{r.begin}-#{r.end}" end
+      }.join ','
+
+      tags = RVC::MODULES['vds'].merge_ranges(tag_ranges).map { |r|
+        if r.begin == r.end then "#{r.begin}" else "#{r.begin}-#{r.end}" end
+      }.join ','
+      str = ""
+      if !trunk_ranges.empty?
+        str += "#{trunks} (trunked)"
+      end
+      if !tag_ranges.empty?
+        str += "\n#{tags} (switch tagged)\n"
+      end
+      str
+    end
+    default
+  end
+
+  field 'status' do
+    default false
+  end
+
   def display_info
     config, = collect(:config)
     puts "name: #{config.name}"

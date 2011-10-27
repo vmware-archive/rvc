@@ -206,10 +206,12 @@ rvc_completor :show do |line, args, word, index|
   if index == 0
     if obj.class == VIM::Datacenter || obj.class == VIM
       choices << ['portgroups', ' ']
+      choices << ['vds', ' ']
     end
     if obj.class < VIM::DistributedVirtualSwitch
       choices << ['running-config', ' ']
-      choices << ['vlan', ' ']
+      choices << ['interface', ' ']
+      #choices << ['vlan', ' ']
       #choices << ['lldp', ' ']
       #choices << ['cdp', ' ']
     end
@@ -241,9 +243,12 @@ def show arg0, arg1
       end
     end
   when 'portgroups'
-      MODULES['vds'].show_all_portgroups [obj]
-  when 'vlan'
-
+    MODULES['vds'].show_all_portgroups [obj]
+  when 'vds'
+    MODULES['vds'].show_all_vds [obj]
+  when 'interface'
+    MODULES['vds'].show_all_ports [obj]
+  #when 'vlan'
   else
     path = lookup_single arg0
     info path
