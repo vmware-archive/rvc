@@ -256,7 +256,7 @@ end
 def translate_vlan vlan
   case "#{vlan.class}"
   when "VmwareDistributedVirtualSwitchVlanIdSpec"
-    config = vlan.vlanId == 0 ? "-" : vlan.vlanId.to_s + " (switch tagging)"
+    config = vlan.vlanId == 0 ? "-" : vlan.vlanId.to_s + " (tagging)"
   when "VmwareDistributedVirtualSwitchTrunkVlanSpec"
     config = vlan.vlanId.map { |r|
       if r.start != r.end

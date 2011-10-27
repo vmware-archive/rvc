@@ -484,3 +484,118 @@ def show_all_vds path
   RVC::MODULES['basic'].table vds, { :field => ['name', 'vlans', 'hosts'],
                                      :field_given => true }
 end
+
+opts :show_all_ports do
+  summary "Show all ports in a given vDS/portgroup."
+  arg :path, nil, :lookup => [VIM::DistributedVirtualSwitch,
+                              VIM::DistributedVirtualPortgroup],
+                  :multi => true, :required => false
+end
+
+def show_all_ports path
+  rows = []
+  num_vds = 0
+  num_pgs = 0
+  path.each do |obj|
+    if obj.class < VIM::DistributedVirtualSwitch
+      num_vds += 1
+      vds = obj
+      ports = vds.FetchDVPorts(:criteria => { :active => true })
+    else #obj.class < VIM::DistributedVirtualPortgroup
+      num_pgs += 1
+      vds = obj.config.distributedVirtualSwitch
+      ports = vds.FetchDVPorts(:criteria => {
+                                 :portgroupKey => [obj.key], :inside => true,
+                                 :active => true})
+    end
+    pc = vds._connection.propertyCollector
+
+    # fetch names of VMs, portgroups, vDS
+    objects = []
+    ports.each do |port|
+      objects << port.proxyHost
+      objects << port.connectee.connectedEntity
+    end
+    vds.portgroup.each { |pg| objects << pg }
+    objects << vds
+    spec = {
+      :objectSet => objects.map { |obj| { :obj => obj } },
+      :propSet => [{:type => "ManagedEntity", :pathSet => %w(name) },
+                   {:type => "DistributedVirtualPortgroup",
+                     :pathSet => %w(name key)}]
+    }
+    props = pc.RetrieveProperties(:specSet => [spec])
+    names = {}
+    props.each do |prop|
+      names[prop.obj] = prop['name']
+      if prop['key']
+        names[prop['key']] = prop['name']
+      end
+    end
+    vds_name = names[vds]
+
+    # put each port as a row in the table
+    ports.each do |port|
+      port_key = begin port.key.to_i; rescue port.key; end
+
+      hostname = names[port.proxyHost].dup
+      if port.connectee.type == "vmVnic"
+        connectee = names[port.connectee.connectedEntity]
+      else
+        connectee = port.connectee.nicKey
+      end
+
+      rows << [port_key, port.config.name, vds_name, names[port.portgroupKey],
+               translate_vlan(port.config.setting.vlan),
+               port.state.runtimeInfo.blocked, hostname, connectee]
+    end
+  end
+
+  abbrev_hostnames(rows.map { |r| r[6] })
+
+  columns = ['key', 'name', 'vds', 'portgroup', 'vlan', 'blocked', 'host', 'connectee']
+
+  # if we're just querying against a single vDS, skip the vds name column
+  if num_vds <= 1
+    columns.delete_at(2)
+    rows.each { |r| r.delete_at(2) }
+  end
+
+  # if we're just querying against one portgroup, skip portgroup name column
+  if num_pgs <= 1 and num_vds < 1
+    columns.delete_at(2)
+    rows.each { |r| r.delete_at(2) }
+  end
+
+  t = table(columns)
+  rows.sort_by { |o| o[0] }.each { |o| t << o }
+  puts t
+end
+
+def abbrev_hostnames names
+  min_len = 999
+  split_names = names.map { |name|
+    new_r = name.split('.').reverse
+    min_len = [min_len, new_r.size].min
+    new_r
+  }
+
+  matches = 0
+  (0..(min_len-1)).each do |i|
+    if split_names.first[i] == split_names.last[i]
+      matches = i+1
+    else
+      break
+    end
+  end
+
+  if matches == min_len
+    matches -= 1
+  end
+
+  if matches > 0
+    names.each { |n|
+      n.replace(n.split('.').reverse.drop(matches).reverse.join('.') + '.~')
+    }
+  end
+end
