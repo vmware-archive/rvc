@@ -282,21 +282,25 @@ end
 
 opts :logbundles do
   summary "Download log bundles"
-  arg :vim, "VIM connection", :lookup => RbVmomi::VIM
+  arg :servers, "VIM connection and/or ESX hosts", :lookup => [RbVmomi::VIM, VIM::HostSystem], :multi => true
   opt :dest, "Destination directory", :default => '.'
 end
 
 DEFAULT_SERVER_PLACEHOLDER = '0.0.0.0'
 
-def logbundles vim, opts
+def logbundles servers, opts
+  vim = single_connection servers
   diagMgr = vim.serviceContent.diagnosticManager
   name = vim.host
   FileUtils.mkdir_p opts[:dest]
 
-  puts "#{Time.now}: Generating log bundle for #{name} ..."
+  hosts = servers.grep VIM::HostSystem
+  include_default = servers.member? vim
+
+  puts "#{Time.now}: Generating log bundles..."
   bundles =
     begin
-      diagMgr.GenerateLogBundles_Task(:includeDefault => true).wait_for_completion
+      diagMgr.GenerateLogBundles_Task(:includeDefault => include_default, :host => hosts).wait_for_completion
     rescue VIM::TaskInProgress
       $!.task.wait_for_completion
     end
