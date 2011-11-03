@@ -863,7 +863,17 @@ def change_device_connectivity vm, label, connected
   dev.connectable.connected = connected
   spec = {
     :deviceChange => [
-      { :operation => :edit, :device => dev },
+      {
+        :operation => :edit,
+        :device => dev.class.new(
+          :key => dev.key,
+          :connectable => {
+            :allowGuestControl => dev.connectable.allowGuestControl,
+            :connected => connected,
+            :startConnected => connected
+          }
+        )
+      },
     ]
   }
   vm.ReconfigVM_Task(:spec => spec).wait_for_completion
