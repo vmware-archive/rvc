@@ -308,23 +308,21 @@ def logbundles servers, opts
   dest_path = nil
   bundles.each do |b|
     uri = URI.parse(b.url.sub('*', DEFAULT_SERVER_PLACEHOLDER))
-    dest_path = File.join(opts[:dest], "#{name}-" + File.basename(uri.path))
+    bundle_name = b.system ? b.system.name : name
+    dest_path = File.join(opts[:dest], "#{bundle_name}-" + File.basename(uri.path))
     puts "#{Time.now}: Downloading bundle #{b.url} to #{dest_path}"
-    if uri.host == DEFAULT_SERVER_PLACEHOLDER
-      vim.http.request_get(uri.path) do |res|
-        File.open dest_path, 'w' do |io|
-          res.read_body do |data|
-            io.write data
-            if $stdout.tty?
-              $stdout.write '.'
-              $stdout.flush
-            end
+    uri.host = vim.http.address if uri.host == DEFAULT_SERVER_PLACEHOLDER
+    Net::HTTP.get_response uri do |res|
+      File.open dest_path, 'w' do |io|
+        res.read_body do |data|
+          io.write data
+          if $stdout.tty?
+            $stdout.write '.'
+            $stdout.flush
           end
         end
-        puts if $stdout.tty?
       end
-    else
-      fail "Can't download logbundle, URI not supported"
+      puts if $stdout.tty?
     end
   end
   dest_path
