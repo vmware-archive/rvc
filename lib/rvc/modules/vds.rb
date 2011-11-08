@@ -74,7 +74,8 @@ end
 
 def apply_settings obj, port_spec
   if obj.is_a?(VIM::DistributedVirtualSwitch)
-    tasks [obj], :ReconfigureDvs, :spec => { :defaultPortConfig => port_spec }
+    tasks [obj], :ReconfigureDvs, :spec =>{:defaultPortConfig => port_spec,
+                                           :configVersion => obj.configVersion}
   elsif obj.is_a?(VIM::DistributedVirtualPortgroup)
     vds = obj.config.distributedVirtualSwitch
     collapse_inheritance vds.config.defaultPortConfig, port_spec
