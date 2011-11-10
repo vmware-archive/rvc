@@ -41,18 +41,18 @@ class RbVmomi::VIM::PerformanceManager
     @perfProviderSummary[obj.class] ||= QueryPerfProviderSummary(:entity => obj); 
   end
 
-  def retrieveStats objects, metrics, h = {}
-    maxSamples = h[:maxSamples] || 1
+  def retrieve_stats objects, metrics, opts = {}
+    maxSamples = opts[:maxSamples] || 1
     realTime = false
     
-    if not h[:interval]
+    if not opts[:interval]
       provider = perfProviderSummary objects.first
-      h[:interval] = provider.refreshRate
+      opts[:interval] = provider.refreshRate
       realTime = true
     end
     
     perfMetricIds = metrics.map do |x| 
-      RbVmomi::VIM::PerfMetricId({:counterId => perfCountersHash[x].key, :instance => '*'})
+      RbVmomi::VIM::PerfMetricId(:counterId => perfCountersHash[x].key, :instance => '*')
     end
     
     querySpecs = objects.map do |obj|
@@ -60,11 +60,11 @@ class RbVmomi::VIM::PerformanceManager
         :maxSample => maxSamples, 
         :entity => obj, 
         :metricId => perfMetricIds, 
-        :intervalId => h[:interval],
-        :startTime => (!realTime ? h[:startTime].to_datetime : nil),
+        :intervalId => opts[:interval],
+        :startTime => (!realTime ? opts[:startTime].to_datetime : nil),
       })
     end
-    stats = QueryPerf(:querySpec => querySpecs )
+    stats = QueryPerf(:querySpec => querySpecs)
     
     Hash[stats.map do |res|
       [

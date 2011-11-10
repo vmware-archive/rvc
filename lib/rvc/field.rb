@@ -49,7 +49,7 @@ module ObjectWithFields
       *props = collect *field.properties
       if field.perfmetrics.length > 0
         perfMgr = self._connection.serviceContent.perfManager
-        stats = perfMgr.retrieveStats [self], field.perfmetrics, :maxSamples => 30
+        stats = perfMgr.retrieve_stats [self], field.perfmetrics, :maxSamples => 30
         props += field.perfmetrics.map do |x| 
           if stats[self] 
             stats[self][:metrics][x]
