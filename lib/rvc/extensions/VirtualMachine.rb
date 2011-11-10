@@ -25,6 +25,19 @@ class RbVmomi::VIM::VirtualMachine
     block { |powerState| powerState == 'poweredOn' }
     default
   end
+  
+  field 'storageio' do
+    summary "Storage IO"
+    perfmetrics %w(disk.read.average disk.write.average)
+    block do |read, write| 
+      if read && write
+        io = (read.sum.to_f / read.length) + (write.sum.to_f / write.length)
+        MetricNumber.new(io * 1024, 'B/s')
+      else
+        nil
+      end
+    end
+  end
 
   field 'ip' do
     summary "The guest tools reported IP address."
