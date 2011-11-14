@@ -20,7 +20,7 @@
 
 class RbVmomi::VIM::Folder
   def traverse_one arc
-    @soap.searchIndex.FindChild :entity => self, :name => arc
+    _connection.searchIndex.FindChild :entity => self, :name => arc
   end
 
   def children
