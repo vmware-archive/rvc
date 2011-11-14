@@ -56,6 +56,7 @@ class RbVmomi::VIM::HostSystem
     {
       'vms' => RVC::FakeFolder.new(self, :ls_vms),
       'datastores' => RVC::FakeFolder.new(self, :ls_datastores),
+      'networks' => RVC::FakeFolder.new(self, :ls_networks),
     }
   end
 
@@ -65,6 +66,10 @@ class RbVmomi::VIM::HostSystem
 
   def ls_datastores
     RVC::Util.collect_children self, :datastore
+  end
+
+  def ls_networks
+    RVC::Util.collect_children self, :network
   end
 end
 
