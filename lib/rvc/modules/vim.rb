@@ -51,7 +51,7 @@ def connect uri, opts
   password = match[2] || ENV['RBVMOMI_PASSWORD']
   host = match[3]
   port = match[4] || 443
-  certdigest = match[5]
+  certdigest = match[5] || opts[:certdigest]
   bad_cert = false
 
   vim = nil
@@ -115,15 +115,19 @@ def connect uri, opts
     loaded_from_keychain = password
   end
 
-  password_given = password != nil
-  loop do
-    begin
-      password = prompt_password unless password_given
-      vim.serviceContent.sessionManager.Login :userName => username,
-                                              :password => password
-      break
-    rescue RbVmomi::VIM::InvalidLogin
-      err $!.message if password_given
+  if opts[:cookie]
+    vim.cookie = opts[:cookie]
+  else
+    password_given = password != nil
+    loop do
+      begin
+        password = prompt_password unless password_given
+        vim.serviceContent.sessionManager.Login :userName => username,
+                                                :password => password
+        break
+      rescue RbVmomi::VIM::InvalidLogin
+        err $!.message if password_given
+      end
     end
   end
 

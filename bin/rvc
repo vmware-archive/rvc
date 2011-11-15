@@ -55,6 +55,7 @@ EOS
   opt :create_directory, "Create the initial directory if it doesn't exist", :short => :none
   opt :cmd, "command to evaluate", :short => 'c', :multi => true, :type => :string
   opt :script, "file to execute", :short => 's', :type => :string
+  opt :cookie, "authentication cookie file", :short => 'k', :type => :string
 end
 
 $interactive = $opts[:script].nil? and $stdin.tty?
@@ -86,6 +87,16 @@ $shell.session.connections.each do |key|
   end
 end
 
+cookies = {}
+certdigests = {}
+if $opts[:cookie]
+  File.readlines($opts[:cookie]).each do |info|
+    host, cookie, certdigest = info.chomp.split('|')
+    cookies[host] = cookie
+    certdigests[host] = certdigest
+  end
+end
+
 ARGV.each do |uri|
   # get hostname from uri to display in "connecting to..." message
   hostinfo = uri.split("@")
@@ -96,7 +107,8 @@ ARGV.each do |uri|
          end
   begin
     puts "Connecting to #{host}..." if (ARGV+$shell.session.connections).size > 1
-    CMD.vim.connect uri, {}
+    CMD.vim.connect uri, {:cookie => cookies[host],
+                          :certdigest => certdigests[host]}
   rescue RVC::Util::UserError
     puts "Failed to connect to #{host}: #{$!.message}"
     exit 1
@@ -107,7 +119,11 @@ if $interactive
   RVC::Completion.install
   history_fn = "#{ENV['HOME']}/.rvc-history"
   IO.foreach(history_fn) { |l| Readline::HISTORY << l.chomp } rescue puts "Welcome to RVC. Try the 'help' command."
-  history = File.open(history_fn, 'a')
+  begin
+    history = File.open(history_fn, 'a')
+  rescue Errno::EACCES
+    history = nil
+  end
 end
 
 if $opts[:path]
@@ -135,7 +151,9 @@ if defined? Ocra
 end
 
 if $interactive
-  $stderr.puts "VMRC is not installed. You will be unable to view virtual machine consoles. Use the vmrc.install command to install it." unless CMD.vmrc.find_vmrc 
+  if ENV['DISPLAY']
+    $stderr.puts "VMRC is not installed. You will be unable to view virtual machine consoles. Use the vmrc.install command to install it." unless CMD.vmrc.find_vmrc
+  end
   $stderr.puts "Use the 'connect' command to connect to an ESX or VC server." if $shell.connections.empty?
   CMD.basic.ls RVC::Util.lookup_single('.')
 end
@@ -162,7 +180,7 @@ else
       end
       input = input.strip
       next if input.empty?
-      (history.puts input; Readline::HISTORY << input) unless input == Readline::HISTORY.to_a[-1]
+      (history && history.puts(input); Readline::HISTORY << input) unless input == Readline::HISTORY.to_a[-1]
       $shell.eval_input input
     rescue Interrupt
       puts
