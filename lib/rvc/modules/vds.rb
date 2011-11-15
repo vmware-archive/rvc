@@ -34,7 +34,7 @@ def summarize obj
 end
 
 opts :create_portgroup do
-  summary "Create a new potgroup on a vDS"
+  summary "Create a new portgroup on a vDS"
   arg :vds, nil, :lookup => VIM::DistributedVirtualSwitch
   arg :name, "Portgroup Name", :type => :string
   opt :num_ports, "Number of Ports", :type => :int
