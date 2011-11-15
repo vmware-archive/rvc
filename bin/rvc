@@ -90,10 +90,10 @@ end
 cookies = {}
 certdigests = {}
 if $opts[:cookie]
-  IO.read($opts[:cookie]).split('\n').each do |info|
-    i = info.gsub(/\n$/,'').split('|')
-    cookies[i.first] = i[1]
-    certdigests[i.first] = i[2]
+  File.readlines($opts[:cookie]).each do |info|
+    host, cookie, certdigest = info.chomp.split('|')
+    cookies[host] = cookie
+    certdigests[host] = certdigest
   end
 end
 
@@ -117,13 +117,13 @@ end
 
 if $interactive
   RVC::Completion.install
-  begin
-    history_fn = "#{ENV['HOME']}/.rvc-history"
-  rescue Errno::EACCES
-    history_fn = nil
-  end
+  history_fn = "#{ENV['HOME']}/.rvc-history"
   IO.foreach(history_fn) { |l| Readline::HISTORY << l.chomp } rescue puts "Welcome to RVC. Try the 'help' command."
-  history = File.open(history_fn, 'a')
+  begin
+    history = File.open(history_fn, 'a')
+  rescue Errno::EACCES
+    history = nil
+  end
 end
 
 if $opts[:path]
