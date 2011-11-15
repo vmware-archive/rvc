@@ -117,7 +117,11 @@ end
 
 if $interactive
   RVC::Completion.install
-  history_fn = "#{ENV['HOME']}/.rvc-history"
+  begin
+    history_fn = "#{ENV['HOME']}/.rvc-history"
+  rescue Errno::EACCES
+    history_fn = nil
+  end
   IO.foreach(history_fn) { |l| Readline::HISTORY << l.chomp } rescue puts "Welcome to RVC. Try the 'help' command."
   history = File.open(history_fn, 'a')
 end
@@ -147,7 +151,9 @@ if defined? Ocra
 end
 
 if $interactive
-  $stderr.puts "VMRC is not installed. You will be unable to view virtual machine consoles. Use the vmrc.install command to install it." unless CMD.vmrc.find_vmrc 
+  if ENV['DISPLAY']
+    $stderr.puts "VMRC is not installed. You will be unable to view virtual machine consoles. Use the vmrc.install command to install it." unless CMD.vmrc.find_vmrc
+  end
   $stderr.puts "Use the 'connect' command to connect to an ESX or VC server." if $shell.connections.empty?
   CMD.basic.ls RVC::Util.lookup_single('.')
 end
@@ -174,7 +180,7 @@ else
       end
       input = input.strip
       next if input.empty?
-      (history.puts input; Readline::HISTORY << input) unless input == Readline::HISTORY.to_a[-1]
+      (history && history.puts(input); Readline::HISTORY << input) unless input == Readline::HISTORY.to_a[-1]
       $shell.eval_input input
     rescue Interrupt
       puts
