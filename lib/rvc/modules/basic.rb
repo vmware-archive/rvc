@@ -475,3 +475,102 @@ def table_sort_compare a, b
 end
 
 rvc_alias :table
+
+opts :perfmetrics do
+  summary "Retrieve which perf metrics are available on a given object"
+
+  arg :obj, nil, :lookup => RbVmomi::VIM::ManagedEntity
+end
+
+def perfmetrics obj
+  perfmgr = obj._connection.serviceContent.perfManager
+  interval = perfmgr.provider_summary(obj).refreshRate
+  if interval == -1
+    # Object does not support real time stats
+    interval = nil
+  end
+  res = perfmgr.QueryAvailablePerfMetric(
+    :entity => obj, 
+    :intervalId => interval)
+  res.map!{|x| perfmgr.perfcounter_idhash[x.counterId]}.uniq!
+
+  table = Terminal::Table.new
+  table.add_row ['Perf metric', 'Description', 'Unit']
+  table.add_separator
+  res.sort{|a, b| a.pretty_name <=> b.pretty_name}.each do |counter|
+    table.add_row([counter.pretty_name, counter.nameInfo.label, counter.unitInfo.label])
+  end
+  puts table
+end
+
+opts :perfmetric do
+  summary "Retrieve detailed information about a perf metric"
+
+  arg :obj, nil, :lookup => RbVmomi::VIM::ManagedEntity
+  arg :metric, nil, :type => :string
+end
+
+def perfmetric obj, metric
+  perfmgr = obj._connection.serviceContent.perfManager
+  interval = perfmgr.provider_summary(obj).refreshRate
+  if interval == -1
+    # Object does not support real time stats
+    interval = nil
+  end
+  res = perfmgr.QueryAvailablePerfMetric(
+    :entity => obj, 
+    :intervalId => interval)
+  res.select!{|x| perfMgr.perfcounter_idhash[x.counterId].pretty_name == metric}
+
+  metricInfo = perfmgr.perfcounter_hash[metric]
+  puts "Metric label: #{metricInfo.nameInfo.label}"
+  puts "Metric summary: #{metricInfo.nameInfo.summary}"
+  puts "Unit label: #{metricInfo.unitInfo.label}"
+  puts "Unit summary: #{metricInfo.unitInfo.label}"
+  puts "Rullup type: #{metricInfo.rollupType}"
+  puts "Stats type: #{metricInfo.statsType}"
+  puts "Real time interval: #{interval || 'N/A'}"
+  puts "Instances:"
+  res.map do |x|
+    puts "  #{x.instance}"
+  end
+end
+
+opts :perfstats do
+  summary "Retrieve perf stats for given object"
+
+  arg :metrics, nil, :type => :string
+  arg :obj, nil, :multi => true, :lookup => RbVmomi::VIM::ManagedEntity
+  opt :samples, "Number of samples to retrieve", :type => :int
+end
+
+def perfstats metrics, objs, opts
+  metrics = metrics.split(",")
+  obj = objs.first
+  perfmgr = obj._connection.serviceContent.perfManager
+  interval = perfmgr.provider_summary(obj).refreshRate
+  start_time = nil
+  if interval == -1
+    # Object does not support real time stats
+    interval = 300
+    start_time = Time.now - 300 * 5
+  end
+  stat_opts = {
+    :interval => interval,
+    :startTime => start_time,
+  }
+  stat_opts[:max_samples] = opts[:samples] if opts[:samples]
+  res = perfmgr.retrieve_stats objs, metrics, stat_opts
+
+  table = Terminal::Table.new
+  table.add_row ['Object', 'Metric', 'Values', 'Unit']
+  table.add_separator
+  objs.each do |obj|
+    metrics.each do |metric|
+      stat = res[obj][:metrics][metric]
+      metric_info = perfmgr.perfcounter_hash[metric]
+      table.add_row([obj.name, metric, stat.join(','), metric_info.unitInfo.label])
+    end
+  end
+  puts table
+end
