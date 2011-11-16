@@ -483,22 +483,22 @@ opts :perfmetrics do
 end
 
 def perfmetrics obj
-  perfMgr = obj._connection.serviceContent.perfManager
-  interval = perfMgr.perfProviderSummary(obj).refreshRate
+  perfmgr = obj._connection.serviceContent.perfManager
+  interval = perfmgr.provider_summary(obj).refreshRate
   if interval == -1
     # Object does not support real time stats
     interval = nil
   end
-  res = perfMgr.QueryAvailablePerfMetric(
+  res = perfmgr.QueryAvailablePerfMetric(
     :entity => obj, 
     :intervalId => interval)
-  res.map!{|x| perfMgr.perfCounterIdToInfo[x.counterId]}.uniq!
+  res.map!{|x| perfmgr.perfcounter_idhash[x.counterId]}.uniq!
 
   table = Terminal::Table.new
   table.add_row ['Perf metric', 'Description', 'Unit']
   table.add_separator
-  res.sort{|a, b| a[:name] <=> b[:name]}.each do |h|
-    table.add_row([h[:name], h[:details].nameInfo.label, h[:details].unitInfo.label])
+  res.sort{|a, b| a.pretty_name <=> b.pretty_name}.each do |counter|
+    table.add_row([counter.pretty_name, counter.nameInfo.label, counter.unitInfo.label])
   end
   puts table
 end
@@ -511,18 +511,18 @@ opts :perfmetric do
 end
 
 def perfmetric obj, metric
-  perfMgr = obj._connection.serviceContent.perfManager
-  interval = perfMgr.perfProviderSummary(obj).refreshRate
+  perfmgr = obj._connection.serviceContent.perfManager
+  interval = perfmgr.provider_summary(obj).refreshRate
   if interval == -1
     # Object does not support real time stats
     interval = nil
   end
-  res = perfMgr.QueryAvailablePerfMetric(
+  res = perfmgr.QueryAvailablePerfMetric(
     :entity => obj, 
     :intervalId => interval)
-  res.select!{|x| perfMgr.perfCounterIdToInfo[x.counterId][:name] == metric}
+  res.select!{|x| perfMgr.perfcounter_idhash[x.counterId].pretty_name == metric}
 
-  metricInfo = perfMgr.perfCountersHash[metric]
+  metricInfo = perfmgr.perfcounter_hash[metric]
   puts "Metric label: #{metricInfo.nameInfo.label}"
   puts "Metric summary: #{metricInfo.nameInfo.summary}"
   puts "Unit label: #{metricInfo.unitInfo.label}"
@@ -547,20 +547,20 @@ end
 def perfstats metrics, objs, opts
   metrics = metrics.split(",")
   obj = objs.first
-  perfMgr = obj._connection.serviceContent.perfManager
-  interval = perfMgr.perfProviderSummary(obj).refreshRate
-  startTime = nil
+  perfmgr = obj._connection.serviceContent.perfManager
+  interval = perfmgr.provider_summary(obj).refreshRate
+  start_time = nil
   if interval == -1
     # Object does not support real time stats
     interval = 300
-    startTime = Time.now - 300 * 5
+    start_time = Time.now - 300 * 5
   end
-  statOpts = {
+  stat_opts = {
     :interval => interval,
-    :startTime => startTime,
+    :startTime => start_time,
   }
-  statOpts[:maxSamples] = opts[:samples] if opts[:samples]
-  res = perfMgr.retrieve_stats objs, metrics, statOpts
+  stat_opts[:max_samples] = opts[:samples] if opts[:samples]
+  res = perfmgr.retrieve_stats objs, metrics, stat_opts
 
   table = Terminal::Table.new
   table.add_row ['Object', 'Metric', 'Values', 'Unit']
@@ -568,8 +568,8 @@ def perfstats metrics, objs, opts
   objs.each do |obj|
     metrics.each do |metric|
       stat = res[obj][:metrics][metric]
-      metricInfo = perfMgr.perfCountersHash[metric]
-      table.add_row([obj.name, metric, stat.join(','), metricInfo.unitInfo.label])
+      metric_info = perfmgr.perfcounter_hash[metric]
+      table.add_row([obj.name, metric, stat.join(','), metric_info.unitInfo.label])
     end
   end
   puts table
