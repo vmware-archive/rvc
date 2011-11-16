@@ -12,59 +12,60 @@ class Time
   end
 end
 
+RbVmomi::VIM::PerfCounterInfo
+class RbVmomi::VIM::PerfCounterInfo
+  def pretty_name
+    @pretty_name ||= "#{self.groupInfo.key}.#{self.nameInfo.key}.#{self.rollupType}"
+  end
+end
+
 RbVmomi::VIM::PerformanceManager
 class RbVmomi::VIM::PerformanceManager
-  def _perfCounter
-    @perfCounter ||= perfCounter
+  def perfcounter_cached
+    @perfcounter ||= perfCounter
   end
   
-  def _perfCountersHash
-    perfCounterInfoList = _perfCounter
-    Hash[perfCounterInfoList.map{|x| ["#{x.groupInfo.key}.#{x.nameInfo.key}.#{x.rollupType}", x]}] 
-  end
-
-  def perfCountersHash
-    @perfCountersHash ||= _perfCountersHash
+  def perfcounter_hash
+    @perfcounter_hash ||= Hash[perfcounter_cached.map{|x| [x.pretty_name, x]}]
   end
   
-  def _perfCounterIdToInfo
-    perfCounterInfoList = _perfCounter
-    Hash[perfCounterInfoList.map{|x| [x.key, {:name => "#{x.groupInfo.key}.#{x.nameInfo.key}.#{x.rollupType}", :details => x}]}] 
+  def perfcounter_idhash 
+    @perfcounter_idhash ||= Hash[perfcounter_cached.map{|x| [x.key, x]}]
   end
   
-  def perfCounterIdToInfo 
-    @perfCounterIdToInfo ||= _perfCounterIdToInfo
-  end
-  
-  def perfProviderSummary obj
-    @perfProviderSummary ||= {}
-    @perfProviderSummary[obj.class] ||= QueryPerfProviderSummary(:entity => obj); 
+  def provider_summary obj
+    @provider_summary ||= {}
+    @provider_summary[obj.class] ||= QueryPerfProviderSummary(:entity => obj)
   end
 
   def retrieve_stats objects, metrics, opts = {}
-    maxSamples = opts[:maxSamples] || 1
-    realTime = false
-    
+    opts = opts.dup
+    max_samples = opts[:max_samples] || 1
+    realtime = false
     if not opts[:interval]
-      provider = perfProviderSummary objects.first
+      provider = provider_summary objects.first
       opts[:interval] = provider.refreshRate
-      realTime = true
+      realtime = true
+    else
+      provider = provider_summary objects.first
+      if opts[:interval] == provider.refreshRate
+        realtime = true
+      end
     end
-    
-    perfMetricIds = metrics.map do |x| 
-      RbVmomi::VIM::PerfMetricId(:counterId => perfCountersHash[x].key, :instance => '*')
+      
+    metric_ids = metrics.map do |x| 
+      RbVmomi::VIM::PerfMetricId(:counterId => perfcounter_hash[x].key, :instance => '*')
     end
-    
-    querySpecs = objects.map do |obj|
+    query_specs = objects.map do |obj|
       RbVmomi::VIM::PerfQuerySpec({
-        :maxSample => maxSamples, 
+        :maxSample => max_samples, 
         :entity => obj, 
-        :metricId => perfMetricIds, 
+        :metricId => metric_ids, 
         :intervalId => opts[:interval],
-        :startTime => (!realTime ? opts[:startTime].to_datetime : nil),
+        :startTime => (realtime == false ? opts[:start_time].to_datetime : nil),
       })
     end
-    stats = QueryPerf(:querySpec => querySpecs)
+    stats = QueryPerf(:querySpec => query_specs)
     
     Hash[stats.map do |res|
       [
@@ -72,7 +73,7 @@ class RbVmomi::VIM::PerformanceManager
         {
           :sampleInfo => res.sampleInfo,
           :metrics => Hash[res.value.map do |metric|
-            [perfCounterIdToInfo[metric.id.counterId][:name], metric.value]
+            [perfcounter_idhash[metric.id.counterId].pretty_name, metric.value]
           end]
         }
       ]

@@ -26,8 +26,8 @@ class RbVmomi::VIM::VirtualMachine
     default
   end
   
-  field 'storageio' do
-    summary "Storage IO"
+  field 'storagebw' do
+    summary "Storage Bandwidth"
     perfmetrics %w(disk.read.average disk.write.average)
     block do |read, write| 
       if read && write
@@ -35,6 +35,22 @@ class RbVmomi::VIM::VirtualMachine
         MetricNumber.new(io * 1024, 'B/s')
       else
         nil
+      end
+    end
+  end
+  
+  [['', 5], ['.realtime', 1], ['.5min', 5 * 3], ['.10min', 10 * 3]].each do |kind|
+    field "storageiops#{kind[0]}" do
+      summary "Storage IOPS"
+      perfmetrics %w(disk.numberReadAveraged.average disk.numberWriteAveraged.average)
+      perfmetric_settings :maxSamples => kind[1]
+      block do |read, write|
+        if read && write
+          io = (read.sum.to_f / read.length) + (write.sum.to_f / write.length)
+          MetricNumber.new(io, 'IOPS')
+        else
+          nil
+        end
       end
     end
   end
