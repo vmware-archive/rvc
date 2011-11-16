@@ -47,6 +47,19 @@ module ObjectWithFields
       return nil
     elsif self.class < VIM::ManagedObject
       *props = collect *field.properties
+      if field.perfmetrics.length > 0
+        perfmgr = self._connection.serviceContent.perfManager
+        perfopts = field.perfmetric_settings.dup
+        perfopts[:max_samples] ||= 5
+        stats = perfmgr.retrieve_stats [self], field.perfmetrics, perfopts
+        props += field.perfmetrics.map do |x| 
+          if stats[self] 
+            stats[self][:metrics][x]
+          else
+            nil
+          end
+        end
+      end
     else
       props = []
       field.properties.each do |propstr|
@@ -67,6 +80,8 @@ class Field
     @name = name
     @summary = nil
     @properties = []
+    @perfmetrics = []
+    @perfmetric_settings = {}
     @block = nil
     @default = false
     ALL_FIELD_NAMES << name
@@ -78,6 +93,14 @@ class Field
 
   def properties x=nil
     x ? (@properties.concat x) : @properties
+  end
+
+  def perfmetrics x=nil
+    x ? (@perfmetrics.concat x) : @perfmetrics
+  end
+
+  def perfmetric_settings x=nil
+    x ? (@perfmetric_settings.merge! x) : @perfmetric_settings
   end
 
   def block &x
