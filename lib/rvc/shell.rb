@@ -58,7 +58,7 @@ class Shell
       end
     rescue SystemExit, IOError
       raise
-    rescue RVC::Util::UserError, RuntimeError, RbVmomi::Fault
+    rescue RVC::Util::UserError, RuntimeError, RbVmomi::Fault, Trollop::CommandlineError
       if ruby or debug
         puts "#{$!.class}: #{$!.message}"
         puts $!.backtrace * "\n"

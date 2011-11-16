@@ -29,6 +29,7 @@ end
 
 def plot obj, counter_name, opts
   err "gnuplot and/or the gnuplot gem are not installed" unless RVC::HAVE_GNUPLOT
+  err "invalid scale" unless INTERVALS.member? opts[:scale]
   pm = obj._connection.serviceContent.perfManager
   group_key, counter_key, rollup_type = counter_name.split('.', 3)
 
