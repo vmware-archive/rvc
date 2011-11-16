@@ -1,7 +1,8 @@
 begin
   require 'gnuplot'
+  RVC::HAVE_GNUPLOT = true
 rescue LoadError
-  puts "gnuplot not installed"
+  RVC::HAVE_GNUPLOT = false
 end
 
 TIMEFMT = '%Y-%m-%d.%H:%M:%S'
@@ -27,6 +28,7 @@ opts :plot do
 end
 
 def plot obj, counter_name, opts
+  err "gnuplot and/or the gnuplot gem are not installed" unless RVC::HAVE_GNUPLOT
   pm = obj._connection.serviceContent.perfManager
   group_key, counter_key, rollup_type = counter_name.split('.', 3)
 
