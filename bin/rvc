@@ -187,3 +187,7 @@ else
     end
   end
 end
+
+$shell.connections.each do |name, conn|
+  conn.close if conn.respond_to? :close rescue puts("failed to close connection #{name.inspect}: #{$!.class}: #{$!.message}")
+end
