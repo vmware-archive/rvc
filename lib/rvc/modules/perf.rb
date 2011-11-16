@@ -54,7 +54,7 @@ def plot obj, counter_name, opts
     :entity => obj,
     :metricId => [metric],
     :intervalId => interval_id,
-    :startTime => start_time
+    #:startTime => start_time
   }
   result = pm.QueryPerf(querySpec: [spec])[0]
   times = result.sampleInfo.map(&:timestamp).map { |x| x.strftime TIMEFMT }
