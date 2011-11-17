@@ -207,12 +207,23 @@ def counter counter_name, obj
   pm = vim.serviceContent.perfManager
   counter = pm.perfcounter_hash[counter_name] or err "no such counter #{counter_name.inspect}"
 
+  intervals = pm.historicalInterval
+  active_intervals = lambda { |level| intervals.select { |x| x.level >= level } }
+  active_intervals_text = lambda do |level|
+    xs = active_intervals[level]
+    xs.empty? ? 'none' : xs.map(&:name).map(&:inspect) * ', '
+  end
+
   puts "Label: #{counter.nameInfo.label}"
   puts "Summary: #{counter.nameInfo.summary}"
   puts "Unit label: #{counter.unitInfo.label}"
-  puts "Unit summary: #{counter.unitInfo.label}"
+  puts "Unit summary: #{counter.unitInfo.summary}"
   puts "Rollup type: #{counter.rollupType}"
   puts "Stats type: #{counter.statsType}"
+  puts "Level: #{counter.level}"
+  puts " Enabled in intervals: #{active_intervals_text[counter.level]}"
+  puts "Per-device level: #{counter.perDeviceLevel}"
+  puts " Enabled in intervals: #{active_intervals_text[counter.perDeviceLevel]}"
 
   if obj
     interval = pm.provider_summary(obj).refreshRate
