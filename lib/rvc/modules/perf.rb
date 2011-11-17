@@ -5,50 +5,55 @@ rescue LoadError
   RVC::HAVE_GNUPLOT = false
 end
 
-TIMEFMT = '%Y-%m-%d.%H:%M:%S'
+TIMEFMT = '%Y-%m-%dT%H:%M:%SZ'
 
 DISPLAY_TIMEFMT = {
-  'realtime' => '%H:%M',
-  'day' => '%H:%M',
-  'week' => '%m/%d',
-  'month' => '%Y/%m/%d'
+  :realtime => '%H:%M',
+  1 => '%H:%M',
+  2 => '%m/%d',
+  3 => '%m/%d',
+  4 => '%Y/%m/%d',
 }
 
 opts :plot do
   summary "Plot a graph of the given performance counters"
-  arg :obj, "", :lookup => VIM::ManagedEntity
   arg :counter, "Counter name"
+  arg :obj, "", :lookup => VIM::ManagedEntity, :multi => true
   opt :terminal, "Display plot on terminal"
   opt :start, "Start time", :type => :date, :short => 's'
   opt :end, "End time", :type => :date, :short => 'e'
 end
 
-def plot obj, counter_name, opts
+def plot counter_name, objs, opts
   err "gnuplot and/or the gnuplot gem are not installed" unless RVC::HAVE_GNUPLOT
-  pm = obj._connection.serviceContent.perfManager
+  vim = single_connection objs
+  pm = vim.serviceContent.perfManager
   group_key, counter_key, rollup_type = counter_name.split('.', 3)
 
-  opts[:end] ||= Time.now
-  opts[:start] ||= opts[:end] - 3600
+  now = Time.now
+  opts[:end] ||= now
+  opts[:start] ||= opts[:end] - 1800
 
   err "end time is in the future" unless opts[:end] <= Time.now
-  ago = Time.now - opts[:start]
+  ago = now - opts[:start]
 
-  if ago < 60*59
-    puts "Using realtime interval, period = 20 seconds."
+  if ago < 3600
+    #puts "Using realtime interval, period = 20 seconds."
     interval_id = 20
+    display_timefmt = DISPLAY_TIMEFMT[:realtime]
   else
     intervals = pm.historicalInterval
-    interval = intervals.find { |x| Time.now - x.length < opts[:start] }
+    interval = intervals.find { |x| now - x.length < opts[:start] }
     err "start time is too long ago" unless interval
-    puts "Using historical interval #{interval.name.inspect}, period = #{interval.samplingPeriod} seconds."
+    #puts "Using historical interval #{interval.name.inspect}, period = #{interval.samplingPeriod} seconds."
     interval_id = interval.samplingPeriod
+    display_timefmt = DISPLAY_TIMEFMT[interval.key]
   end
 
   all_counters = Hash[pm.perfCounter.map { |x| [x.key, x] }]
 
   metrics = pm.QueryAvailablePerfMetric(
-    :entity => obj,
+    :entity => objs.first,
     :interval => interval_id)
 
   metric = metrics.find do |metric|
@@ -59,39 +64,57 @@ def plot obj, counter_name, opts
   end or err "no such metric"
   counter = all_counters[metric.counterId]
 
-  spec = {
-    :entity => obj,
-    :metricId => [metric],
-    :intervalId => interval_id,
-    :startTime => opts[:start],
-    :endTime => opts[:end],
-  }
-  result = pm.QueryPerf(querySpec: [spec])[0]
-  times = result.sampleInfo.map(&:timestamp).map { |x| x.strftime TIMEFMT }
-  data = result.value[0].value
+  specs = objs.map do |obj|
+    {
+      :entity => obj,
+      :metricId => [metric],
+      :intervalId => interval_id,
+      :startTime => opts[:start],
+      :endTime => opts[:end],
+      :format => 'csv',
+    }
+  end
+  results = pm.QueryPerf(querySpec: specs)
 
-  if counter.unitInfo.key == 'percent'
-    data.map! { |x| x/100 }
+  datasets = results.map do |result|
+    times = result.sampleInfoCSV.split(',').select { |x| x['T']  }
+    data = result.value[0].value.split(',').map(&:to_i)
+
+    if counter.unitInfo.key == 'percent'
+      times.length.times do |i|
+        times[i] = data[i] = nil if data[i] < 0
+      end
+
+      times.compact!
+      data.compact!
+      data.map! { |x| x/100.0 }
+    end
+
+    Gnuplot::DataSet.new([times, data]) do |ds|
+      ds.with = "lines"
+      ds.using = '1:2'
+      ds.title = result.entity.name
+    end
   end
 
   Gnuplot.open do |gp|
     Gnuplot::Plot.new( gp ) do |plot|
-      plot.title  "#{counter_name} on #{obj.name}"
+      if datasets.size == 1
+        datasets[0].notitle
+        plot.title "#{counter_name} on #{objs[0].name}"
+      else
+        plot.title counter_name
+      end
+
       plot.ylabel counter.unitInfo.label
-      plot.xlabel "Date"
+      plot.xlabel "Time"
       plot.terminal 'dumb' if opts[:terminal]
 
       plot.set 'xdata', 'time'
-      plot.set 'format', "x '#{DISPLAY_TIMEFMT[opts[:scale]]}'"
+      plot.set 'format', "x '#{display_timefmt}'"
       plot.set 'timefmt', TIMEFMT.inspect
 
-      plot.data << Gnuplot::DataSet.new([times, data]) do |ds|
-        ds.with = "lines"
-        ds.using = '1:2'
-        ds.notitle
-      end
-
-      #puts plot.to_gplot
+      plot.data.concat datasets
     end
   end
 end
@@ -100,13 +123,13 @@ end
 # TODO fix flickering
 opts :watch do
   summary "Watch a graph of the given performance counters"
-  arg :obj, "", :lookup => VIM::ManagedEntity
   arg :counter, "Counter name"
+  arg :objs, "", :lookup => VIM::ManagedEntity, :multi => true
 end
 
-def watch obj, counter_name
+def watch counter_name, objs
   while true
-    plot obj, counter_name, :terminal => true, :scale => 'realtime'
+    plot counter_name, objs, :terminal => true, :start => (Time.now-300)
     sleep 5
     n = 25
     $stdout.write "\e[#{n}A"
