@@ -167,64 +167,68 @@ rescue Interrupt
 end
 
 
-opts :metrics do
-  summary "Display available metrics on an object"
+opts :counters do
+  summary "Display available perf counters"
   arg :obj, nil, :lookup => VIM::ManagedEntity
 end
 
-def metrics obj
-  perfmgr = obj._connection.serviceContent.perfManager
-  interval = perfmgr.provider_summary(obj).refreshRate
+def counters obj
+  pm = obj._connection.serviceContent.perfManager
+  interval = pm.provider_summary(obj).refreshRate
   if interval == -1
     # Object does not support real time stats
     interval = nil
   end
-  res = perfmgr.QueryAvailablePerfMetric(
+
+  metrics = pm.QueryAvailablePerfMetric(
     :entity => obj, 
     :intervalId => interval)
-  res.map! { |x| perfmgr.perfcounter_idhash[x.counterId] }.uniq!
+  available_counters = metrics.map(&:counterId).uniq.
+                               map { |id| pm.perfcounter_idhash[id] }
 
-  table = Terminal::Table.new
-  table.add_row ['Perf metric', 'Description', 'Unit']
-  table.add_separator
-  res.sort { |a, b| a.pretty_name <=> b.pretty_name }.each do |counter|
-    table.add_row([counter.pretty_name, counter.nameInfo.label, counter.unitInfo.label])
+  groups = available_counters.group_by { |counter| counter.groupInfo }
+  groups.sort_by { |group,counters| group.key }.each do |group,counters|
+    puts "#{group.label}:"
+    counters.sort_by(&:pretty_name).each do |counter|
+      puts " #{counter.pretty_name}: #{counter.nameInfo.label} (#{counter.unitInfo.label})"
+    end
   end
-  puts table
 end
 
-opts :metric do
-  summary "Retrieve detailed information about a perf metric"
-  arg :obj, nil, :lookup => VIM::ManagedEntity
+
+opts :counter do
+  summary "Retrieve detailed information about a perf counter"
   arg :metric, nil, :type => :string
+  arg :obj, nil, :lookup => VIM::ManagedEntity, :required => false
 end
 
-def metric obj, metric
-  perfmgr = obj._connection.serviceContent.perfManager
-  interval = perfmgr.provider_summary(obj).refreshRate
-  if interval == -1
-    # Object does not support real time stats
-    interval = nil
-  end
-  res = perfmgr.QueryAvailablePerfMetric(
-    :entity => obj, 
-    :intervalId => interval)
-  res.select! { |x| perfmgr.perfcounter_idhash[x.counterId].pretty_name == metric }
+def counter counter_name, obj
+  vim = obj ? obj._connection : lookup_single('~@')
+  pm = vim.serviceContent.perfManager
+  counter = pm.perfcounter_hash[counter_name] or err "no such counter #{counter_name.inspect}"
 
-  metricInfo = perfmgr.perfcounter_hash[metric]
-  puts "Metric label: #{metricInfo.nameInfo.label}"
-  puts "Metric summary: #{metricInfo.nameInfo.summary}"
-  puts "Unit label: #{metricInfo.unitInfo.label}"
-  puts "Unit summary: #{metricInfo.unitInfo.label}"
-  puts "Rollup type: #{metricInfo.rollupType}"
-  puts "Stats type: #{metricInfo.statsType}"
-  puts "Real time interval: #{interval || 'N/A'}"
+  puts "Label: #{counter.nameInfo.label}"
+  puts "Summary: #{counter.nameInfo.summary}"
+  puts "Unit label: #{counter.unitInfo.label}"
+  puts "Unit summary: #{counter.unitInfo.label}"
+  puts "Rollup type: #{counter.rollupType}"
+  puts "Stats type: #{counter.statsType}"
 
-  instances = res.map(&:instance).reject(&:empty?)
-  unless instances.empty?
-    puts "Instances:"
-    instances.map do |x|
-      puts "  #{x}"
+  if obj
+    interval = pm.provider_summary(obj).refreshRate
+    if interval == -1
+      # Object does not support real time stats
+      interval = nil
+    end
+    puts "Real time interval: #{interval || 'N/A'}"
+    metrics = pm.QueryAvailablePerfMetric(:entity => obj, :intervalId => interval)
+    metrics.select! { |x| x.counterId == counter.key }
+    instances = metrics.map(&:instance).reject(&:empty?)
+    unless instances.empty?
+      puts "Instances:"
+      instances.map do |x|
+        puts "  #{x}"
+      end
     end
   end
 end
@@ -239,8 +243,8 @@ end
 def stats metrics, objs, opts
   metrics = metrics.split(",")
   obj = objs.first
-  perfmgr = obj._connection.serviceContent.perfManager
-  interval = perfmgr.provider_summary(obj).refreshRate
+  pm = obj._connection.serviceContent.perfManager
+  interval = pm.provider_summary(obj).refreshRate
   start_time = nil
   if interval == -1
     # Object does not support real time stats
@@ -252,7 +256,7 @@ def stats metrics, objs, opts
     :startTime => start_time,
   }
   stat_opts[:max_samples] = opts[:samples] if opts[:samples]
-  res = perfmgr.retrieve_stats objs, metrics, stat_opts
+  res = pm.retrieve_stats objs, metrics, stat_opts
 
   table = Terminal::Table.new
   table.add_row ['Object', 'Metric', 'Values', 'Unit']
@@ -260,7 +264,7 @@ def stats metrics, objs, opts
   objs.each do |obj|
     metrics.each do |metric|
       stat = res[obj][:metrics][metric]
-      metric_info = perfmgr.perfcounter_hash[metric]
+      metric_info = pm.perfcounter_hash[metric]
       table.add_row([obj.name, metric, stat.join(','), metric_info.unitInfo.label])
     end
   end
