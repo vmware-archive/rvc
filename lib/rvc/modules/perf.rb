@@ -98,6 +98,10 @@ def plot counter_name, objs, opts
       plot.set 'format', "x '#{display_timefmt}'"
       plot.set 'timefmt', TIMEFMT.inspect
 
+      if counter.unitInfo.key == 'percent'
+        plot.set 'yrange', '[0:100]'
+      end
+
       plot.data = retrieve_datasets pm, counter, specs
     end
     io.puts
