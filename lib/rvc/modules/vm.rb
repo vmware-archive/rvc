@@ -549,7 +549,7 @@ opts :add_net_device do
   summary "Add a network adapter to a virtual machine"
   arg :vm, nil, :lookup => VIM::VirtualMachine
   opt :type, "Adapter type", :default => 'e1000'
-  opt :network, "Network to connect to", :default => 'VM Network'
+  opt :network, "Network to connect to", :type => :string, :lookup => VIM::Network
 end
 
 def add_net_device vm, opts
@@ -563,15 +563,27 @@ def add_net_device vm, opts
 end
 
 def _add_net_device vm, klass, network
+  case network
+  when VIM::DistributedVirtualPortgroup
+    switch, pg_key = network.collect 'config.distributedVirtualSwitch', 'key'
+    port = VIM.DistributedVirtualSwitchPortConnection(
+      :switchUuid => switch.uuid,
+      :portgroupKey => pg_key)
+    summary = network.name
+    backing = VIM.VirtualEthernetCardDistributedVirtualPortBackingInfo(:port => port)
+  when VIM::Network
+    summary = network.name
+    backing = VIM.VirtualEthernetCardNetworkBackingInfo(:deviceName => network.name)
+  else fail
+  end
+
   _add_device vm, nil, klass.new(
     :key => -1,
     :deviceInfo => {
-      :summary => network,
+      :summary => summary,
       :label => `uuidgen`.chomp
     },
-    :backing => VIM.VirtualEthernetCardNetworkBackingInfo(
-      :deviceName => network
-    ),
+    :backing => backing,
     :addressType => 'generated'
   )
 end
