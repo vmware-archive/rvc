@@ -83,7 +83,7 @@ def plot counter_name, objs, opts
   end
 
   begin
-    plot = Gnuplot::Plot.new do |plot|
+    plot = Gnuplot::Plot.new(io) do |plot|
       if objs.size == 1
         plot.title "#{counter_name} on #{objs[0].name}"
       else
@@ -97,40 +97,37 @@ def plot counter_name, objs, opts
       plot.set 'xdata', 'time'
       plot.set 'format', "x '#{display_timefmt}'"
       plot.set 'timefmt', TIMEFMT.inspect
+
+      plot.data = retrieve_datasets pm, counter, specs
     end
-
-    plot.to_gplot io
-
-    results = pm.QueryPerf(querySpec: specs)
-    datasets = results.map do |result|
-      times = result.sampleInfoCSV.split(',').select { |x| x['T']  }
-      data = result.value[0].value.split(',').map(&:to_i)
-
-      if counter.unitInfo.key == 'percent'
-        times.length.times do |i|
-          times[i] = data[i] = nil if data[i] < 0
-        end
-
-        times.compact!
-        data.compact!
-        data.map! { |x| x/100.0 }
-      end
-
-      Gnuplot::DataSet.new([times, data]) do |ds|
-        ds.notitle if objs.size == 1
-        ds.with = "lines"
-        ds.using = '1:2'
-        ds.title = result.entity.name
-      end
-    end
-
-    io << plot.cmd << " " << datasets.collect { |e| e.plot_args }.join(", ")
-    io << "\n"
-    v = datasets.collect { |ds| ds.to_gplot }
-    io << v.compact.join("e\n")
     io.puts
   ensure
     io.close unless opts[:io]
+  end
+end
+
+def retrieve_datasets pm, counter, specs
+  results = pm.QueryPerf(querySpec: specs)
+  datasets = results.map do |result|
+    times = result.sampleInfoCSV.split(',').select { |x| x['T']  }
+    data = result.value[0].value.split(',').map(&:to_i)
+
+    if counter.unitInfo.key == 'percent'
+      times.length.times do |i|
+        times[i] = data[i] = nil if data[i] < 0
+      end
+
+      times.compact!
+      data.compact!
+      data.map! { |x| x/100.0 }
+    end
+
+    Gnuplot::DataSet.new([times, data]) do |ds|
+      ds.notitle if specs.size == 1
+      ds.with = "lines"
+      ds.using = '1:2'
+      ds.title = result.entity.name
+    end
   end
 end
 
