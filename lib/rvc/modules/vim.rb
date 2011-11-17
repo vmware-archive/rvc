@@ -90,7 +90,12 @@ def connect uri, opts
   unless opts[:rev]
     # negotiate API version
     rev = vim.serviceContent.about.apiVersion
-    vim.rev = [rev, ENV['RVC_VIMREV'] || '5.0'].min
+    env_rev = ENV['RVC_VIMREV']
+    if env_rev && env_rev.to_f == 0
+      vim.rev = env_rev
+    else
+      vim.rev = [rev, env_rev || '5.0'].min
+    end
   end
 
   isVC = vim.serviceContent.about.apiType == "VirtualCenter"
