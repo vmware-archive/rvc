@@ -130,39 +130,18 @@ opts :create do
   opt :pool, "Resource pool", :short => 'p', :type => :string, :lookup => VIM::ResourcePool
   opt :host, "Host", :short => 'h', :type => :string, :lookup => VIM::HostSystem
   opt :datastore, "Datastore", :short => 'd', :type => :string, :lookup => VIM::Datastore
-  opt :disksize, "Size in KB of primary disk (or add a unit of <M|G|T>)", :short => 's', :type => :string, :default => "4000000"
   opt :memory, "Size in MB of memory", :short => 'm', :type => :int, :default => 128
-  opt :cpucount, "Number of CPUs", :short => 'c', :type => :int, :default => 1
+  opt :cpus, "Number of CPUs", :short => 'c', :type => :int, :default => 1
+
   text <<-EOB
 
+  No disks or network adapters are initially present. Use vm.add_disk or
+  vm.add_net_device to do this.
+
 Example:
-  vm.create -p ~foo/resourcePool/pools/prod -d ~data/bigdisk -s 10g ~vms/new
+  vm.create ~/vm/foo --pool ~/host/my_cluster/resourcePool --datastore ~/datastore/my_datastore
 
   EOB
-end
-
-# XXX replace with MetricNumber.parse
-def realdisksize( size )
-  size.downcase!
-  if size =~ /([0-9][0-9,]*)([mgt])?/i
-    size = $1.delete(',').to_i
-    unit = $2
-
-    case unit
-    when 'm'
-      return size * 1024
-    when 'g'
-      return size * ( 1024 ** 2 )
-    when 't'
-      return size * ( 1024 ** 3 )
-    when nil
-      return size
-    else
-      err "Unknown size modifer of '#{unit}'"
-    end
-  else
-    err "Problem with #{size}"
-  end
 end
 
 
@@ -181,27 +160,6 @@ def create dest, opts
     :deviceChange => [
       {
         :operation => :add,
-        :device => VIM.VirtualLsiLogicController(
-          :key => 1000,
-          :busNumber => 0,
-          :sharedBus => :noSharing
-        )
-      }, {
-        :operation => :add,
-        :fileOperation => :create,
-        :device => VIM.VirtualDisk(
-          :key => -1,
-          :backing => VIM.VirtualDiskFlatVer2BackingInfo(
-            :fileName => datastore_path,
-            :diskMode => :persistent,
-            :thinProvisioned => true
-          ),
-          :controllerKey => 1000,
-          :unitNumber => 0,
-          :capacityInKB => realdisksize( opts[:disksize] )
-        )
-      }, {
-        :operation => :add,
         :device => VIM.VirtualCdrom(
           :key => -2,
           :connectable => {
@@ -214,19 +172,6 @@ def create dest, opts
           ),
           :controllerKey => 200,
           :unitNumber => 0
-        )
-      }, {
-        :operation => :add,
-        :device => VIM.VirtualE1000(
-          :key => -3,
-          :deviceInfo => {
-            :label => 'Network Adapter 1',
-            :summary => 'VM Network'
-          },
-          :backing => VIM.VirtualEthernetCardNetworkBackingInfo(
-            :deviceName => 'VM Network'
-          ),
-          :addressType => 'generated'
         )
       }
     ],
@@ -636,13 +581,13 @@ opts :add_disk do
   summary "Add a hard drive to a virtual machine"
   arg :vm, nil, :lookup => VIM::VirtualMachine
   opt :label, 'Label', :type => :string
-  opt :size, 'Size', :default => '1G'
+  opt :size, 'Size', :default => '10G'
 end
 
 def add_disk vm, opts
   existing_devices = vm.config.hardware.device
-  controller = existing_devices.find { |x| x.is_a? VIM::VirtualLsiLogicController }
-  used_unit_numbers =  existing_devices.select { |x| x.controllerKey == controller.key }.map(&:unitNumber)
+  controller = existing_devices.find { |x| x.is_a? VIM::VirtualSCSIController or x.is_a? VIM::VirtualIDEController }
+  used_unit_numbers = existing_devices.select { |x| x.controllerKey == controller.key }.map(&:unitNumber)
   unit_number = (used_unit_numbers.max||-1) + 1
   id = "disk-#{controller.key}-#{unit_number}"
   opts[:label] ||= id
@@ -654,7 +599,7 @@ def add_disk vm, opts
       :diskMode => :persistent,
       :thinProvisioned => true
     ),
-    :capacityInKB => realdisksize(opts[:size]),
+    :capacityInKB => MetricNumber.parse(opts[:size]).to_i/1000,
     :controllerKey => controller.key,
     :unitNumber => unit_number
   )
