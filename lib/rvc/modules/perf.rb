@@ -19,7 +19,7 @@ opts :plot do
   summary "Plot a graph of the given performance counters"
   arg :counter, "Counter name"
   arg :obj, "", :lookup => VIM::ManagedEntity, :multi => true
-  opt :terminal, "Display plot on terminal"
+  opt :terminal, "Display plot on terminal", :default => ENV['DISPLAY'].nil?
   opt :start, "Start time", :type => :date, :short => 's'
   opt :end, "End time", :type => :date, :short => 'e'
 end
@@ -74,33 +74,17 @@ def plot counter_name, objs, opts
       :format => 'csv',
     }
   end
-  results = pm.QueryPerf(querySpec: specs)
 
-  datasets = results.map do |result|
-    times = result.sampleInfoCSV.split(',').select { |x| x['T']  }
-    data = result.value[0].value.split(',').map(&:to_i)
-
-    if counter.unitInfo.key == 'percent'
-      times.length.times do |i|
-        times[i] = data[i] = nil if data[i] < 0
-      end
-
-      times.compact!
-      data.compact!
-      data.map! { |x| x/100.0 }
-    end
-
-    Gnuplot::DataSet.new([times, data]) do |ds|
-      ds.with = "lines"
-      ds.using = '1:2'
-      ds.title = result.entity.name
-    end
+  if opts[:io]
+    io = opts[:io]
+  else
+    cmd = Gnuplot.gnuplot(true) or err 'gnuplot not found'
+    io = IO::popen(cmd, "w")
   end
 
-  Gnuplot.open do |gp|
-    Gnuplot::Plot.new( gp ) do |plot|
-      if datasets.size == 1
-        datasets[0].notitle
+  begin
+    plot = Gnuplot::Plot.new do |plot|
+      if objs.size == 1
         plot.title "#{counter_name} on #{objs[0].name}"
       else
         plot.title counter_name
@@ -113,32 +97,67 @@ def plot counter_name, objs, opts
       plot.set 'xdata', 'time'
       plot.set 'format', "x '#{display_timefmt}'"
       plot.set 'timefmt', TIMEFMT.inspect
-
-      plot.data.concat datasets
     end
+
+    plot.to_gplot io
+
+    results = pm.QueryPerf(querySpec: specs)
+    datasets = results.map do |result|
+      times = result.sampleInfoCSV.split(',').select { |x| x['T']  }
+      data = result.value[0].value.split(',').map(&:to_i)
+
+      if counter.unitInfo.key == 'percent'
+        times.length.times do |i|
+          times[i] = data[i] = nil if data[i] < 0
+        end
+
+        times.compact!
+        data.compact!
+        data.map! { |x| x/100.0 }
+      end
+
+      Gnuplot::DataSet.new([times, data]) do |ds|
+        ds.notitle if objs.size == 1
+        ds.with = "lines"
+        ds.using = '1:2'
+        ds.title = result.entity.name
+      end
+    end
+
+    io << plot.cmd << " " << datasets.collect { |e| e.plot_args }.join(", ")
+    io << "\n"
+    v = datasets.collect { |ds| ds.to_gplot }
+    io << v.compact.join("e\n")
+    io.puts
+  ensure
+    io.close unless opts[:io]
   end
 end
 
 
-# TODO fix flickering
 opts :watch do
   summary "Watch a graph of the given performance counters"
   arg :counter, "Counter name"
   arg :objs, "", :lookup => VIM::ManagedEntity, :multi => true
+  opt :interval, "Seconds between updates", :short => 'i', :default => 10
+  opt :terminal, "Display plot on terminal", :default => ENV['DISPLAY'].nil?
 end
 
-def watch counter_name, objs
+def watch counter_name, objs, opts
+  cmd = Gnuplot.gnuplot(false) or err 'gnuplot not found'
+  io = IO::popen(cmd, "w")
+  puts "Press Ctrl-C to stop."
   while true
-    plot counter_name, objs, :terminal => true, :start => (Time.now-300)
-    sleep 5
-    n = 25
-    $stdout.write "\e[#{n}A"
-    n.times do |i|
-      $stdout.write "\e[K\n"
+    plot counter_name, objs, :io => io, :terminal => opts[:terminal]
+    sleep opts[:interval]
+    if opts[:terminal]
+      $stdout.write "\e[25A"
+      $stdout.flush
     end
-    $stdout.write "\e[#{n}A"
   end
 rescue Interrupt
+ensure
+  io.close if io
 end
 
 
