@@ -75,15 +75,8 @@ def plot counter_name, objs, opts
     }
   end
 
-  if opts[:io]
-    io = opts[:io]
-  else
-    cmd = Gnuplot.gnuplot(true) or err 'gnuplot not found'
-    io = IO::popen(cmd, "w")
-  end
-
-  begin
-    plot = Gnuplot::Plot.new(io) do |plot|
+  with_gnuplot(true) do |gp|
+    plot = Gnuplot::Plot.new(gp) do |plot|
       if objs.size == 1
         plot.title "#{counter_name} on #{objs[0].name}"
       else
@@ -104,9 +97,7 @@ def plot counter_name, objs, opts
 
       plot.data = retrieve_datasets pm, counter, specs
     end
-    io.puts
-  ensure
-    io.close unless opts[:io]
+    gp.puts
   end
 end
 
@@ -135,6 +126,22 @@ def retrieve_datasets pm, counter, specs
   end
 end
 
+def with_gnuplot persist
+  if $rvc_gnuplot
+    yield $rvc_gnuplot
+  else
+    cmd = Gnuplot.gnuplot(persist) or err 'gnuplot not found'
+    $rvc_gnuplot = IO::popen(cmd, "w")
+    begin
+      yield $rvc_gnuplot
+    ensure
+      gp = $rvc_gnuplot
+      $rvc_gnuplot = nil
+      gp.close
+    end
+  end
+end
+
 
 opts :watch do
   summary "Watch a graph of the given performance counters"
@@ -145,20 +152,18 @@ opts :watch do
 end
 
 def watch counter_name, objs, opts
-  cmd = Gnuplot.gnuplot(false) or err 'gnuplot not found'
-  io = IO::popen(cmd, "w")
-  puts "Press Ctrl-C to stop."
-  while true
-    plot counter_name, objs, :io => io, :terminal => opts[:terminal]
-    sleep opts[:interval]
-    if opts[:terminal]
-      $stdout.write "\e[25A"
-      $stdout.flush
+  with_gnuplot false do |gp|
+    puts "Press Ctrl-C to stop."
+    while true
+      plot counter_name, objs, :terminal => opts[:terminal]
+      sleep opts[:interval]
+      if opts[:terminal]
+        $stdout.write "\e[25A"
+        $stdout.flush
+      end
     end
   end
 rescue Interrupt
-ensure
-  io.close if io
 end
 
 
