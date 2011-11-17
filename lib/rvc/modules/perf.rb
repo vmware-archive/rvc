@@ -6,12 +6,7 @@ rescue LoadError
 end
 
 TIMEFMT = '%Y-%m-%d.%H:%M:%S'
-INTERVALS = {
-  'realtime' => 20,
-  'day' => 300,
-  'week' => 1800,
-  'month' => 7200,
-}
+
 DISPLAY_TIMEFMT = {
   'realtime' => '%H:%M',
   'day' => '%H:%M',
@@ -24,24 +19,37 @@ opts :plot do
   arg :obj, "", :lookup => VIM::ManagedEntity
   arg :counter, "Counter name"
   opt :terminal, "Display plot on terminal"
-  opt :scale, INTERVALS.keys*'/', :default => 'realtime'
+  opt :start, "Start time", :type => :date, :short => 's'
+  opt :end, "End time", :type => :date, :short => 'e'
 end
 
 def plot obj, counter_name, opts
   err "gnuplot and/or the gnuplot gem are not installed" unless RVC::HAVE_GNUPLOT
-  err "invalid scale" unless INTERVALS.member? opts[:scale]
   pm = obj._connection.serviceContent.perfManager
   group_key, counter_key, rollup_type = counter_name.split('.', 3)
 
-  all_counters = Hash[pm.perfCounter.map { |x| [x.key, x] }]
+  opts[:end] ||= Time.now
+  opts[:start] ||= opts[:end] - 3600
 
-  interval_id = INTERVALS[opts[:scale]]
-  start_time = (Time.now-interval_id*10).to_datetime
+  err "end time is in the future" unless opts[:end] <= Time.now
+  ago = Time.now - opts[:start]
+
+  if ago < 60*59
+    puts "Using realtime interval, period = 20 seconds."
+    interval_id = 20
+  else
+    intervals = pm.historicalInterval
+    interval = intervals.find { |x| Time.now - x.length < opts[:start] }
+    err "start time is too long ago" unless interval
+    puts "Using historical interval #{interval.name.inspect}, period = #{interval.samplingPeriod} seconds."
+    interval_id = interval.samplingPeriod
+  end
+
+  all_counters = Hash[pm.perfCounter.map { |x| [x.key, x] }]
 
   metrics = pm.QueryAvailablePerfMetric(
     :entity => obj,
-    :intervalId => interval_id,
-    :startTime => start_time)
+    :interval => interval_id)
 
   metric = metrics.find do |metric|
     counter = all_counters[metric.counterId]
@@ -55,7 +63,8 @@ def plot obj, counter_name, opts
     :entity => obj,
     :metricId => [metric],
     :intervalId => interval_id,
-    #:startTime => start_time
+    :startTime => opts[:start],
+    :endTime => opts[:end],
   }
   result = pm.QueryPerf(querySpec: [spec])[0]
   times = result.sampleInfo.map(&:timestamp).map { |x| x.strftime TIMEFMT }
