@@ -91,8 +91,10 @@ class Shell
 
   def eval_command input
     m, cmd, args = Shell.parse_input input
-    RVC::Util.err "invalid command" unless m != nil and cmd.is_a? Symbol
-    parser = m.opts_for(cmd.to_sym)
+    RVC::Util.err "invalid command" unless m != nil and
+                                           cmd.is_a? Symbol and
+                                           m.has_command? cmd
+    parser = m.opts_for(cmd)
 
     begin
       args, opts = parser.parse args

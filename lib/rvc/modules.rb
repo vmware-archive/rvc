@@ -40,6 +40,10 @@ class CmdModule
     @opts.keys
   end
 
+  def has_command? cmd
+    @opts.member? cmd
+  end
+
   def opts cmd, &b
     @opts[cmd] = OptionParser.new cmd.to_s, &b
   end
