@@ -132,6 +132,7 @@ opts :create do
   opt :datastore, "Datastore", :short => 'd', :type => :string, :lookup => VIM::Datastore
   opt :memory, "Size in MB of memory", :short => 'm', :type => :int, :default => 128
   opt :cpus, "Number of CPUs", :short => 'c', :type => :int, :default => 1
+  opt :guest_id, "Guest OS", :short => 'g', :default => "otherGuest" # XXX tab complete
 
   text <<-EOB
 
@@ -154,7 +155,7 @@ def create dest, opts
   datastore_path = "[#{opts[:datastore].name}]"
   config = {
     :name => name,
-    :guestId => 'otherGuest',
+    :guestId => opts[:guest_id],
     :files => { :vmPathName => datastore_path },
     :numCPUs => opts[:cpucount],
     :memoryMB => opts[:memory],
