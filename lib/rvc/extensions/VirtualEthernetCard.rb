@@ -18,35 +18,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-class RbVmomi::VIM::VirtualDevice
-  include RVC::InventoryObject
-  attr_accessor :rvc_vm
-
-  def ls_text r
-    tags = []
-    tags << (connectable.connected ? :connected : :disconnected) if props.member? :connectable
-    " (#{self.class}): #{deviceInfo.summary}; #{tags * ' '}"
-  end
-
+class RbVmomi::VIM::VirtualEthernetCard
   def display_info
     super
-    devices, = rvc_vm.collect 'config.hardware.device'
-    puts "label: #{deviceInfo.label}"
-    puts "summary: #{deviceInfo.summary}"
-    puts "key: #{key}"
-    if controllerKey
-      puts "controller key: #{controllerKey}"
-      controller = devices.find { |x| x.key == controllerKey }
-      puts "controller label: #{controller.deviceInfo.label}" if controller
-    end
-    puts "unit number: #{unitNumber}" if unitNumber
-    if connectable
-      puts "connectivity:"
-      puts " connected: #{connectable.connected}"
-      puts " start connected: #{connectable.startConnected}"
-      puts " guest control: #{connectable.allowGuestControl}"
-      puts " status: #{connectable.status}"
-    end
+    puts "address type: #{addressType}"
+    puts "MAC address: #{macAddress}"
+    puts "Wake on LAN enabled: #{wakeOnLanEnabled}"
   end
 end
-
