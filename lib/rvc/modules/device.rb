@@ -83,10 +83,11 @@ opts :add_disk do
   summary "Add a hard drive to a virtual machine"
   arg :vm, nil, :lookup => VIM::VirtualMachine
   opt :size, 'Size', :default => '10G'
+  opt :controller, 'Virtual controller', :type => :string, :lookup => VIM::VirtualController
 end
 
 def add_disk vm, opts
-  controller, unit_number = pick_controller vm, [VIM::VirtualSCSIController, VIM::VirtualIDEController]
+  controller, unit_number = pick_controller vm, opts[:controller], [VIM::VirtualSCSIController, VIM::VirtualIDEController]
   id = "disk-#{controller.key}-#{unit_number}"
   filename = "#{File.dirname(vm.summary.config.vmPathName)}/#{id}.vmdk"
   _add_device vm, :create, VIM::VirtualDisk(
@@ -106,10 +107,11 @@ end
 opts :add_cdrom do
   summary "Add a cdrom drive"
   arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :controller, 'Virtual controller', :type => :string, :lookup => VIM::VirtualIDEController
 end
 
-def add_cdrom vm
-  controller, unit_number = pick_controller vm, [VIM::VirtualSCSIController, VIM::VirtualIDEController]
+def add_cdrom vm, opts
+  controller, unit_number = pick_controller vm, opts[:controller], [VIM::VirtualIDEController]
   id = "cdrom-#{controller.key}-#{unit_number}"
   _add_device vm, nil, VIM.VirtualCdrom(
     :controllerKey => controller.key,
@@ -154,6 +156,43 @@ def insert_cdrom dev, iso
 end
 
 
+SCSI_CONTROLLER_TYPES = {
+  'pvscsi' => VIM::ParaVirtualSCSIController,
+  'buslogic' => VIM::VirtualBusLogicController,
+  'lsilogic' => VIM::VirtualLsiLogicController,
+  'lsilogic-sas' => VIM::VirtualLsiLogicSASController,
+}
+
+SCSI_BUS_NUMBERS = [0, 1, 2, 3]
+
+opts :add_scsi_controller do
+  summary "Add a virtual SCSI controller to a VM"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :type, SCSI_CONTROLLER_TYPES.keys*'/', :default => 'lsilogic' # TODO tab complete
+  opt :sharing, VIM::VirtualSCSISharing.values*'/', :default => 'noSharing' # TODO tab complete
+  opt :hot_add, "Enable hot-add/remove", :default => nil
+end
+
+def add_scsi_controller vm, opts
+  klass = SCSI_CONTROLLER_TYPES[opts[:type]] or err "invalid SCSI controller type #{opts[:type].inspect}"
+  err "invalid value for --sharing" unless VIM::VirtualSCSISharing.values.member? opts[:sharing]
+
+  existing_devices, = vm.collect 'config.hardware.device'
+  used_bus_numbers = existing_devices.grep(VIM::VirtualSCSIController).map(&:busNumber)
+  bus_number = (SCSI_BUS_NUMBERS - used_bus_numbers).min
+  err "unable to allocate a bus number, too many SCSI controllers" unless bus_number
+
+  controller = klass.new(
+    :key => -1,
+    :busNumber => bus_number,
+    :sharedBus => opts[:sharing],
+    :hotAddRemove => opts[:hot_add]
+  )
+
+  _add_device vm, nil, controller
+end
+
+
 def _add_device vm, fileOp, dev
   spec = {
     :deviceChange => [
@@ -195,10 +234,10 @@ def change_devices_connectivity devs, connected
   progress tasks
 end
 
-def pick_controller vm, controller_classes
+def pick_controller vm, controller, controller_classes
   existing_devices, = vm.collect 'config.hardware.device'
 
-  controller = existing_devices.find do |dev|
+  controller ||= existing_devices.find do |dev|
     controller_classes.any? { |klass| dev.is_a? klass } &&
       dev.device.length < 2
   end
