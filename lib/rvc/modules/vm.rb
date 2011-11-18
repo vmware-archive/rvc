@@ -135,12 +135,13 @@ opts :create do
 
   text <<-EOB
 
-  No disks or network adapters are initially present. Use vm.add_disk or
-  vm.add_net_device to do this.
+  No disks or network adapters are initially present. Use device.add_disk and
+  device.add_net to do this.
 
 Example:
   vm.create ~/vm/foo --pool ~/host/my_cluster/resourcePool --datastore ~/datastore/my_datastore
-
+  device.add_disk ~/vm/foo -s 30G
+  device.add_net ~/vm/foo ~/network/VM\ Network
   EOB
 end
 
@@ -181,30 +182,6 @@ def create dest, opts
                          :host => opts[:host]).wait_for_completion
 end
 
-
-opts :insert_cdrom do
-  summary "Put a disc in a virtual CDROM drive"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
-  arg :iso, "Path to the ISO image on a datastore", :lookup => VIM::Datastore::FakeDatastoreFile
-end
-
-def insert_cdrom vm, iso
-  device = vm.config.hardware.device.grep(VIM::VirtualCdrom)[0]
-  err "No virtual CDROM drive found" unless device
-
-  device.backing = VIM.VirtualCdromIsoBackingInfo(:fileName => iso.datastore_path)
-
-  spec = {
-    :deviceChange => [
-      {
-        :operation => :edit,
-        :device => device
-      }
-    ]
-  }
-  
-  vm.ReconfigVM_Task(:spec => spec)
-end
 
 opts :register do
   summary "Register a VM already in a datastore"
@@ -326,43 +303,6 @@ def layout vm
   vm.layoutEx.file.each do |f|
     puts "#{f.type}: #{f.name}"
   end
-end
-
-
-opts :devices do
-  summary "Display info about VM devices"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
-end
-
-def devices vm
-  devs = vm.config.hardware.device
-  devs.each do |dev|
-    tags = []
-    tags << (dev.connectable.connected ? :connected : :disconnected) if dev.props.member? :connectable
-    puts "#{dev.deviceInfo.label} (#{dev.class}): #{dev.deviceInfo.summary}; #{tags * ' '}"
-  end
-end
-
-
-opts :connect do
-  summary "Connect a virtual device"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
-  arg :label, "Device label"
-end
-
-def connect vm, label
-  change_device_connectivity vm, label, true
-end
-
-
-opts :disconnect do
-  summary "Disconnect a virtual device"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
-  arg :label, "Device label"
-end
-
-def disconnect vm, label
-  change_device_connectivity vm, label, false
 end
 
 
@@ -545,110 +485,6 @@ ensure
 end
 
 
-opts :add_net_device do
-  summary "Add a network adapter to a virtual machine"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
-  opt :type, "Adapter type", :default => 'e1000'
-  opt :network, "Network to connect to", :type => :string, :lookup => VIM::Network
-end
-
-def add_net_device vm, opts
-  case opts[:type]
-  when 'e1000'
-    _add_net_device vm, VIM::VirtualE1000, opts[:network]
-  when 'vmxnet3'
-    _add_net_device vm, VIM::VirtualVmxnet3, opts[:network]
-  else err "unknown device"
-  end
-end
-
-def _add_net_device vm, klass, network
-  case network
-  when VIM::DistributedVirtualPortgroup
-    switch, pg_key = network.collect 'config.distributedVirtualSwitch', 'key'
-    port = VIM.DistributedVirtualSwitchPortConnection(
-      :switchUuid => switch.uuid,
-      :portgroupKey => pg_key)
-    summary = network.name
-    backing = VIM.VirtualEthernetCardDistributedVirtualPortBackingInfo(:port => port)
-  when VIM::Network
-    summary = network.name
-    backing = VIM.VirtualEthernetCardNetworkBackingInfo(:deviceName => network.name)
-  else fail
-  end
-
-  _add_device vm, nil, klass.new(
-    :key => -1,
-    :deviceInfo => {
-      :summary => summary,
-      :label => `uuidgen`.chomp
-    },
-    :backing => backing,
-    :addressType => 'generated'
-  )
-end
-
-
-opts :add_disk do
-  summary "Add a hard drive to a virtual machine"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
-  opt :label, 'Label', :type => :string
-  opt :size, 'Size', :default => '10G'
-end
-
-def add_disk vm, opts
-  existing_devices = vm.config.hardware.device
-  controller = existing_devices.find { |x| x.is_a? VIM::VirtualSCSIController or x.is_a? VIM::VirtualIDEController }
-  used_unit_numbers = existing_devices.select { |x| x.controllerKey == controller.key }.map(&:unitNumber)
-  unit_number = (used_unit_numbers.max||-1) + 1
-  id = "disk-#{controller.key}-#{unit_number}"
-  opts[:label] ||= id
-  filename = "#{File.dirname(vm.summary.config.vmPathName)}/#{id}.vmdk"
-  _add_device vm, :create, VIM::VirtualDisk(
-    :key => -1,
-    :backing => VIM.VirtualDiskFlatVer2BackingInfo(
-      :fileName => filename,
-      :diskMode => :persistent,
-      :thinProvisioned => true
-    ),
-    :capacityInKB => MetricNumber.parse(opts[:size]).to_i/1000,
-    :controllerKey => controller.key,
-    :unitNumber => unit_number
-  )
-  new_device = vm.config.hardware.device.find { |x| x.controllerKey == controller.key && x.unitNumber == unit_number }
-  puts "Added device #{new_device.deviceInfo.label.inspect}"
-end
-
-
-def _add_device vm, fileOp, dev
-  spec = {
-    :deviceChange => [
-      { :operation => :add, :fileOperation => fileOp, :device => dev },
-    ]
-  }
-  vm.ReconfigVM_Task(:spec => spec).wait_for_completion
-end
-
-
-opts :remove_device do
-  summary "Remove a virtual device"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
-  arg :label, "Device label"
-end
-
-def remove_device vm, label
-  dev = vm.config.hardware.device.find { |x| x.deviceInfo.label == label }
-  err "no such device" unless dev
-  fileOp = dev.backing.is_a?(VIM::VirtualDeviceFileBackingInfo) ? 'destroy' : nil
-  spec = {
-    :deviceChange => [
-      { :operation => :remove, :fileOperation => fileOp, :device => dev },
-    ]
-  }
-  vm.ReconfigVM_Task(:spec => spec).wait_for_completion
-end
-
-
 opts :migrate do
   summary "Migrate a VM"
   arg :vm, nil, :lookup => VIM::VirtualMachine, :multi => true
@@ -696,7 +532,6 @@ def clone src, dst, opts
                           })
   progress [task]
 end
-
 
 def deltaize_disks vm
   real_disks = vm.config.hardware.device.grep(VIM::VirtualDisk).select { |x| x.backing.parent == nil }
@@ -757,41 +592,6 @@ def modify_memory vm, opts
 end
 
 
-opts :add_cdrom_device do
-  summary "Add a cdrom drive"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
-  opt :label, "Device label", :default => "CD/DVD drive 1"
-end
-
-def add_cdrom_device vm, opts
-  progress [vm.ReconfigVM_Task(:spec => {
-    :deviceChange => [
-      {
-        :operation => :add,
-        :device => VIM.VirtualCdrom(
-          :controllerKey => 200,
-          :key => 3000,
-          :unitNumber => 0,
-          :backing => VIM.VirtualCdromAtapiBackingInfo(
-            :deviceName => opts[:label],
-            :useAutoDetect => false
-          ),
-          :connectable => VIM.VirtualDeviceConnectInfo(
-            :allowGuestControl => true,
-            :connected => true,
-            :startConnected => true
-          ),
-          :deviceInfo => VIM.Description(
-            :label => opts[:label],
-            :summary => opts[:label]
-          )
-        )
-      }
-    ]
-  })]
-end
-
-
 def find_vmx_files ds
   datastorePath = "[#{ds.name}] /"
   searchSpec = {
@@ -812,28 +612,6 @@ def find_vmx_files ds
   end
 
   files
-end
-
-def change_device_connectivity vm, label, connected
-  dev = vm.config.hardware.device.find { |x| x.deviceInfo.label == label }
-  err "no such device" unless dev
-  dev.connectable.connected = connected
-  spec = {
-    :deviceChange => [
-      {
-        :operation => :edit,
-        :device => dev.class.new(
-          :key => dev.key,
-          :connectable => {
-            :allowGuestControl => dev.connectable.allowGuestControl,
-            :connected => connected,
-            :startConnected => connected
-          }
-        )
-      },
-    ]
-  }
-  vm.ReconfigVM_Task(:spec => spec).wait_for_completion
 end
 
 def vm_ip vm

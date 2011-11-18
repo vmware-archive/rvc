@@ -176,6 +176,7 @@ class RbVmomi::VIM::VirtualMachine
       'networks' => RVC::FakeFolder.new(self, :rvc_children_networks),
       'files' => RVC::FakeFolder.new(self, :rvc_children_files),
       'snapshots' => RVC::RootSnapshotFolder.new(self),
+      'devices' => RVC::FakeFolder.new(self, :rvc_children_devices),
     }
   end
 
@@ -199,6 +200,12 @@ class RbVmomi::VIM::VirtualMachine
       fail unless objs.size == 1
       [File.basename(file.name), objs.first]
     end]
+  end
+
+  def rvc_children_devices
+    devices, = collect 'config.hardware.device'
+    devices.each { |x| x.rvc_vm = self }
+    Hash[devices.map { |x| [x.deviceInfo.label, x] }]
   end
 end
 
