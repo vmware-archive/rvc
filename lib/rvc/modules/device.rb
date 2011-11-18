@@ -160,9 +160,12 @@ def _add_device vm, fileOp, dev
       { :operation => :add, :fileOperation => fileOp, :device => dev },
     ]
   }
-  progress [vm.ReconfigVM_Task(:spec => spec)]
-  new_device = vm.collect('config.hardware.device')[0].grep(dev.class).last
-  puts "Added device #{new_device.deviceInfo.label.inspect}"
+  task = vm.ReconfigVM_Task(:spec => spec)
+  result = progress([task])[task]
+  if result == nil
+    new_device = vm.collect('config.hardware.device')[0].grep(dev.class).last
+    puts "Added device #{new_device.deviceInfo.label.inspect}"
+  end
 end
 
 def change_devices_connectivity devs, connected
