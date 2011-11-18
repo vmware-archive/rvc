@@ -102,7 +102,7 @@ def plot counter_name, objs, opts
 end
 
 def retrieve_datasets pm, counter, specs
-  results = pm.QueryPerf(querySpec: specs)
+  results = pm.QueryPerf(:querySpec => specs)
   datasets = results.map do |result|
     times = result.sampleInfoCSV.split(',').select { |x| x['T']  }
     data = result.value[0].value.split(',').map(&:to_i)
