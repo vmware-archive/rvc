@@ -332,37 +332,37 @@ def find ds, opts
 end
 
 
-opts :extraConfig do
+opts :extra_config do
   summary "Display extraConfig options"
   arg :vm, nil, :lookup => VIM::VirtualMachine
   arg :regex, "Regexes to filter keys", :multi => true, :required => false
 end
 
-def extraConfig vm, regexes
-  _extraConfig(vm, *regexes.map { |x| /#{x}/ })
+def extra_config vm, regexes
+  _extra_config(vm, *regexes.map { |x| /#{x}/ })
 end
 
 
-opts :setExtraConfig do
+opts :set_extra_config do
   summary "Set extraConfig options"
   arg :vm, nil, :lookup => VIM::VirtualMachine
   arg 'key=value', "extraConfig key/value pairs", :multi => true
 end
 
-def setExtraConfig vm, pairs
+def set_extra_config vm, pairs
   h = Hash[pairs.map { |x| x.split('=', 2).tap { |a| a << '' if a.size == 1 } }]
-  _setExtraConfig vm, h
+  _set_extra_config vm, h
 end
 
 
-def _setExtraConfig vm, hash
+def _set_extra_config vm, hash
   cfg = {
     :extraConfig => hash.map { |k,v| { :key => k, :value => v } },
   }
   vm.ReconfigVM_Task(:spec => cfg).wait_for_completion
 end
 
-def _extraConfig vm, *regexes
+def _extra_config vm, *regexes
   vm.config.extraConfig.each do |h|
     if regexes.empty? or regexes.any? { |r| h[:key] =~ r }
       puts "#{h[:key]}: #{h[:value]}"
@@ -507,7 +507,7 @@ opts :clone do
   opt :host, "Host", :short => 'h', :type => :string, :lookup => VIM::HostSystem
   opt :template, "Create a template", :short => 't'
   opt :linked, "Create a linked clone", :short => 'l'
-  opt :powerOn, "Power on VM after clone"
+  opt :power_on, "Power on VM after clone"
 end
 
 def clone src, dst, opts
@@ -528,7 +528,7 @@ def clone src, dst, opts
                               :pool => opts[:pool],
                             },
                             :template => opts[:template],
-                            :powerOn => opts[:powerOn],
+                            :powerOn => opts[:power_on],
                           })
   progress [task]
 end

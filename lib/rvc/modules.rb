@@ -45,7 +45,17 @@ class CmdModule
   end
 
   def opts cmd, &b
+    if cmd.to_s =~ /[A-Z]/
+      fail "Camel-casing is not allowed (#{cmd.to_s})"
+    end
+
     @opts[cmd] = OptionParser.new cmd.to_s, &b
+
+    @opts[cmd].specs.each do |name,spec|
+      if name.to_s =~ /[A-Z]/
+        fail "Camel-casing is not allowed (#{cmd.to_s} option #{name})"
+      end
+    end
   end
 
   def raw_opts cmd, summary
