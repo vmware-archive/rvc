@@ -25,7 +25,7 @@ opts :plot do
 end
 
 def plot counter_name, objs, opts
-  err "gnuplot and/or the gnuplot gem are not installed" unless RVC::HAVE_GNUPLOT
+  err "The gnuplot gem is not installed" unless RVC::HAVE_GNUPLOT
   vim = single_connection objs
   pm = vim.serviceContent.perfManager
   group_key, counter_key, rollup_type = counter_name.split('.', 3)
@@ -152,6 +152,7 @@ opts :watch do
 end
 
 def watch counter_name, objs, opts
+  err "The gnuplot gem is not installed" unless RVC::HAVE_GNUPLOT
   with_gnuplot false do |gp|
     puts "Press Ctrl-C to stop."
     while true
