@@ -71,7 +71,7 @@ def add_net vm, network, opts
     :key => -1,
     :deviceInfo => {
       :summary => summary,
-      :label => `uuidgen`.chomp
+      :label => "",
     },
     :backing => backing,
     :addressType => 'generated'
