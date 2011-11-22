@@ -29,8 +29,8 @@ rvc_alias :view, :vnc
 rvc_alias :view, :V
 
 def view vm
-  ip = reachable_ip vm.runtime.host
-  extraConfig = vm.config.extraConfig
+  ip = reachable_ip vm.collect('runtime.host')[0]
+  extraConfig, = vm.collect('config.extraConfig')
   already_enabled = extraConfig.find { |x| x.key == 'RemoteDisplay.vnc.enabled' && x.value.downcase == 'true' }
   if already_enabled
     puts "VNC already enabled"
@@ -68,7 +68,7 @@ end
 
 
 def reachable_ip host
-  ips = host.config.network.vnic.map { |x| x.spec.ip.ipAddress } # TODO optimize
+  ips = host.collect('config.network.vnic')[0].map { |x| x.spec.ip.ipAddress }
   ips.find do |x|
     begin
       Timeout.timeout(1) { TCPSocket.new(x, 443).close; true }
