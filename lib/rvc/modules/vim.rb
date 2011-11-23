@@ -165,7 +165,7 @@ def prompt_password
 end
 
 def keychain_password username , hostname
-   return nil unless RbConfig::CONFIG['host_os'] =~ /^darwin10/
+   return nil unless RbConfig::CONFIG['host_os'] =~ /^darwin1[01]/
 
   begin
     require 'osx_keychain'
