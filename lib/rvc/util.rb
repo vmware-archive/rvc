@@ -210,13 +210,8 @@ module Util
     $terminal.color(str, *VIM::ManagedEntity::STATUS_COLORS[status])
   end
 
-  METRIC_PREFIXES = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'H']
-
   def metric num
-    num = num.to_f
-    i = (0...(METRIC_PREFIXES.size)).find { |i| num / (1000**i) < 1000 }
-    i ||= METRIC_PREFIXES.size - 1
-    "%0.2f %s" % [num/(1000**i), METRIC_PREFIXES[i]]
+    MetricNumber.new(num.to_f, '', false).to_s
   end
 
   def retrieve_fields objs, fields
@@ -258,31 +253,62 @@ class TimeDiff < SimpleDelegator
 end
 
 class MetricNumber < SimpleDelegator
-  def initialize val, unit
+  attr_reader :unit, :binary
+
+  def initialize val, unit, binary=false
     @unit = unit
-    super val
+    @binary = binary
+    super val.to_f
   end
 
   def to_s
-    RVC::Util.metric(self) + @unit
+    limit = @binary ? 1024 : 1000
+    if self < limit
+      prefix = ''
+      multiple = 1
+    else
+      prefixes = @binary ? BINARY_PREFIXES : DECIMAL_PREFIXES
+      prefixes = prefixes.sort_by { |k,v| v }
+      prefix, multiple = prefixes.find { |k,v| self/v < limit }
+      prefix, multiple = prefixes.last unless prefix
+    end
+    ("%0.2f %s%s" % [self/multiple, prefix, @unit]).strip
   end
 
+  # http://physics.nist.gov/cuu/Units/prefixes.html
+  DECIMAL_PREFIXES = {
+    'k' => 10 ** 3,
+    'M' => 10 ** 6,
+    'G' => 10 ** 9,
+    'T' => 10 ** 12,
+    'P' => 10 ** 15,
+  }
+
+  # http://physics.nist.gov/cuu/Units/binary.html
+  BINARY_PREFIXES = {
+    'Ki' => 2 ** 10,
+    'Mi' => 2 ** 20,
+    'Gi' => 2 ** 30,
+    'Ti' => 2 ** 40,
+    'Pi' => 2 ** 50,
+  }
+
+  CANONICAL_PREFIXES = Hash[(DECIMAL_PREFIXES.keys + BINARY_PREFIXES.keys).map { |x| [x.downcase, x] }]
+
   def self.parse str
-    if str =~ /^([0-9,.]+)([mgt])?/i
+    if str =~ /^([0-9,.]+)\s*([kmgtp]i?)?/i
       x = $1.delete(',').to_f
-      prefix = $2.downcase
-      units = $'
-
-      result = case prefix
-      when 'k' then x * (1000 ** 1)
-      when 'm' then x * (1000 ** 2)
-      when 'g' then x * (1000 ** 3)
-      when 't' then x * (1000 ** 4)
-      when nil then x
-      else raise "Unknown SI prefix '#{prefix}'"
+      binary = false
+      if $2
+        prefix = $2.downcase
+        binary = prefix[1..1] == 'i'
+        prefixes = binary ? BINARY_PREFIXES : DECIMAL_PREFIXES
+        multiple = prefixes[CANONICAL_PREFIXES[prefix]]
+      else
+        multiple = 1
       end
-
-      new result, units
+      units = $'
+      new x*multiple, units, binary
     else
       raise "Problem parsing SI number #{str.inspect}"
     end
