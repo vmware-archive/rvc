@@ -40,7 +40,10 @@ class OptionParser < Trollop::Parser
     @seen_not_required = false
     @seen_multi = false
     @applicable = Set.new
-    super &b
+    super() do
+      opt :help, "Show this message", :short => 'h'
+      instance_eval &b
+    end
   end
 
   def summary str

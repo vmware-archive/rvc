@@ -128,7 +128,7 @@ opts :create do
   summary "Create a new VM"
   arg :name, "Destination", :lookup_parent => VIM::Folder
   opt :pool, "Resource pool", :short => 'p', :type => :string, :lookup => VIM::ResourcePool
-  opt :host, "Host", :short => 'h', :type => :string, :lookup => VIM::HostSystem
+  opt :host, "Host", :short => 'o', :type => :string, :lookup => VIM::HostSystem
   opt :datastore, "Datastore", :short => 'd', :type => :string, :lookup => VIM::Datastore
   opt :memory, "Size in MB of memory", :short => 'm', :type => :int, :default => 128
   opt :cpus, "Number of CPUs", :short => 'c', :type => :int, :default => 1
@@ -490,7 +490,7 @@ opts :migrate do
   summary "Migrate a VM"
   arg :vm, nil, :lookup => VIM::VirtualMachine, :multi => true
   opt :pool, "Resource pool", :short => 'p', :type => :string, :lookup => VIM::ResourcePool
-  opt :host, "Host", :short => 'h', :type => :string, :lookup => VIM::HostSystem
+  opt :host, "Host", :short => 'o', :type => :string, :lookup => VIM::HostSystem
 end
 
 def migrate vms, opts
@@ -505,7 +505,7 @@ opts :clone do
   arg :src, nil, :lookup => VIM::VirtualMachine
   arg :dst, "Path to new VM", :lookup_parent => VIM::Folder
   opt :pool, "Resource pool", :short => 'p', :type => :string, :lookup => VIM::ResourcePool
-  opt :host, "Host", :short => 'h', :type => :string, :lookup => VIM::HostSystem
+  opt :host, "Host", :short => 'o', :type => :string, :lookup => VIM::HostSystem
   opt :template, "Create a template", :short => 't'
   opt :linked, "Create a linked clone", :short => 'l'
   opt :power_on, "Power on VM after clone"
