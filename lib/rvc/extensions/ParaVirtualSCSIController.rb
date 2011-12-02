@@ -18,15 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-class RbVmomi::VIM::VirtualEthernetCard
-  def display_info
-    super
-    puts "address type: #{addressType}"
-    puts "MAC address: #{macAddress}"
-    puts "Wake on LAN enabled: #{wakeOnLanEnabled}"
-  end
-
+class RbVmomi::VIM::ParaVirtualSCSIController
   def name
-    "ethernet-#{unitNumber-7}"
+    "pvscsi-#{key}"
   end
 end

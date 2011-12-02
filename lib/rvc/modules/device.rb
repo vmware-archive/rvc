@@ -203,13 +203,13 @@ def _add_device vm, fileOp, dev
   result = progress([task])[task]
   if result == nil
     new_device = vm.collect('config.hardware.device')[0].grep(dev.class).last
-    puts "Added device #{new_device.deviceInfo.label.inspect}"
+    puts "Added device #{new_device.name}"
   end
 end
 
 def change_devices_connectivity devs, connected
   if dev = devs.find { |dev| dev.connectable.nil? }
-    err "#{dev.deviceInfo.label} is not connectable."
+    err "#{dev.name} is not connectable."
   end
 
   vm_devs = devs.group_by(&:rvc_vm)

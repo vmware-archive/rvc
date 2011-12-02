@@ -150,7 +150,7 @@ class RbVmomi::VIM::VirtualMachine
         dev.backing.class.name
       end
       guest_net = guest.net.find { |x| x.macAddress == dev.macAddress }
-      puts " #{dev.deviceInfo.label}: #{backing_info} #{dev.connectable.connected ? :connected : :disconnected} #{dev.macAddress} #{guest_net ? (guest_net.ipAddress * ' ') : ''}"
+      puts " #{dev.name}: #{backing_info} #{dev.connectable.connected ? :connected : :disconnected} #{dev.macAddress} #{guest_net ? (guest_net.ipAddress * ' ') : ''}"
     end
 
     puts "storage:"
@@ -205,7 +205,7 @@ class RbVmomi::VIM::VirtualMachine
   def rvc_children_devices
     devices, = collect 'config.hardware.device'
     devices.each { |x| x.rvc_vm = self }
-    Hash[devices.map { |x| [x.deviceInfo.label, x] }]
+    Hash[devices.map { |x| [x.name, x] }]
   end
 end
 

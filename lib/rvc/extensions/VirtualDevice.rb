@@ -22,6 +22,14 @@ class RbVmomi::VIM::VirtualDevice
   include RVC::InventoryObject
   attr_accessor :rvc_vm
 
+  # Stable name based on the device key, unit number, etc.
+  # May be overridden in subclasses.
+  def name
+    self.class.to_s =~ /^(?:Virtual)?(?:Machine)?(\w+?)(?:Card|Device|Controller)?$/
+    type = $1 ? $1.downcase : 'device'
+    "#{type}-#{key}"
+  end
+
   def ls_text r
     tags = []
     tags << (connectable.connected ? :connected : :disconnected) if props.member? :connectable
@@ -35,9 +43,8 @@ class RbVmomi::VIM::VirtualDevice
     puts "summary: #{deviceInfo.summary}"
     puts "key: #{key}"
     if controllerKey
-      puts "controller key: #{controllerKey}"
       controller = devices.find { |x| x.key == controllerKey }
-      puts "controller label: #{controller.deviceInfo.label}" if controller
+      puts "controller: #{controller.name}" if controller
     end
     puts "unit number: #{unitNumber}" if unitNumber
     if connectable
