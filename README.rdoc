@@ -154,4 +154,4 @@ patch so everyone can use it.
 == Development
 
 Send patches to rlane@vmware.com, or fork the project on GitHub and send me a
-pull request.
+pull request. RVC developers hang out in #rvc on Freenode.
