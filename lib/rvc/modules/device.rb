@@ -215,17 +215,11 @@ def change_devices_connectivity devs, connected
   vm_devs = devs.group_by(&:rvc_vm)
   tasks = vm_devs.map do |vm,my_devs|
     device_changes = my_devs.map do |dev|
-      {
-        :operation => :edit,
-        :device => dev.class.new(
-          :key => dev.key,
-          :connectable => {
-            :allowGuestControl => dev.connectable.allowGuestControl,
-            :connected => connected,
-            :startConnected => connected
-          }
-        )
-      }
+      dev = dev.dup
+      dev.connectable = dev.connectable.dup
+      dev.connectable.connected = connected
+      dev.connectable.startConnected = connected
+      { :operation => :edit, :device => dev }
     end
     spec = { :deviceChange => device_changes }
     vm.ReconfigVM_Task(:spec => spec)
