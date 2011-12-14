@@ -193,6 +193,37 @@ def add_scsi_controller vm, opts
 end
 
 
+opts :add_serial do
+  summary "Add a virtual serial port to a VM"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+end
+
+def add_serial vm
+  # create an initial no-op backing
+  backing = VIM::VirtualSerialPortURIBackingInfo(:direction => :client, :serviceURI => 'localhost:0')
+  _add_device vm, nil, VIM::VirtualSerialPort(:yieldOnPoll => true, :key => -1, :backing => backing)
+end
+
+
+opts :connect_serial_uri do
+  summary "Connect a virtual serial port to the given network URI"
+  arg :dev, nil, :lookup => VIM::VirtualSerialPort
+  arg :uri, "URI", :type => :string
+  opt :client, "Connect to another machine", :short => 'c'
+  opt :server, "Listen for incoming connections", :short => 's'
+  conflicts :client, :server
+end
+
+def connect_serial_uri dev, uri, opts
+  err "must specify --client or --server" unless opts[:client] || opts[:server]
+  direction = opts[:client] ? 'client' : 'server'
+  dev = dev.dup
+  dev.backing = VIM::VirtualSerialPortURIBackingInfo(:direction => direction, :serviceURI => uri)
+  spec = { :deviceChange => [ { :operation => :edit, :device => dev } ] }
+  progress [dev.rvc_vm.ReconfigVM_Task(:spec => spec)]
+end
+
+
 def _add_device vm, fileOp, dev
   spec = {
     :deviceChange => [
