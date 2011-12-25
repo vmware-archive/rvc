@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require "terminal-table/import"
+
 opts :create do
   summary "Create a cluster"
   arg :dest, nil, :lookup_parent => VIM::Folder
@@ -78,3 +80,89 @@ def configure_ha cluster, opts
   )
   one_progress(cluster.ReconfigureComputeResource_Task :spec => spec, :modify => true)
 end
+
+opts :recommendations do
+  summary "List recommendations"
+  arg :cluster, nil, :lookup => VIM::ClusterComputeResource
+end
+
+def recommendations cluster
+  # Collect everything we need from VC with as few calls as possible
+  pc = cluster._connection.serviceContent.propertyCollector
+  recommendation, hosts, datastores = cluster.collect 'recommendation', 'host', 'datastore'
+  if recommendation.length == 0
+    puts "None"
+    return
+  end
+  targets = recommendation.map { |x| x.target }
+  recommendation.each { |x| targets += x.action.map { |y| y.target } }
+  targets += hosts
+  targets += datastores
+  targets.compact!
+  name_map = pc.collectMultiple(targets, 'name')
+
+  # Compose the output (tries to avoid making any API calls)
+  out = table(['Key', 'Reason', 'Target', 'Actions']) do
+    recommendation.each do |r|
+      target_name = r.target ? name_map[r.target]['name'] : ""
+      actions = r.action.map do |a|
+        action = "#{a.class.wsdl_name}: #{name_map[a.target]['name']}"
+        dst = nil
+        if a.is_a?(RbVmomi::VIM::ClusterMigrationAction)
+          dst = a.drsMigration.destination
+        end
+        if a.is_a?(RbVmomi::VIM::StorageMigrationAction)
+          dst = a.destination
+        end
+        if dst
+          if !name_map[dst]
+            name_map[dst] = {'name' => dst.name}
+          end
+          action += " (to #{name_map[dst]['name']})"
+        end
+        action
+      end
+      add_row [r.key, r.reasonText, target_name, actions.join("\n")]
+    end
+  end
+  puts out
+end
+
+opts :apply_recommendations do
+  summary "Apply recommendations"
+  arg :cluster, nil, :lookup => VIM::ClusterComputeResource
+  opt :key, "Key of a recommendation to execute", :type => :string, :multi => true
+  opt :type, "Type of actions to perform", :type => :string, :multi => true
+end
+
+def apply_recommendations cluster, opts
+  pc = cluster._connection.serviceContent.propertyCollector
+  recommendation = cluster.recommendation
+  if opts[:key] && opts[:key].length > 0
+    recommendation.select! { |x| opts[:key].member?(x.key) }
+  end
+  if opts[:type] && opts[:type].length > 0
+    recommendation.select! { |x| (opts[:type] & x.action.map { |y| y.class.wsdl_name }).length > 0 }
+  end
+  all_tasks = []
+
+  # We do recommendations in chunks, because VC can't process more than a
+  # few migrations anyway and this way we get more fair queuing, less
+  # timeouts of long queued migrations and a better RVC user experience
+  # due to less queued tasks at a time. It would otherwise be easy to
+  # exceed the screensize with queued tasks
+  while recommendation.length > 0
+    recommendation.pop(20).each do |r|
+      targets = r.action.map { |y| y.target }
+      recent_tasks = pc.collectMultiple(targets, 'recentTask')
+      prev_tasks = targets.map { |x| recent_tasks[x]['recentTask'] }
+      cluster.ApplyRecommendation(:key => r.key)
+      recent_tasks = pc.collectMultiple(targets, 'recentTask')
+      tasks = targets.map { |x| recent_tasks[x]['recentTask'] }
+      all_tasks += (tasks.flatten - prev_tasks.flatten)
+    end
+
+    progress all_tasks
+  end
+end
+
