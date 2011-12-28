@@ -21,15 +21,19 @@
 class RbVmomi::VIM::ComputeResource
   # TODO expand, optimize
   def display_info
+    pc = _connection.serviceContent.propertyCollector
+    name, host = collect 'name', 'host'
     stats = self.stats
     pct_cpu_used = 100.0*stats[:usedCPU]/stats[:totalCPU]
     pct_mem_used = 100.0*stats[:usedMem]/stats[:totalMem]
     puts "name: #{name}"
     puts "cpu: #{stats[:totalCPU]/1e3} GHz (#{pct_cpu_used.to_i}% used)"
     puts "memory: #{stats[:totalMem]/1e3} GB (#{pct_mem_used.to_i}% used)"
+
+    host_names = pc.collectMultiple host, 'name'
     puts "hosts:"
     host.each do |h|
-      puts " #{h.name}"
+      puts " #{host_names[h]['name']}"
     end
   end
 
