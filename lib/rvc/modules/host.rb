@@ -19,13 +19,32 @@
 # THE SOFTWARE.
 
 opts :reboot do
-  summary "Reboot a host"
+  summary "Reboot hosts"
   arg :host, nil, :lookup => VIM::HostSystem, :multi => true
-  opt :force, "Reboot even if in maintenance mode", :default => false
+  opt :force, "Reboot even if not in maintenance mode", :default => false
+  opt :wait, "Wait for the host to be connected again", :type => :boolean
 end
 
 def reboot hosts, opts
   tasks hosts, :RebootHost, :force => opts[:force]
+
+  if opts[:wait]
+    puts "Waiting for hosts to reboot ..."
+    # There is no proper way to wait for a host to reboot, so we
+    # implement a heuristic that is close enough:
+    # First we wait for a moment to give the host time to actually
+    # disconnect. Then we just wait for it to be responding again.
+    sleep 3 * 60
+
+    hosts.each do |host|
+      # We could use the property collector here to wait for an
+      # update instead of polling.
+      while !(host.runtime.connectionState == "connected" && host.runtime.powerState == "poweredOn")
+        sleep 10
+      end
+      puts "Host #{host.name} is back up"
+    end
+  end
 end
 
 
@@ -76,10 +95,18 @@ opts :enter_maintenance_mode do
   summary "Put hosts into maintenance mode"
   arg :host, nil, :lookup => VIM::HostSystem, :multi => true
   opt :timeout, "Timeout", :default => 0
+  opt :evacuate_powered_off_vms, "Evacuate powered off vms", :type => :boolean
+  opt :no_wait, "Don't wait for Task to complete", :type => :boolean
 end
 
 def enter_maintenance_mode hosts, opts
-  tasks hosts, :EnterMaintenanceMode, :timeout => opts[:timeout]
+  if opts[:no_wait]
+    hosts.each do |host|
+      host.EnterMaintenanceMode_Task(:timeout => opts[:timeout], :evacuatePoweredOffVms => opts[:evacuate_powered_off_vms])
+    end
+  else
+    tasks hosts, :EnterMaintenanceMode, :timeout => opts[:timeout], :evacuatePoweredOffVms => opts[:evacuate_powered_off_vms]
+  end
 end
 
 
