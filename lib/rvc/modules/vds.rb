@@ -37,7 +37,7 @@ opts :create_portgroup do
   summary "Create a new portgroup on a vDS"
   arg :vds, nil, :lookup => VIM::DistributedVirtualSwitch
   arg :name, "Portgroup Name", :type => :string
-  opt :num_ports, "Number of Ports", :type => :int
+  opt :num_ports, "Number of Ports", :type => :int, :default => 128
   opt :type, "Portgroup Type (i.e. 'earlyBinding', 'ephemeral', 'lateBinding'",
       :type => :string, :default => 'earlyBinding'
 end
@@ -45,7 +45,7 @@ end
 def create_portgroup vds, name, opts
   tasks [vds], :AddDVPortgroup, :spec => [{ :name => name,
                                             :type => opts[:type],
-                                            :numPorts => opts[:numPorts] }]
+                                            :numPorts => opts[:num_ports] }]
 end
 
 opts :create_vds do

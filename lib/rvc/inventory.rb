@@ -29,6 +29,10 @@ module InventoryObject
   module ClassMethods
     include ObjectWithFields::ClassMethods
 
+    def ls_r
+      ""
+    end
+
     def ls_properties
       %w()
     end
