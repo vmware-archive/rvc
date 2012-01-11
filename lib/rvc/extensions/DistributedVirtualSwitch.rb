@@ -97,10 +97,16 @@ class RbVmomi::VIM::DistributedVirtualSwitch
   def summarize
     t = table(['portgroup name', 'num ports', 'vlan', 'resource pool'])
     self.portgroup.each { |pg|
-      respool = translate_respool self, pg.config.defaultPortConfig.networkResourcePoolKey
-      vlan = pg.config.defaultPortConfig.vlan
+      if pg.config.defaultPortConfig
+         respool = translate_respool self, pg.config.defaultPortConfig.networkResourcePoolKey
+         vlan = pg.config.defaultPortConfig.vlan
+      end
 
-      t << [pg.config.name, pg.config.numPorts, translate_vlan(vlan), respool]
+      if pg.config.defaultPortConfig
+         t << [pg.config.name, pg.config.numPorts, translate_vlan(vlan), respool]
+      else
+         t << [pg.config.name, pg.config.numPorts, nil, nil]
+      end
     }
     puts t
   end

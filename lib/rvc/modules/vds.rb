@@ -515,7 +515,9 @@ def show_all_ports path
     objects = []
     ports.each do |port|
       objects << port.proxyHost
-      objects << port.connectee.connectedEntity
+      if port.connectee
+         objects << port.connectee.connectedEntity
+      end
     end
     vds.portgroup.each { |pg| objects << pg }
     objects << vds
@@ -539,10 +541,11 @@ def show_all_ports path
     ports.each do |port|
       port_key = begin port.key.to_i; rescue port.key; end
 
+      connectee = nil
       hostname = names[port.proxyHost].dup
-      if port.connectee.type == "vmVnic"
+      if port.connectee and port.connectee.type == "vmVnic"
         connectee = names[port.connectee.connectedEntity]
-      else
+      elsif port.connectee
         connectee = port.connectee.nicKey
       end
 
