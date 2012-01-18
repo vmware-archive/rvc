@@ -56,6 +56,7 @@ EOS
   opt :cmd, "command to evaluate", :short => 'c', :multi => true, :type => :string
   opt :script, "file to execute", :short => 's', :type => :string
   opt :cookie, "authentication cookie file", :short => 'k', :type => :string
+  opt :quiet, "silence unnecessary output", :short => 'q', :default => false, :type => :boolean
 end
 
 $interactive = $opts[:script].nil? and $stdin.tty?
@@ -151,11 +152,11 @@ if defined? Ocra
 end
 
 if $interactive
-  if ENV['DISPLAY']
+  if ENV['DISPLAY'] and !$opts[:quiet]
     $stderr.puts "VMRC is not installed. You will be unable to view virtual machine consoles. Use the vmrc.install command to install it." unless CMD.vmrc.find_vmrc
   end
   $stderr.puts "Use the 'connect' command to connect to an ESX or VC server." if $shell.connections.empty?
-  CMD.basic.ls RVC::Util.lookup_single('.')
+  CMD.basic.ls RVC::Util.lookup_single('.') unless $opts[:quiet]
 end
 
 trap "SIGCHLD" do |sig|
