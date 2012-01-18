@@ -71,11 +71,16 @@ end
 
 
 opts :remove do
-  summary "Remove a snapshot"
-  arg :snapshot, nil, :lookup => RVC::SnapshotFolder
+  summary "Remove snapshots"
+  arg :snapshots, nil, :multi => true, :lookup => RVC::SnapshotFolder
   opt :remove_children, "Whether to remove the snapshot's children too"
 end
 
-def remove snapshot, opts
-  tasks [snapshot.find_tree.snapshot], :RemoveSnapshot, :removeChildren => opts[:remove_children]
+def remove snapshots, opts
+  # Sort by path and use reverse_each to remove child snapshots first
+  snapshots.sort_by! {|s| s.rvc_path_str }
+
+  snapshots.reverse_each do |snapshot|
+    tasks [snapshot.find_tree.snapshot], :RemoveSnapshot, :removeChildren => opts[:remove_children]
+  end
 end
