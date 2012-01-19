@@ -35,6 +35,26 @@ URI_REGEX = %r{
   $
 }x
 
+class RbVmomi::VIM
+  include RVC::InventoryObject
+
+  def children
+    rootFolder.children
+  end
+
+  def self.folder?
+    true
+  end
+
+  def display_info
+    puts serviceContent.about.fullName
+  end
+
+  def _connection
+    self
+  end
+end
+
 opts :connect do
   summary 'Open a connection to ESX/VC'
   arg :uri, "Host to connect to"
@@ -213,16 +233,6 @@ def check_known_hosts host, peer_public_key
   elsif result == :ok
   else
     err "Unexpected result from known_hosts check"
-  end
-end
-
-class RbVmomi::VIM
-  def display_info
-    puts serviceContent.about.fullName
-  end
-
-  def _connection
-    self
   end
 end
 
