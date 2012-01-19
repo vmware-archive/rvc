@@ -142,7 +142,7 @@ opts :create do
 Example:
   vm.create ~/vm/foo --pool ~/host/my_cluster/resourcePool --datastore ~/datastore/my_datastore
   device.add_disk ~/vm/foo -s 30G
-  device.add_net ~/vm/foo ~/network/VM\ Network
+  device.add_net ~/vm/foo ~/network/VM\\ Network
   EOB
 end
 
