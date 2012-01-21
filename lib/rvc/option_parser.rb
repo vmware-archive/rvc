@@ -57,7 +57,9 @@ class OptionParser < Trollop::Parser
 
   def opt name, *a
     super
-    @applicable << @specs[name][:lookup] if @specs[name][:lookup]
+    spec = @specs[name]
+    @applicable << spec[:lookup] if spec[:lookup]
+    spec[:type] = :string if spec[:lookup] || spec[:lookup_parent]
     @has_options = true unless name == :help
   end
 
