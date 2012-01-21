@@ -149,15 +149,3 @@ class RootNode
 end
 
 end
-
-class RbVmomi::VIM
-  include RVC::InventoryObject
-
-  def children
-    rootFolder.children
-  end
-
-  def self.folder?
-    true
-  end
-end
