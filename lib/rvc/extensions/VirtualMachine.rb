@@ -157,6 +157,10 @@ class RbVmomi::VIM::VirtualMachine
     storage.perDatastoreUsage.map do |usage|
       puts " #{usage.datastore.name}: committed=#{usage.committed.metric}B uncommitted=#{usage.uncommitted.metric}B unshared=#{usage.unshared.metric}B"
     end
+    
+    if runtime.dasVmProtection
+      puts "HA protected: #{runtime.dasVmProtection.dasProtected ? 'yes' : 'no'}"
+    end
   end
 
   def self.ls_properties
