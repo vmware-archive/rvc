@@ -40,6 +40,10 @@ module InventoryObject
     def folder?
       false
     end
+
+    def traverse?
+      false
+    end
   end
 
   def self.included m

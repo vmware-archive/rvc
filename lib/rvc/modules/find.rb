@@ -68,7 +68,7 @@ def leaves roots, types = []
     nodes = new_nodes
     new_nodes = Set.new
     nodes.each do |node|
-      if (node.class.folder? or roots.member? node) and
+      if (node.class.traverse? or roots.member? node) and
           (types & (node.field('type') || [])).empty?
         node.children.each { |k,v| v.rvc_link(node, k); new_nodes << v }
       else

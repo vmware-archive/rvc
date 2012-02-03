@@ -33,4 +33,8 @@ class RbVmomi::VIM::Folder
   def self.folder?
     true
   end
+
+  def self.traverse?
+    true
+  end
 end
