@@ -159,11 +159,13 @@ if $interactive
   CMD.basic.ls RVC::Util.lookup_single('.') unless $opts[:quiet]
 end
 
-trap "SIGCHLD" do |sig|
-  begin
-    while pid = Process.wait(-1, Process::WNOHANG)
+if Signal.list["CHLD"]
+  trap "SIGCHLD" do |sig|
+    begin
+      while pid = Process.wait(-1, Process::WNOHANG)
+      end
+    rescue Errno::ECHILD
     end
-  rescue Errno::ECHILD
   end
 end
 
