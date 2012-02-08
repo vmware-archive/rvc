@@ -35,6 +35,7 @@ opts :add_host do
   arg :hostname, nil
   opt :username, "Username", :short => 'u', :default => 'root'
   opt :password, "Password", :short => 'p', :default => ''
+  opt :insecure, "Ignore SSL thumbprint", :short => 'k'
 end
 
 def add_host cluster, hostname, opts
@@ -53,11 +54,13 @@ def add_host cluster, hostname, opts
       one_progress task
       break
     rescue VIM::SSLVerifyFault
-      puts "SSL thumbprint: #{$!.fault.thumbprint}"
-      $stdout.write "Accept this thumbprint? (y/n) "
-      $stdout.flush
-      answer = $stdin.readline.chomp
-      err "Aborted" unless answer == 'y' or answer == 'yes'
+      unless opts[:insecure]
+        puts "SSL thumbprint: #{$!.fault.thumbprint}"
+        $stdout.write "Accept this thumbprint? (y/n) "
+        $stdout.flush
+        answer = $stdin.readline.chomp
+        err "Aborted" unless answer == 'y' or answer == 'yes'
+      end
       sslThumbprint = $!.fault.thumbprint
     end
   end
