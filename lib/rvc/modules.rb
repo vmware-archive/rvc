@@ -19,6 +19,7 @@
 # THE SOFTWARE.
 
 require 'rvc/util'
+require 'shellwords'
 
 module RVC
 
@@ -31,6 +32,7 @@ class CmdModule
   def initialize module_name
     @module_name = module_name
     @opts = {}
+    @completors = {}
     super()
   end
 
@@ -38,8 +40,22 @@ class CmdModule
     @opts.keys
   end
 
+  def has_command? cmd
+    @opts.member? cmd
+  end
+
   def opts cmd, &b
+    if cmd.to_s =~ /[A-Z]/
+      fail "Camel-casing is not allowed (#{cmd.to_s})"
+    end
+
     @opts[cmd] = OptionParser.new cmd.to_s, &b
+
+    @opts[cmd].specs.each do |name,spec|
+      if name.to_s =~ /[A-Z]/
+        fail "Camel-casing is not allowed (#{cmd.to_s} option #{name})"
+      end
+    end
   end
 
   def raw_opts cmd, summary
@@ -50,9 +66,44 @@ class CmdModule
     @opts[cmd]
   end
 
+  def rvc_completor cmd, &b
+    @completors[cmd] = b
+  end
+
+  def completor_for cmd
+    @completors[cmd]
+  end
+
   def rvc_alias cmd, target=nil
     target ||= cmd
     RVC::ALIASES[target.to_s] = "#{@module_name}.#{cmd}"
+  end
+end
+
+def self.complete_for_cmd line, word
+  if line == nil
+    return []
+  end
+  mod, cmd, args = Shell.parse_input line
+  return [] unless mod != nil
+  #XXX assumes you aren't going to have any positional arguments with spaces
+  if(/ $/.match(line))
+    argnum = args.size
+  else
+    argnum = args.size - 1
+  end
+
+  completor = mod.completor_for(cmd.to_sym)
+  if completor == nil
+    return []
+  end
+
+  candidates = completor.call(line, args, word, argnum)
+  if candidates == nil
+    []
+  else
+    prefix_regex = /^#{Regexp.escape word}/
+    candidates.select { |x,a| x =~ prefix_regex }
   end
 end
 
@@ -69,13 +120,18 @@ def self.reload_modules verbose=true
   Dir.glob(globs) do |f|
     module_name = File.basename(f)[0...-3]
     puts "loading #{module_name} from #{f}" if verbose
-    code = File.read f
-    unless RVC::MODULES.member? module_name
-      m = CmdModule.new module_name
-      CMD.define_singleton_method(module_name.to_sym) { m }
-      RVC::MODULES[module_name] = m
+    begin
+      code = File.read f
+      unless RVC::MODULES.member? module_name
+        m = CmdModule.new module_name
+        CMD.define_singleton_method(module_name.to_sym) { m }
+        RVC::MODULES[module_name] = m
+      end
+      RVC::MODULES[module_name].instance_eval code, f
+    rescue
+      puts "#{$!.class} while loading #{f}: #{$!.message}"
+      $!.backtrace.each { |x| puts x }
     end
-    RVC::MODULES[module_name].instance_eval code, f
   end
 end
 

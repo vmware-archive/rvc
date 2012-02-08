@@ -18,10 +18,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/field'
+
 module RVC
 
 module InventoryObject
+  include ObjectWithFields
+  extend ObjectWithFields::ClassMethods
+
   module ClassMethods
+    include ObjectWithFields::ClassMethods
+
+    def ls_r
+      ""
+    end
+
     def ls_properties
       %w()
     end
@@ -30,19 +41,17 @@ module InventoryObject
       false
     end
 
-    def fields
-      @fields ||= {}
-    end
-
-    def field name, &b
-      name = name.to_s
-      fields[name] = RVC::Field.new(name).tap { |f| f.instance_eval &b }
-      define_method(name) { field name }
+    def traverse?
+      false
     end
   end
 
   def self.included m
     m.extend ClassMethods
+  end
+
+  field 'rel_path' do
+    block { |me| me.rvc_relative_path_str($shell.fs.cur) }
   end
 
   attr_reader :rvc_parent, :rvc_arc
@@ -78,28 +87,26 @@ module InventoryObject
     rvc_path.map { |k,v| k } * '/'
   end
 
+  def rvc_relative_path ref
+    my_path = rvc_path
+    ref_path = ref.rvc_path
+    ref_objs = Set.new(ref_path.map { |x| x[1] })
+    common = my_path.take_while { |x| ref_objs.member? x[1] }
+    fail unless common
+    path_to_ref = my_path.reverse.take_while { |x| x[1] != common.last[1] }.reverse
+    num_ups = ref_path.size - common.size
+    ups = (['..']*num_ups).zip(ref_path.reverse[1..-1].map(&:first))
+    ups + path_to_ref
+  end
+
+  def rvc_relative_path_str ref
+    rvc_relative_path(ref).map { |k,v| k } * '/'
+  end
+
   def rvc_link parent, arc
     return if @rvc_parent
     @rvc_parent = parent
     @rvc_arc = arc
-  end
-
-  def field name
-    name = name.to_s
-    field = self.class.fields[name]
-    if self.class < VIM::ManagedObject
-      *props = collect *field.properties
-    elsif field == nil
-      return nil
-    else
-      props = []
-      field.properties.each do |propstr|
-        obj = self
-        propstr.split('.').each { |prop| obj = obj.send(prop) }
-        props << obj
-      end
-    end
-    field.block.call *props
   end
 end
 
@@ -145,42 +152,4 @@ class RootNode
   end
 end
 
-end
-
-class RbVmomi::VIM
-  include RVC::InventoryObject
-
-  def children
-    rootFolder.children
-  end
-
-  def self.folder?
-    true
-  end
-end
-
-class RVC::Field
-  def initialize name
-    @name = name
-    @summary = nil
-    @properties = []
-    @block = nil
-  end
-
-  def summary x=nil
-    x ? (@summary = x) : @summary
-  end
-
-  def properties x=nil
-    x ? (@properties.concat x) : @properties
-  end
-
-  def block &x
-    x ? (@block = x) : @block
-  end
-
-  def property prop
-    @properties = [prop]
-    @block = lambda { |x| x }
-  end
 end

@@ -18,23 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-class RbVmomi::VIM::Folder
-  def traverse_one arc
-    _connection.searchIndex.FindChild :entity => self, :name => arc
-  end
-
-  def children
-    RVC::Util.collect_children(self, :childEntity).reject { |name, item|
-      # hack -- we want to display dvportgroups under the dvs folder
-      item.class == RbVmomi::VIM::DistributedVirtualPortgroup
-    }
-  end
-
-  def self.folder?
-    true
-  end
-
-  def self.traverse?
-    true
+class RbVmomi::VIM::VirtualDisk
+  def name
+    "disk-#{controllerKey}-#{unitNumber}"
   end
 end

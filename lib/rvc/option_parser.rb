@@ -20,6 +20,13 @@
 
 require 'trollop'
 
+begin
+  require 'chronic'
+  RVC::HAVE_CHRONIC = true
+rescue LoadError
+  RVC::HAVE_CHRONIC = false
+end
+
 module RVC
 
 class OptionParser < Trollop::Parser
@@ -33,7 +40,10 @@ class OptionParser < Trollop::Parser
     @seen_not_required = false
     @seen_multi = false
     @applicable = Set.new
-    super &b
+    super() do
+      opt :help, "Show this message", :short => 'h'
+      instance_eval &b
+    end
   end
 
   def summary str
@@ -47,7 +57,9 @@ class OptionParser < Trollop::Parser
 
   def opt name, *a
     super
-    @applicable << @specs[name][:lookup] if @specs[name][:lookup]
+    spec = @specs[name]
+    @applicable << spec[:lookup] if spec[:lookup]
+    spec[:type] = :string if spec[:lookup] || spec[:lookup_parent]
     @has_options = true unless name == :help
   end
 
@@ -110,6 +122,16 @@ class OptionParser < Trollop::Parser
     end
     RVC::Util.err "too many arguments" unless argv.empty?
     return args, opts
+  end
+
+  def parse_date_parameter param, arg
+    if RVC::HAVE_CHRONIC
+      Chronic.parse(param)
+    else
+      Time.parse param
+    end
+  rescue
+    raise ::Trollop::CommandlineError, "option '#{arg}' needs a time"
   end
 
   def postprocess_arg x, spec

@@ -18,7 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-VNC = ENV['VNC'] || search_path('vinagre') || search_path('tightvnc') || search_path('vncviewer')
+VNC = ENV['VNC'] || search_path('tightvnc') || search_path('vncviewer') || search_path('vinagre')
 
 opts :view do
   summary "Spawn a VNC client"
@@ -29,8 +29,8 @@ rvc_alias :view, :vnc
 rvc_alias :view, :V
 
 def view vm
-  ip = reachable_ip vm.runtime.host
-  extraConfig = vm.config.extraConfig
+  ip = reachable_ip vm.collect('runtime.host')[0]
+  extraConfig, = vm.collect('config.extraConfig')
   already_enabled = extraConfig.find { |x| x.key == 'RemoteDisplay.vnc.enabled' && x.value.downcase == 'true' }
   if already_enabled
     puts "VNC already enabled"
@@ -68,7 +68,7 @@ end
 
 
 def reachable_ip host
-  ips = host.config.network.vnic.map { |x| x.spec.ip.ipAddress } # TODO optimize
+  ips = host.collect('config.network.vnic')[0].map { |x| x.spec.ip.ipAddress }
   ips.find do |x|
     begin
       Timeout.timeout(1) { TCPSocket.new(x, 443).close; true }
@@ -101,6 +101,7 @@ end
 def vnc_client ip, port, password
   unless VNC
     puts "no VNC client configured"
+    puts "#{ip}:#{port} password: #{password}"
     return false
   end
 

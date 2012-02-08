@@ -58,7 +58,7 @@ class Shell
       end
     rescue SystemExit, IOError
       raise
-    rescue RVC::Util::UserError, RuntimeError, RbVmomi::Fault
+    rescue RVC::Util::UserError, RuntimeError, RbVmomi::Fault, Trollop::CommandlineError
       if ruby or debug
         puts "#{$!.class}: #{$!.message}"
         puts $!.backtrace * "\n"
@@ -73,50 +73,52 @@ class Shell
     rescue Exception
       puts "#{$!.class}: #{$!.message}"
       puts $!.backtrace * "\n"
+    ensure
+      $stdout.flush
     end
   end
 
-  def eval_command input
+  def self.parse_input input
     cmd, *args = Shellwords.shellwords(input)
-    return unless cmd
-    RVC::Util.err "invalid command" unless cmd.is_a? String
-    case cmd
-    when RVC::FS::MARK_PATTERN
-      CMD.basic.cd RVC::Util.lookup_single(cmd)
-    else
-      if cmd.include? '.'
-        module_name, cmd, = cmd.split '.'
-      elsif ALIASES.member? cmd
-        module_name, cmd, = ALIASES[cmd].split '.'
-      else
-        RVC::Util.err "unknown alias #{cmd}"
-      end
-
-      m = MODULES[module_name] or RVC::Util.err("unknown module #{module_name}")
-
-      parser = m.opts_for(cmd.to_sym)
-
-      begin
-        args, opts = parser.parse args
-      rescue Trollop::HelpNeeded
-        parser.educate
-        return
-      end
-
-      if parser.has_options?
-        m.send cmd.to_sym, *(args + [opts])
-      else
-        m.send cmd.to_sym, *args
-      end
+    return nil unless cmd
+    if cmd.include? '.'
+      module_name, cmd, = cmd.split '.'
+    elsif ALIASES.member? cmd
+      module_name, cmd, = ALIASES[cmd].split '.'
     end
-    nil
+    [MODULES[module_name], cmd.to_sym, args]
+  end
+
+  def eval_command input
+    m, cmd, args = Shell.parse_input input
+    RVC::Util.err "invalid command" unless m != nil and
+                                           cmd.is_a? Symbol and
+                                           m.has_command? cmd
+    parser = m.opts_for(cmd)
+
+    begin
+      args, opts = parser.parse args
+    rescue Trollop::HelpNeeded
+      parser.educate
+      return
+    end
+
+    if parser.has_options?
+      m.send cmd.to_sym, *(args + [opts])
+    else
+      m.send cmd.to_sym, *args
+    end
   end
 
   def eval_ruby input, file="<input>"
     result = @ruby_evaluator.do_eval input, file
     if $interactive
       if input =~ /\#$/
-        introspect_object result
+        if result.is_a? Class
+          introspect_class result
+        else
+          introspect_object result
+        end
       else
         pp result
       end

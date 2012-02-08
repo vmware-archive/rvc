@@ -45,18 +45,20 @@ class RbVmomi::VIM::HostSystem
       puts "product: #{about.fullName}"
       puts "license: #{about.licenseProductName} #{about.licenseProductVersion}" if about.licenseProductName
     end
-    overallCpu = hw.numCpuPkgs * hw.numCpuCores * hw.cpuMhz
-    puts "cpu: %d*%d*%.2f GHz = %.2f GHz" % [hw.numCpuPkgs, hw.numCpuCores, hw.cpuMhz/1e3, overallCpu/1e3]
-    puts "cpu usage: %.2f GHz (%.1f%%)" % [stats.overallCpuUsage/1e3, 100*stats.overallCpuUsage/overallCpu]
-    puts "memory: %.2f GB" % [hw.memorySize/1e9]
-    puts "memory usage: %.2f GB (%.1f%%)" % [stats.overallMemoryUsage/1e3, 100*1e6*stats.overallMemoryUsage/hw.memorySize]
+    if runtime.connectionState == 'connected' and runtime.powerState == 'poweredOn'
+      overallCpu = hw.numCpuPkgs * hw.numCpuCores * hw.cpuMhz
+      puts "cpu: %d*%d*%.2f GHz = %.2f GHz" % [hw.numCpuPkgs, hw.numCpuCores, hw.cpuMhz/1e3, overallCpu/1e3]
+      puts "cpu usage: %.2f GHz (%.1f%%)" % [stats.overallCpuUsage/1e3, 100*stats.overallCpuUsage/overallCpu]
+      puts "memory: %.2f GB" % [hw.memorySize/1e9]
+      puts "memory usage: %.2f GB (%.1f%%)" % [stats.overallMemoryUsage/1e3, 100*1e6*stats.overallMemoryUsage/hw.memorySize]
+    end
   end
 
   def children
     {
       'vms' => RVC::FakeFolder.new(self, :ls_vms),
       'datastores' => RVC::FakeFolder.new(self, :ls_datastores),
-      'esxcli' => RVC::LazyEsxcliNamespace.new(self)
+      'networks' => RVC::FakeFolder.new(self, :ls_networks),
     }
   end
 
@@ -67,57 +69,18 @@ class RbVmomi::VIM::HostSystem
   def ls_datastores
     RVC::Util.collect_children self, :datastore
   end
-end
 
-class RVC::LazyEsxcliNamespace
-  include RVC::InventoryObject
-
-  [:children, :traverse_one].each do |sym|
-    begin
-      undef_method sym
-    rescue NameError
-    end
-  end
-
-  def initialize host
-    @host = host
-    @ns = nil
-  end
-
-  def method_missing *a
-    @ns ||= @host.esxcli
-    @ns.send *a
-  end
-end
-
-class VIM::EsxcliNamespace
-  include RVC::InventoryObject
-
-  def ls_text r
-    if cli_info
-      "/ - #{cli_info.help}"
-    else
-      "/"
-    end
-  end
-
-  def children
-    @namespaces.merge(@commands)
+  def ls_networks
+    RVC::Util.collect_children self, :network
   end
 end
 
 class VIM::EsxcliCommand
-  include RVC::InventoryObject
-
-  def ls_text r
-    " - #{cli_info.help}"
-  end
-
   def option_parser
     parser = Trollop::Parser.new
     parser.text cli_info.help
     cli_info.param.each do |cli_param|
-      vmodl_param = info.paramTypeInfo.find { |x| x.name == cli_param.name }
+      vmodl_param = type_info.paramTypeInfo.find { |x| x.name == cli_param.name }
       opts = trollop_type(vmodl_param.type)
       opts[:required] = vmodl_param.annotation.find { |a| a.name == "optional"} ? false : true
       opts[:long] = cli_param.displayName

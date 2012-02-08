@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'terminal-table/import'
+
 opts :download do
   summary "Download a file from a datastore"
   arg 'datastore-path', "Filename on the datastore", :lookup => VIM::Datastore::FakeDatastoreFile
@@ -165,22 +167,20 @@ def http_path dc_name, ds_name, path
 end
 
 
-opts :findOrphans do
+opts :find_orphans do
   summary "Finds directories on the datastore that don't belong to any registered VM"
-  arg :ds, nil, :lookup => VIM::Datastore
+  arg :datastore, nil, :lookup => VIM::Datastore
+  opt :mark, "Name of the mark to save results in", :required => false, :type => :string
 end
 
-def findOrphans ds
+def find_orphans ds, opts
   pc = ds._connection.serviceContent.propertyCollector
   vms = ds.vm
   
-  times = []
-  times << Time.now
   puts "Collecting file information about #{vms.length} VMs ... (this may take a while)"
   dsName = ds.name
   vmFiles = pc.collectMultiple vms, 'layoutEx.file'
   
-  times << Time.now
   puts "Collecting file information on datastore '#{dsName}' ..."
   dsBrowser = ds.browser
   result = dsBrowser.SearchDatastore_Task(
@@ -194,17 +194,26 @@ def findOrphans ds
       }
     }
   ).wait_for_completion
-  dsDirectories = result.file.select{|x| x.is_a?(RbVmomi::VIM::FolderFileInfo)}.map{|x| x.path}
+  dsDirectories = result.file.grep(RbVmomi::VIM::FolderFileInfo).map(&:path)
   
-  times << Time.now
   puts "Checking for any VMs that got added inbetween ..."
   addedVms = ds.vm - vms
   if addedVms.length > 0
     puts "Processing #{addedVms.length} new VMs ..."
     vmFiles.merge!(pc.collectMultiple addedVms, 'layoutEx.file')
   end
+  
+  begin 
+    perDSUsage = pc.collectMultiple vms, 'storage.perDatastoreUsage'
+  rescue RbVmomi::Fault => ex
+    if ex.fault.is_a?(RbVmomi::VIM::ManagedObjectNotFound)
+      vms = vms - [ex.fault.obj]
+      retry
+    end
+    perDSUsage = []
+    raise
+  end
 
-  times << Time.now
   puts "Cross-referencing VM files with files on datastore '#{dsName}' ..."
   vmFilenameHash = Hash[vmFiles.map do |vm, info| 
     [
@@ -212,16 +221,13 @@ def findOrphans ds
       info["layoutEx.file"].map{|x| x.name}.select{|x| x =~ /^\[#{dsName}\] /}.map{|x| x.gsub(/^\[#{dsName}\] /, '')}
     ]
   end]
-  filenames = []
-  vmFilenameHash.each do |vm, list|
-    filenames += list
-  end
-  vmDirectories = filenames.map{|x| x.split('/').first}.uniq
-  orphanDirectories = (dsDirectories - vmDirectories)
+  filenames = vmFilenameHash.values.flatten(1)
+  vmDirectories = filenames.map{ |x| x.split('/').first }.uniq
+  orphanDirectories = (dsDirectories - vmDirectories).reject { |x| x =~ /^\./ }
   puts "Found #{orphanDirectories.length} potentially orphaned directories"
   
   puts "Composing list of potentially orphaned files ... (this may take a while)"
-  table = orphanDirectories.map do |dir|
+  data = orphanDirectories.map do |dir|
     begin 
       result = dsBrowser.SearchDatastoreSubFolders_Task(
         :datastorePath => "[#{dsName}] #{dir}/",
@@ -234,33 +240,84 @@ def findOrphans ds
           }
         }
       ).wait_for_completion
-      # pp result
-      files = result.map{|y| y.file}.flatten
-      dirSize = files.map{|x| x.fileSize}.sum
+      files = result.map(&:file).flatten
+      dirSize = files.map(&:fileSize).sum
       $stdout.write "."
       $stdout.flush
       [dir, dirSize, files.length]
     rescue 
-      pp dir
+      puts "failed to search #{dir.inspect}: #{$!.message}"
       nil
     end
-  end.select{|x| x != nil}
-  puts ""
-  puts ""
+  end.compact
+  puts
+  puts
   
-  # Should likely use a lib for this
-  puts ("-" * (2+60+3+7+6+3+10))
-  table.sort{|a,b| a[1] <=> b[1]}.each do |x|
-    dir, dirSize, numFiles = x
-    dirSizeGB = dirSize.to_f / 1024 / 1024 / 1024
-    puts(sprintf("| %-60s | %7.2f GB | %3d file(s) |", dir, dirSizeGB, numFiles))
+  if data.empty?
+    puts "No orphans found"
+  else
+    puts(table do
+      data.sort_by { |a| a[1] }.each do |x|
+        dir, dirSize, numFiles = x
+        self.headings = 'Directory', 'Space Used', '# Files'
+        add_row [dir, "#{dirSize.metric}B", numFiles]
+      end
+    end)
   end
-  puts ("-" * (2+60+3+7+6+3+10))
-  
-  times << Time.now
 
-  # (1...times.length).each do |i|
-    # puts "%.2f sec" % (times[i] - times[i - 1]).to_f
-  # end
+  puts
+
+  totalSize = data.map{|x| x[1]}.sum
+  dsSummary = ds.summary
+  vmDsUsage = perDSUsage.map{|vm, x| x['storage.perDatastoreUsage'].find{|y| y.datastore == ds}}.reject{|x| x == nil}
+  committed = vmDsUsage.map{|x| x.committed}.sum
+  unshared = vmDsUsage.map{|x| x.unshared}.sum
+  otherSpace = (dsSummary.capacity - dsSummary.freeSpace) - unshared
+  puts "Provisioned on Datastore:  #{dsSummary.uncommitted.metric}B"
+  puts "Capacity of Datastore: #{dsSummary.capacity.metric}B"
+  puts "Free Space on Datastore: #{dsSummary.freeSpace.metric}B"
+  puts "VMs Provisioned on Datastore: #{vmDsUsage.map(&:uncommitted).sum.metric}B"
+  puts "VMs Used on Datastore: #{committed.metric}B"
+  puts "VMs Unshared on Datastore: #{vmDsUsage.map(&:unshared).sum.metric}B"
+  puts "Unaccounted space: #{otherSpace.metric}B"
+  puts "Total size of detected potential orphans: #{totalSize.metric}B"
+  puts
+
+  results = data.map do |dirInfo|
+    RbVmomi::VIM::Datastore::FakeDatastoreFolder.new(ds, "#{dirInfo[0]}")
+  end
+  opts[:mark] ||= "#{dsName}_orphans"
+  CMD.mark.mark opts[:mark], results
+  puts "Saved results to mark '#{opts[:mark]}'"
+
+  i = 0
+  results.each do |r|
+    display_path = r.path
+    puts "#{i} #{display_path}"
+    CMD.mark.mark i.to_s, [r]
+    i += 1
+  end
 end
 
+
+opts :delete do
+  summary "Deletes the specified files or folders from the datastore"
+  arg :objs, nil, :multi => true, :lookup => RVC::InventoryObject
+end
+
+def delete objs
+  fm = nil
+  tasks = objs.map do |obj|
+    isFolder = obj.is_a?(RbVmomi::VIM::Datastore::FakeDatastoreFolder) 
+    isFile = obj.is_a?(RbVmomi::VIM::Datastore::FakeDatastoreFile)
+    err "Parameter is neither file nor folder" if !isFolder && !isFile
+     
+    ds = obj.datastore
+    dc = ds.path.find{|x| x[0].is_a? RbVmomi::VIM::Datacenter}[0]
+    fm ||= ds._connection.serviceContent.fileManager
+    dsPath = "[#{ds.name}] #{obj.path}"
+    puts "Deleting #{dsPath}"
+    fm.DeleteDatastoreFile_Task(:name => dsPath, :datacenter => dc)
+  end
+  progress(tasks)
+end

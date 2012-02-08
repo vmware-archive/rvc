@@ -93,3 +93,72 @@ def update pool, opts
   }
   pool.UpdateConfig(:name => opts[:name], :spec => spec)
 end
+
+
+opts :storage do
+  summary "Show the storage used by a resource pool hierarchy"
+  arg :pool, nil, :lookup => VIM::ResourcePool
+end
+
+def storage root
+  propSet = [
+    { :type => 'ResourcePool', :pathSet => ['name', 'parent'] },
+    { :type => 'VirtualMachine', :pathSet => ['name', 'parent', 'storage', 'resourcePool'] }
+  ]
+
+  filterSpec = RbVmomi::VIM.PropertyFilterSpec(
+    :objectSet => [
+      :obj => root,
+      :selectSet => [
+        RbVmomi::VIM.TraversalSpec(
+          :name => 'tsResourcePool1',
+          :type => 'ResourcePool',
+          :path => 'resourcePool',
+          :skip => false,
+          :selectSet => [
+            RbVmomi::VIM.SelectionSpec(:name => 'tsResourcePool1'),
+            RbVmomi::VIM.SelectionSpec(:name => 'tsResourcePool2')
+          ]
+        ),
+        RbVmomi::VIM.TraversalSpec(
+          :name => 'tsResourcePool2',
+          :type => 'ResourcePool',
+          :path => 'vm',
+          :skip => false,
+          :selectSet => [
+            RbVmomi::VIM.SelectionSpec(:name => 'tsResourcePool1'),
+            RbVmomi::VIM.SelectionSpec(:name => 'tsResourcePool2')
+          ]
+        )
+      ]
+    ],
+    :propSet => propSet
+  )
+
+  result = root._connection.propertyCollector.RetrieveProperties(:specSet => [filterSpec])
+
+  objs = Hash[result.map { |r| [r.obj, r] }]
+  usages = Hash.new { |h,k| h[k] = 0 }
+
+  objs.each do |obj,r|
+    next unless obj.is_a? VIM::VirtualMachine
+    cur = r['resourcePool']
+    usage = r['storage'].perDatastoreUsage.map(&:unshared).sum
+    while cur
+      usages[cur] += usage
+      cur = cur == root ? nil : objs[cur]['parent']
+    end
+  end
+
+  children = Hash.new { |h,k| h[k] = [] }
+  objs.each { |obj,r| children[r['parent']] << obj }
+
+  display = lambda do |level,obj|
+    puts "#{' '*level}#{objs[obj]['name']}: #{usages[obj].metric}B"
+    children[obj].each do |child|
+      display[level+1, child]
+    end
+  end
+
+  display[0, root]
+end

@@ -19,6 +19,39 @@
 # THE SOFTWARE.
 
 class RbVmomi::VIM::DistributedVirtualPortgroup
+  field 'vlan' do
+    summary 'VLAN configuration for the portgroup'
+    property 'config.defaultPortConfig'
+    block do |config|
+      translate_vlan config.vlan
+    end
+    default
+  end
+
+  field 'vds_name' do
+    summary 'Parent vDS of the portgroup'
+    property 'config.distributedVirtualSwitch'
+    block { |vds| vds.config.name }
+  end
+
+  #field 'active ports' do
+  #  summary 'number of active ports'
+  #  property 'config'
+  #  block do |config|
+  #    vds = config.distributedVirtualSwitch
+  #    ports = vds.FetchDVPorts(:criteria => {
+  #                               :portgroupKey => [self.key], :inside => true,
+  #                               :active => true})
+  #    ports.size
+  #  end
+  #  default
+  #end
+
+  field 'status' do
+    default false
+  end
+
+
   def summarize
     vds = self.config.distributedVirtualSwitch
     pc = vds._connection.propertyCollector
@@ -64,54 +97,8 @@ class RbVmomi::VIM::DistributedVirtualPortgroup
   end
 
   def display_info
-    # we really just want to show the default port configuration
-    config = self.config.defaultPortConfig
     vds = self.config.distributedVirtualSwitch
-
-    # map network respool to human-readable name
-    poolName  = translate_respool vds, config.networkResourcePoolKey
-
-    puts_policy "blocked:", config.blocked
-    puts_policy("vlan:", config.vlan, "", nil) { |v| translate_vlan v }
-    puts        "network resource pool: #{poolName}"
-    puts        "Rx Shaper: "
-    policy = config.inShapingPolicy
-    puts_policy "  enabled:", policy.enabled
-    puts_policy("  average bw:", policy.averageBandwidth, "b/sec"){|v|metric(v)}
-    puts_policy("  peak bw:", policy.peakBandwidth, "b/sec") { |v| metric(v) }
-    puts_policy("  burst size:", policy.burstSize, "B") { |v| metric(v) }
-    puts        "Tx Shaper:"
-    policy = config.outShapingPolicy
-    puts_policy "  enabled:", policy.enabled
-    puts_policy("  average bw:", policy.averageBandwidth, "b/sec"){|v|metric(v)}
-    puts_policy("  peak bw:", policy.peakBandwidth, "b/sec") { |v| metric(v) }
-    puts_policy("  burst size:", policy.burstSize, "B") { |v| metric(v) }
-    puts        "Uplink Teaming Policy:"
-    policy = config.uplinkTeamingPolicy
-    puts_policy "  policy:", policy.policy  #XXX map the strings values
-    puts_policy "  reverse policy:", policy.reversePolicy
-    puts_policy "  notify switches:", policy.notifySwitches
-    puts_policy "  rolling order:", policy.rollingOrder
-    puts        "  Failure Criteria: "
-    criteria = policy.failureCriteria
-    puts_policy "    check speed:", criteria.checkSpeed
-    puts_policy("    speed:", criteria.speed, "Mb/sec") { |v| metric(v) }
-    puts_policy "    check duplex:", criteria.checkDuplex
-    puts_policy "    full duplex:", criteria.fullDuplex
-    puts_policy "    check error percentage:", criteria.checkErrorPercent
-    puts_policy "    max error percentage:", criteria.percentage, "%"
-    puts_policy "    check beacon:", criteria.checkBeacon
-    puts        "  Uplink Port Order:"
-    order = policy.uplinkPortOrder
-    puts_policy("    active:", order, "", :activeUplinkPort) { |v| v.join(',') }
-    puts_policy("    standby:", order, "", :standbyUplinkPort) {|v| v.join(',')}
-    puts        "Security:"
-    policy = config.securityPolicy
-    puts_policy "  allow promiscuous mode:", policy.allowPromiscuous
-    puts_policy "  allow mac changes:", policy.macChanges
-    puts_policy "  allow forged transmits:", policy.forgedTransmits
-    puts_policy "enable ipfix monitoring:", config.ipfixEnabled
-    puts_policy "forward all tx to uplink:", config.txUplink
+    self.config.defaultPortConfig.dump_config vds, ""
   end
 
 
@@ -266,24 +253,10 @@ class LazyDVPort
   end
 end
 
-def metric num
-  if num >= 1000000000000
-    (num / 1000000000000).to_s + 'T'
-  elsif num >= 1000000000
-    (num / 1000000000).to_s + 'G'
-  elsif num >= 1000000
-    (num / 1000000).to_s + 'M'
-  elsif num >= 1000
-    (num / 1000).to_s + 'K'
-  else
-    num.to_s
-  end
-end
-
 def translate_vlan vlan
   case "#{vlan.class}"
   when "VmwareDistributedVirtualSwitchVlanIdSpec"
-    config = vlan.vlanId == 0 ? "-" : vlan.vlanId.to_s + " (switch tagging)"
+    config = vlan.vlanId == 0 ? "-" : vlan.vlanId.to_s + " (tagging)"
   when "VmwareDistributedVirtualSwitchTrunkVlanSpec"
     config = vlan.vlanId.map { |r|
       if r.start != r.end
@@ -313,7 +286,7 @@ def translate_vlan vlan
   config
 end
 
-def translate_respool vds, pk
+def translate_respool vds, pk, show_inheritance = true
   if pk.value == '-1'
     poolName = "-"
   else
@@ -322,24 +295,8 @@ def translate_respool vds, pk
     }[0].name
   end
 
-  if !pk.inherited
+  if show_inheritance and !pk.inherited
     poolName += "*"
   end
   poolName
-end
-
-
-def puts_policy prefix, policy, suffix = "", prop = :value, &b
-  b ||= lambda { |v| v }
-  if prop != nil
-    v = policy.send(prop)
-  else
-    v = policy
-  end
-  print "#{prefix} #{b.call(v)}"
-  if policy.inherited == false
-    puts "*"
-    else
-    puts ""
-  end
 end

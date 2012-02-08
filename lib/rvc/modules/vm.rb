@@ -128,41 +128,22 @@ opts :create do
   summary "Create a new VM"
   arg :name, "Destination", :lookup_parent => VIM::Folder
   opt :pool, "Resource pool", :short => 'p', :type => :string, :lookup => VIM::ResourcePool
-  opt :host, "Host", :short => 'h', :type => :string, :lookup => VIM::HostSystem
+  opt :host, "Host", :short => 'o', :type => :string, :lookup => VIM::HostSystem
   opt :datastore, "Datastore", :short => 'd', :type => :string, :lookup => VIM::Datastore
-  opt :disksize, "Size in KB of primary disk (or add a unit of <M|G|T>)", :short => 's', :type => :string, :default => "4000000"
   opt :memory, "Size in MB of memory", :short => 'm', :type => :int, :default => 128
-  opt :cpucount, "Number of CPUs", :short => 'c', :type => :int, :default => 1
+  opt :cpus, "Number of CPUs", :short => 'c', :type => :int, :default => 1
+  opt :guest_id, "Guest OS", :short => 'g', :default => "otherGuest" # XXX tab complete
+
   text <<-EOB
 
+  No disks or network adapters are initially present. Use device.add_disk and
+  device.add_net to do this.
+
 Example:
-  vm.create -p ~foo/resourcePool/pools/prod -d ~data/bigdisk -s 10g ~vms/new
-
+  vm.create ~/vm/foo --pool ~/host/my_cluster/resourcePool --datastore ~/datastore/my_datastore
+  device.add_disk ~/vm/foo -s 30G
+  device.add_net ~/vm/foo ~/network/VM\\ Network
   EOB
-end
-
-
-def realdisksize( size )
-  size.downcase!
-  if size =~ /([0-9][0-9,]*)([mgt])?/i
-    size = $1.delete(',').to_i
-    unit = $2
-
-    case unit
-    when 'm'
-      return size * 1024
-    when 'g'
-      return size * ( 1024 ** 2 )
-    when 't'
-      return size * ( 1024 ** 3 )
-    when nil
-      return size
-    else
-      err "Unknown size modifer of '#{unit}'"
-    end
-  else
-    err "Problem with #{size}"
-  end
 end
 
 
@@ -174,33 +155,12 @@ def create dest, opts
   datastore_path = "[#{opts[:datastore].name}]"
   config = {
     :name => name,
-    :guestId => 'otherGuest',
+    :guestId => opts[:guest_id],
     :files => { :vmPathName => datastore_path },
     :numCPUs => opts[:cpucount],
     :memoryMB => opts[:memory],
     :deviceChange => [
       {
-        :operation => :add,
-        :device => VIM.VirtualLsiLogicController(
-          :key => 1000,
-          :busNumber => 0,
-          :sharedBus => :noSharing
-        )
-      }, {
-        :operation => :add,
-        :fileOperation => :create,
-        :device => VIM.VirtualDisk(
-          :key => -1,
-          :backing => VIM.VirtualDiskFlatVer2BackingInfo(
-            :fileName => datastore_path,
-            :diskMode => :persistent,
-            :thinProvisioned => true
-          ),
-          :controllerKey => 1000,
-          :unitNumber => 0,
-          :capacityInKB => realdisksize( opts[:disksize] )
-        )
-      }, {
         :operation => :add,
         :device => VIM.VirtualCdrom(
           :key => -2,
@@ -215,19 +175,6 @@ def create dest, opts
           :controllerKey => 200,
           :unitNumber => 0
         )
-      }, {
-        :operation => :add,
-        :device => VIM.VirtualE1000(
-          :key => -3,
-          :deviceInfo => {
-            :label => 'Network Adapter 1',
-            :summary => 'VM Network'
-          },
-          :backing => VIM.VirtualEthernetCardNetworkBackingInfo(
-            :deviceName => 'VM Network'
-          ),
-          :addressType => 'generated'
-        )
       }
     ],
   }
@@ -236,30 +183,6 @@ def create dest, opts
                          :host => opts[:host]).wait_for_completion
 end
 
-
-opts :insert_cdrom do
-  summary "Put a disc in a virtual CDROM drive"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
-  arg :iso, "Path to the ISO image on a datastore", :lookup => VIM::Datastore::FakeDatastoreFile
-end
-
-def insert_cdrom vm, iso
-  device = vm.config.hardware.device.grep(VIM::VirtualCdrom)[0]
-  err "No virtual CDROM drive found" unless device
-
-  device.backing = VIM.VirtualCdromIsoBackingInfo(:fileName => iso.datastore_path)
-
-  spec = {
-    :deviceChange => [
-      {
-        :operation => :edit,
-        :device => device
-      }
-    ]
-  }
-  
-  vm.ReconfigVM_Task(:spec => spec)
-end
 
 opts :register do
   summary "Register a VM already in a datastore"
@@ -352,21 +275,25 @@ def kill vms
   CMD.basic.destroy vms unless vms.empty?
 end
 
-
 opts :answer do
   summary "Answer a VM question"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
   arg :choice, "Answer ID"
+  arg :vm, nil, :lookup => VIM::VirtualMachine, :multi => true
 end
 
-def answer vm, str
-  q = vm.runtime.question
-  err "no question" unless q
-  choice = q.choice.choiceInfo.find { |x| x.label == str }
-  err("invalid answer") unless choice
-  vm.AnswerVM :questionid => q.path, :answerChoice => choice.key
+def answer str, vms
+  vms.each do |vm|
+    begin
+      if q = vm.runtime.question
+        choice = q.choice.choiceInfo.find { |x| x.label == str }
+        err("invalid answer") unless choice
+        vm.AnswerVM :questionId => q.id, :answerChoice => choice.key
+      end
+    rescue
+      puts "#{vm.name rescue vm}: #{$!.message}"
+    end
+  end
 end
-
 
 opts :layout do
   summary "Display info about VM files"
@@ -377,43 +304,6 @@ def layout vm
   vm.layoutEx.file.each do |f|
     puts "#{f.type}: #{f.name}"
   end
-end
-
-
-opts :devices do
-  summary "Display info about VM devices"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
-end
-
-def devices vm
-  devs = vm.config.hardware.device
-  devs.each do |dev|
-    tags = []
-    tags << (dev.connectable.connected ? :connected : :disconnected) if dev.props.member? :connectable
-    puts "#{dev.deviceInfo.label} (#{dev.class}): #{dev.deviceInfo.summary}; #{tags * ' '}"
-  end
-end
-
-
-opts :connect do
-  summary "Connect a virtual device"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
-  arg :label, "Device label"
-end
-
-def connect vm, label
-  change_device_connectivity vm, label, true
-end
-
-
-opts :disconnect do
-  summary "Disconnect a virtual device"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
-  arg :label, "Device label"
-end
-
-def disconnect vm, label
-  change_device_connectivity vm, label, false
 end
 
 
@@ -443,37 +333,37 @@ def find ds, opts
 end
 
 
-opts :extraConfig do
+opts :extra_config do
   summary "Display extraConfig options"
   arg :vm, nil, :lookup => VIM::VirtualMachine
   arg :regex, "Regexes to filter keys", :multi => true, :required => false
 end
 
-def extraConfig vm, regexes
-  _extraConfig(vm, *regexes.map { |x| /#{x}/ })
+def extra_config vm, regexes
+  _extra_config(vm, *regexes.map { |x| /#{x}/ })
 end
 
 
-opts :setExtraConfig do
+opts :set_extra_config do
   summary "Set extraConfig options"
   arg :vm, nil, :lookup => VIM::VirtualMachine
   arg 'key=value', "extraConfig key/value pairs", :multi => true
 end
 
-def setExtraConfig vm, pairs
+def set_extra_config vm, pairs
   h = Hash[pairs.map { |x| x.split('=', 2).tap { |a| a << '' if a.size == 1 } }]
-  _setExtraConfig vm, h
+  _set_extra_config vm, h
 end
 
 
-def _setExtraConfig vm, hash
+def _set_extra_config vm, hash
   cfg = {
     :extraConfig => hash.map { |k,v| { :key => k, :value => v } },
   }
   vm.ReconfigVM_Task(:spec => cfg).wait_for_completion
 end
 
-def _extraConfig vm, *regexes
+def _extra_config vm, *regexes
   vm.config.extraConfig.each do |h|
     if regexes.empty? or regexes.any? { |r| h[:key] =~ r }
       puts "#{h[:key]}: #{h[:value]}"
@@ -518,6 +408,34 @@ def rvc vm, opts
   system_fg(cmd, env)
 end
 
+opts :rdp do
+  summary "Connect via RDP"
+  arg :vms, nil, :lookup => VIM::VirtualMachine, :multi => true
+  opt :resolution, "Desired resolution", :type => :string, :default => ($rdpResolution ? $rdpResolution : '1024x768')
+  opt :username, "Username", :type => :string, :default => 'Administrator'
+  opt :password, "Password", :type => :string, :default => ($rdpDefaultPassword ? $rdpDefaultPassword : '')
+end
+
+rvc_alias :rdp, :rdp
+
+def rdp vms, h
+  resolution = h[:resolution]
+  if !resolution
+    resolution = $rdpResolution ? $rdpResolution : '1024x768'  
+  end
+  vms.each do |vm|
+    ip = vm_ip vm
+
+    begin
+      timeout(1) { TCPSocket.new ip, 3389; up = true }
+    rescue
+      puts "#{vm.name}: Warning: Looks like the RDP port is not responding"
+    end
+    
+    cmd = "rdesktop -u '#{h[:username]}' -p '#{h[:password]}' -g#{resolution} #{ip} >/dev/null 2>&1 &"
+    system(cmd)
+  end
+end
 
 opts :ping do
   summary "Ping a VM"
@@ -568,103 +486,11 @@ ensure
 end
 
 
-opts :add_net_device do
-  summary "Add a network adapter to a virtual machine"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
-  opt :type, "Adapter type", :default => 'e1000'
-  opt :network, "Network to connect to", :default => 'VM Network'
-end
-
-def add_net_device vm, opts
-  case opts[:type]
-  when 'e1000'
-    _add_net_device vm, VIM::VirtualE1000, opts[:network]
-  when 'vmxnet3'
-    _add_net_device vm, VIM::VirtualVmxnet3, opts[:network]
-  else err "unknown device"
-  end
-end
-
-def _add_net_device vm, klass, network
-  _add_device vm, nil, klass.new(
-    :key => -1,
-    :deviceInfo => {
-      :summary => network,
-      :label => `uuidgen`.chomp
-    },
-    :backing => VIM.VirtualEthernetCardNetworkBackingInfo(
-      :deviceName => network
-    ),
-    :addressType => 'generated'
-  )
-end
-
-
-opts :add_disk do
-  summary "Add a hard drive to a virtual machine"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
-  opt :label, 'Label', :type => :string
-  opt :size, 'Size', :default => '1G'
-end
-
-def add_disk vm, opts
-  existing_devices = vm.config.hardware.device
-  controller = existing_devices.find { |x| x.is_a? VIM::VirtualLsiLogicController }
-  used_unit_numbers =  existing_devices.select { |x| x.controllerKey == controller.key }.map(&:unitNumber)
-  unit_number = (used_unit_numbers.max||-1) + 1
-  id = "disk-#{controller.key}-#{unit_number}"
-  opts[:label] ||= id
-  filename = "#{File.dirname(vm.summary.config.vmPathName)}/#{id}.vmdk"
-  _add_device vm, :create, VIM::VirtualDisk(
-    :key => -1,
-    :backing => VIM.VirtualDiskFlatVer2BackingInfo(
-      :fileName => filename,
-      :diskMode => :persistent,
-      :thinProvisioned => true
-    ),
-    :capacityInKB => realdisksize(opts[:size]),
-    :controllerKey => controller.key,
-    :unitNumber => unit_number
-  )
-  new_device = vm.config.hardware.device.find { |x| x.controllerKey == controller.key && x.unitNumber == unit_number }
-  puts "Added device #{new_device.deviceInfo.label.inspect}"
-end
-
-
-def _add_device vm, fileOp, dev
-  spec = {
-    :deviceChange => [
-      { :operation => :add, :fileOperation => fileOp, :device => dev },
-    ]
-  }
-  vm.ReconfigVM_Task(:spec => spec).wait_for_completion
-end
-
-
-opts :remove_device do
-  summary "Remove a virtual device"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
-  arg :label, "Device label"
-end
-
-def remove_device vm, label
-  dev = vm.config.hardware.device.find { |x| x.deviceInfo.label == label }
-  err "no such device" unless dev
-  fileOp = dev.backing.is_a?(VIM::VirtualDeviceFileBackingInfo) ? 'destroy' : nil
-  spec = {
-    :deviceChange => [
-      { :operation => :remove, :fileOperation => fileOp, :device => dev },
-    ]
-  }
-  vm.ReconfigVM_Task(:spec => spec).wait_for_completion
-end
-
-
 opts :migrate do
   summary "Migrate a VM"
   arg :vm, nil, :lookup => VIM::VirtualMachine, :multi => true
   opt :pool, "Resource pool", :short => 'p', :type => :string, :lookup => VIM::ResourcePool
-  opt :host, "Host", :short => 'h', :type => :string, :lookup => VIM::HostSystem
+  opt :host, "Host", :short => 'o', :type => :string, :lookup => VIM::HostSystem
 end
 
 def migrate vms, opts
@@ -679,10 +505,10 @@ opts :clone do
   arg :src, nil, :lookup => VIM::VirtualMachine
   arg :dst, "Path to new VM", :lookup_parent => VIM::Folder
   opt :pool, "Resource pool", :short => 'p', :type => :string, :lookup => VIM::ResourcePool
-  opt :host, "Host", :short => 'h', :type => :string, :lookup => VIM::HostSystem
+  opt :host, "Host", :short => 'o', :type => :string, :lookup => VIM::HostSystem
   opt :template, "Create a template", :short => 't'
   opt :linked, "Create a linked clone", :short => 'l'
-  opt :powerOn, "Power on VM after clone"
+  opt :power_on, "Power on VM after clone"
 end
 
 def clone src, dst, opts
@@ -703,11 +529,10 @@ def clone src, dst, opts
                               :pool => opts[:pool],
                             },
                             :template => opts[:template],
-                            :powerOn => opts[:powerOn],
+                            :powerOn => opts[:power_on],
                           })
   progress [task]
 end
-
 
 def deltaize_disks vm
   real_disks = vm.config.hardware.device.grep(VIM::VirtualDisk).select { |x| x.backing.parent == nil }
@@ -768,41 +593,6 @@ def modify_memory vm, opts
 end
 
 
-opts :add_cdrom_device do
-  summary "Add a cdrom drive"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
-  opt :label, "Device label", :default => "CD/DVD drive 1"
-end
-
-def add_cdrom_device vm, opts
-  progress [vm.ReconfigVM_Task(:spec => {
-    :deviceChange => [
-      {
-        :operation => :add,
-        :device => VIM.VirtualCdrom(
-          :controllerKey => 200,
-          :key => 3000,
-          :unitNumber => 0,
-          :backing => VIM.VirtualCdromAtapiBackingInfo(
-            :deviceName => opts[:label],
-            :useAutoDetect => false
-          ),
-          :connectable => VIM.VirtualDeviceConnectInfo(
-            :allowGuestControl => true,
-            :connected => true,
-            :startConnected => true
-          ),
-          :deviceInfo => VIM.Description(
-            :label => opts[:label],
-            :summary => opts[:label]
-          )
-        )
-      }
-    ]
-  })]
-end
-
-
 def find_vmx_files ds
   datastorePath = "[#{ds.name}] /"
   searchSpec = {
@@ -823,18 +613,6 @@ def find_vmx_files ds
   end
 
   files
-end
-
-def change_device_connectivity vm, label, connected
-  dev = vm.config.hardware.device.find { |x| x.deviceInfo.label == label }
-  err "no such device" unless dev
-  dev.connectable.connected = connected
-  spec = {
-    :deviceChange => [
-      { :operation => :edit, :device => dev },
-    ]
-  }
-  vm.ReconfigVM_Task(:spec => spec).wait_for_completion
 end
 
 def vm_ip vm

@@ -102,47 +102,9 @@ rvc_alias :debug
 def debug
   debug = $shell.debug = !$shell.debug
   $shell.connections.each do |name,conn|
-    conn.debug = debug
+    conn.debug = debug if conn.respond_to? :debug
   end
-end
-
-
-opts :quit do
-  summary "Exit RVC"
-end
-
-rvc_alias :quit
-rvc_alias :quit, :exit
-rvc_alias :quit, :q
-
-def quit
-  exit
-end
-
-
-opts :reload do
-  summary "Reload RVC command modules and extensions"
-  opt :verbose, "Display filenames loaded", :short => 'v', :default => false
-end
-
-rvc_alias :reload
-
-def reload opts
-  RVC.reload_modules opts[:verbose]
-
-  typenames = Set.new(VIM.loader.typenames.select { |x| VIM.const_defined? x })
-  dirs = VIM.extension_dirs
-  dirs.each do |path|
-    Dir.open(path) do |dir|
-      dir.each do |file|
-        next unless file =~ /\.rb$/
-        next unless typenames.member? $`
-        file_path = File.join(dir, file)
-        puts "loading #{$`} extensions from #{file_path}" if opts[:verbose]
-        load file_path
-      end
-    end
-  end
+  puts "debug mode #{debug ? 'en' : 'dis'}abled"
 end
 
 
@@ -225,10 +187,73 @@ end
 opts :info do
   summary "Display information about an object"
   arg :path, nil, :lookup => Object
-end  
+end
 
 rvc_alias :info
 rvc_alias :info, :i
+
+opts :show do
+  summary "Display information about an object"
+  arg :arg0, nil, :type => :string
+  arg :arg1, nil, :type => :string, :required => false
+end
+
+rvc_alias :show
+
+rvc_completor :show do |line, args, word, index|
+  choices = RVC::Completion.fs_candidates word
+  obj = lookup_single '.'
+  if index == 0
+    if obj.class == VIM::Datacenter || obj.class == VIM
+      choices << ['portgroups', ' ']
+      choices << ['vds', ' ']
+    end
+    if obj.class < VIM::DistributedVirtualSwitch
+      choices << ['running-config', ' ']
+      choices << ['interface', ' ']
+      #choices << ['vlan', ' ']
+      #choices << ['lldp', ' ']
+      #choices << ['cdp', ' ']
+    end
+  #elsif index == 1
+  #  if args[0] == 'vlan'
+  #    choices << ['summary', ' ']
+  #  end
+  end
+  choices
+end
+
+def show arg0, arg1
+  arg1 ||= '.'
+  begin
+    obj = lookup_single arg1
+  rescue
+    obj = nil
+  end
+
+  case arg0
+  when 'running-config'
+    if obj.class < VIM::DistributedVirtualSwitch
+      MODULES['vds'].show_running_config obj
+    else
+      if arg1 != '.'
+        err "'#{arg1}' is not a vDS!"
+      else
+        err "you need to be inside a vDS"
+      end
+    end
+  when 'portgroups'
+    MODULES['vds'].show_all_portgroups [obj]
+  when 'vds'
+    MODULES['vds'].show_all_vds [obj]
+  when 'interface'
+    MODULES['vds'].show_all_ports [obj]
+  #when 'vlan'
+  else
+    path = lookup_single arg0
+    info path
+  end
+end
 
 def info obj
   puts "path: #{obj.rvc_path_str}"
@@ -264,15 +289,15 @@ def reload_entity objs
 end
 
 
-opts :show do
+opts :what do
   summary "Basic information about the given objects"
   arg :obj, nil, :multi => true, :required => false, :lookup => Object
 end
 
-rvc_alias :show
-rvc_alias :show, :w
+rvc_alias :what
+rvc_alias :what, :w
 
-def show objs
+def what objs
   objs.each do |obj|
     puts "#{obj.rvc_path_str}: #{obj.class}"
   end
@@ -360,3 +385,93 @@ def events obj, opts
 ensure
   collector.DestroyCollector if collector
 end
+
+
+opts :fields do
+  summary "Show available fields on an object"
+  arg :obj, nil, :required => false, :default => '.', :lookup => RVC::InventoryObject
+end
+
+def fields obj
+  obj.class.ancestors.select { |x| x.respond_to? :fields }.each do |klass|
+    fields = klass.fields false
+    next if fields.empty?
+    puts "Fields on #{klass}:"
+    fields.each do |name,field|
+      puts " #{name}: #{field.summary}"
+    end
+  end
+end
+
+rvc_alias :fields
+
+
+opts :table do
+  summary "Display a table with the selected fields"
+
+  text <<-EOS
+
+You may specify the fields to display using multiple -f options, or
+separate them with ':'. The available fields for an object are
+shown by the "fields" command.
+  EOS
+  text ""
+
+  arg :obj, nil, :multi => true, :lookup => RVC::InventoryObject
+  opt :field, "Field to display", :multi => true, :type => :string
+  opt :sort, "Field to sort by", :type => :string
+  opt :reverse, "Reverse sort order"
+end
+
+rvc_completor :table do |line, args, word, argnum|
+  if argnum > 0 and args[argnum-1] == '-f'
+    RVC::Field::ALL_FIELD_NAMES.map { |x| [x, ' '] }
+  else
+    RVC::Completion.fs_candidates word
+  end
+end
+
+def table objs, opts
+  if opts[:field_given]
+    fields = opts[:field].map { |x| x.split ':' }.flatten(1)
+  else
+    fields = objs.map(&:class).uniq.
+                  map { |x| x.fields.select { |k,v| v.default? } }.
+                  map(&:keys).flatten(1).uniq
+  end
+
+  data = retrieve_fields(objs, fields).values
+
+  if f = opts[:sort]
+    data.sort! { |a,b| table_sort_compare a[f], b[f] }
+    data.reverse! if opts[:reverse]
+  end
+
+  # Invert field components to get an array of header rows
+  field_components = fields.map { |x| x.split '.' }
+  header_rows = []
+  field_components.each_with_index do |cs,i|
+    cs.each_with_index do |c,j|
+      header_rows[j] ||= [nil]*field_components.length
+      header_rows[j][i] = c
+    end
+  end
+  
+  table = Terminal::Table.new
+  header_rows.each { |row| table.add_row row }
+  table.add_separator
+  data.each do |h|
+    table.add_row(fields.map { |f| h[f] == nil ? 'N/A' : h[f] })
+  end
+  puts table
+end
+
+def table_sort_compare a, b
+  return a <=> b if a != nil and b != nil
+  return 0 if a == nil and b == nil
+  return -1 if a == nil
+  return 1 if b == nil
+  fail
+end
+
+rvc_alias :table

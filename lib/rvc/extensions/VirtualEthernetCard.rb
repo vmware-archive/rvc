@@ -18,23 +18,15 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-class RbVmomi::VIM::Folder
-  def traverse_one arc
-    _connection.searchIndex.FindChild :entity => self, :name => arc
+class RbVmomi::VIM::VirtualEthernetCard
+  def display_info
+    super
+    puts "address type: #{addressType}"
+    puts "MAC address: #{macAddress}"
+    puts "Wake on LAN enabled: #{wakeOnLanEnabled}"
   end
 
-  def children
-    RVC::Util.collect_children(self, :childEntity).reject { |name, item|
-      # hack -- we want to display dvportgroups under the dvs folder
-      item.class == RbVmomi::VIM::DistributedVirtualPortgroup
-    }
-  end
-
-  def self.folder?
-    true
-  end
-
-  def self.traverse?
-    true
+  def name
+    "ethernet-#{unitNumber-7}"
   end
 end

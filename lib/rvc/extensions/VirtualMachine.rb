@@ -19,26 +19,103 @@
 # THE SOFTWARE.
 
 class RbVmomi::VIM::VirtualMachine
-  field :on do
+  field 'on' do
     summary "Is the VM powered on?"
     properties %w(runtime.powerState)
     block { |powerState| powerState == 'poweredOn' }
+    default
+  end
+  
+  field 'storagebw' do
+    summary "Storage Bandwidth"
+    perfmetrics %w(disk.read.average disk.write.average)
+    block do |read, write| 
+      if read && write
+        io = (read.sum.to_f / read.length) + (write.sum.to_f / write.length)
+        MetricNumber.new(io * 1024, 'B/s')
+      else
+        nil
+      end
+    end
+  end
+  
+  [['', 5], ['.realtime', 1], ['.5min', 5 * 3], ['.10min', 10 * 3]].each do |label, max_samples|
+    field "storageiops#{label}" do
+      summary "Storage IOPS"
+      perfmetrics %w(disk.numberReadAveraged.average disk.numberWriteAveraged.average)
+      perfmetric_settings :max_samples => max_samples
+      block do |read, write|
+        if read && write
+          io = (read.sum.to_f / read.length) + (write.sum.to_f / write.length)
+          MetricNumber.new(io, 'IOPS')
+        else
+          nil
+        end
+      end
+    end
   end
 
-  field :ip do
+  field 'ip' do
     summary "The guest tools reported IP address."
     property 'guest.ipAddress'
   end
 
-  field :template do
+  field 'template' do
     summary "Is this VM a template?"
     property 'config.template'
   end
 
-  field :uptime do
+  field 'uptime' do
     summary "VM's uptime in seconds"
     properties %w(runtime.bootTime)
-    block { |t| (Time.now-t).to_i }
+    block { |t| t ? TimeDiff.new(Time.now-t) : nil }
+  end
+
+  field 'storage.used' do
+    summary "Total storage used"
+    properties %w(storage)
+    block do |storage|
+      MetricNumber.new(storage.perDatastoreUsage.map(&:committed).sum, 'B')
+    end
+  end
+
+  field 'storage.unshared' do
+    summary "Total storage unshared"
+    properties %w(storage)
+    block do |storage|
+      MetricNumber.new(storage.perDatastoreUsage.map(&:unshared).sum, 'B')
+    end
+  end
+
+  field 'storage.provisioned' do
+    summary "Total storage provisioned"
+    properties %w(storage)
+    block do |storage|
+      MetricNumber.new(storage.perDatastoreUsage.map { |x| x.uncommitted + x.committed }.sum, 'B')
+    end
+  end
+
+  field 'guest.id' do
+    summary 'Guest OS identifier'
+    property 'summary.config.guestId'
+  end
+
+  field 'tools.running' do
+    summary 'Are guest tools running?'
+    properties %w(guest.toolsRunningStatus)
+    block { |status| status == 'guestToolsRunning' }
+  end
+
+  field 'tools.uptodate' do
+    summary "Are guest tools up to date?"
+    properties %w(guest.toolsVersionStatus)
+    block { |status| status == 'guestToolsCurrent' }
+  end
+
+  field 'mac' do
+    summary "Mac address"
+    properties %w(config.hardware)
+    block { |hw| hw.device.grep(VIM::VirtualEthernetCard).map(&:macAddress) }
   end
 
   def display_info
@@ -73,7 +150,12 @@ class RbVmomi::VIM::VirtualMachine
         dev.backing.class.name
       end
       guest_net = guest.net.find { |x| x.macAddress == dev.macAddress }
-      puts " #{dev.deviceInfo.label}: #{backing_info} #{dev.connectable.connected ? :connected : :disconnected} #{dev.macAddress} #{guest_net ? (guest_net.ipAddress * ' ') : ''}"
+      puts " #{dev.name}: #{backing_info} #{dev.connectable.connected ? :connected : :disconnected} #{dev.macAddress} #{guest_net ? (guest_net.ipAddress * ' ') : ''}"
+    end
+
+    puts "storage:"
+    storage.perDatastoreUsage.map do |usage|
+      puts " #{usage.datastore.name}: committed=#{usage.committed.metric}B uncommitted=#{usage.uncommitted.metric}B unshared=#{usage.unshared.metric}B"
     end
   end
 
@@ -94,6 +176,7 @@ class RbVmomi::VIM::VirtualMachine
       'networks' => RVC::FakeFolder.new(self, :rvc_children_networks),
       'files' => RVC::FakeFolder.new(self, :rvc_children_files),
       'snapshots' => RVC::RootSnapshotFolder.new(self),
+      'devices' => RVC::FakeFolder.new(self, :rvc_children_devices),
     }
   end
 
@@ -117,6 +200,12 @@ class RbVmomi::VIM::VirtualMachine
       fail unless objs.size == 1
       [File.basename(file.name), objs.first]
     end]
+  end
+
+  def rvc_children_devices
+    devices, = collect 'config.hardware.device'
+    devices.each { |x| x.rvc_vm = self }
+    Hash[devices.map { |x| [x.name, x] }]
   end
 end
 

@@ -18,30 +18,42 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-class RbVmomi::VIM::ManagedEntity
+class RbVmomi::VIM::VirtualDevice
   include RVC::InventoryObject
+  attr_accessor :rvc_vm
 
-  field 'name' do
-    summary "Name"
-    property 'name'
-    default
+  # Stable name based on the device key, unit number, etc.
+  # May be overridden in subclasses.
+  def name
+    self.class.to_s =~ /^(?:Virtual)?(?:Machine)?(\w+?)(?:Card|Device|Controller)?$/
+    type = $1 ? $1.downcase : 'device'
+    "#{type}-#{key}"
   end
 
-  field 'status' do
-    summary 'Status (green/yellow/red/gray)'
-    property 'overallStatus'
-    default
+  def ls_text r
+    tags = []
+    tags << (connectable.connected ? :connected : :disconnected) if props.member? :connectable
+    " (#{self.class}): #{deviceInfo.summary}; #{tags * ' '}"
   end
-
-  STATUS_COLORS = {
-    'gray' => [],
-    'red' => [:red],
-    'green' => [],
-    'yellow' => [:yellow],
-  }
 
   def display_info
-    puts "name: #{name}"
-    puts "type: #{self.class.name}"
+    super
+    devices, = rvc_vm.collect 'config.hardware.device'
+    puts "label: #{deviceInfo.label}"
+    puts "summary: #{deviceInfo.summary}"
+    puts "key: #{key}"
+    if controllerKey
+      controller = devices.find { |x| x.key == controllerKey }
+      puts "controller: #{controller.name}" if controller
+    end
+    puts "unit number: #{unitNumber}" if unitNumber
+    if connectable
+      puts "connectivity:"
+      puts " connected: #{connectable.connected}"
+      puts " start connected: #{connectable.startConnected}"
+      puts " guest control: #{connectable.allowGuestControl}"
+      puts " status: #{connectable.status}"
+    end
   end
 end
+

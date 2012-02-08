@@ -35,6 +35,26 @@ URI_REGEX = %r{
   $
 }x
 
+class RbVmomi::VIM
+  include RVC::InventoryObject
+
+  def children
+    rootFolder.children
+  end
+
+  def self.folder?
+    true
+  end
+
+  def display_info
+    puts serviceContent.about.fullName
+  end
+
+  def _connection
+    self
+  end
+end
+
 opts :connect do
   summary 'Open a connection to ESX/VC'
   arg :uri, "Host to connect to"
@@ -51,7 +71,7 @@ def connect uri, opts
   password = match[2] || ENV['RBVMOMI_PASSWORD']
   host = match[3]
   port = match[4] || 443
-  certdigest = match[5]
+  certdigest = match[5] || opts[:certdigest]
   bad_cert = false
 
   vim = nil
@@ -90,7 +110,12 @@ def connect uri, opts
   unless opts[:rev]
     # negotiate API version
     rev = vim.serviceContent.about.apiVersion
-    vim.rev = [rev, ENV['RVC_VIMREV'] || '5.0'].min
+    env_rev = ENV['RVC_VIMREV']
+    if env_rev && env_rev.to_f == 0
+      vim.rev = env_rev
+    else
+      vim.rev = [rev, env_rev || '5.0'].min
+    end
   end
 
   isVC = vim.serviceContent.about.apiType == "VirtualCenter"
@@ -115,15 +140,19 @@ def connect uri, opts
     loaded_from_keychain = password
   end
 
-  password_given = password != nil
-  loop do
-    begin
-      password = prompt_password unless password_given
-      vim.serviceContent.sessionManager.Login :userName => username,
-                                              :password => password
-      break
-    rescue RbVmomi::VIM::InvalidLogin
-      err $!.message if password_given
+  if opts[:cookie]
+    vim.cookie = opts[:cookie]
+  else
+    password_given = password != nil
+    loop do
+      begin
+        password = prompt_password unless password_given
+        vim.serviceContent.sessionManager.Login :userName => username,
+                                                :password => password
+        break
+      rescue RbVmomi::VIM::InvalidLogin
+        err $!.message if password_given
+      end
     end
   end
 
@@ -156,7 +185,7 @@ def prompt_password
 end
 
 def keychain_password username , hostname
-   return nil unless RbConfig::CONFIG['host_os'] =~ /^darwin10/
+   return nil unless RbConfig::CONFIG['host_os'] =~ /^darwin1[01]/
 
   begin
     require 'osx_keychain'
@@ -204,16 +233,6 @@ def check_known_hosts host, peer_public_key
   elsif result == :ok
   else
     err "Unexpected result from known_hosts check"
-  end
-end
-
-class RbVmomi::VIM
-  def display_info
-    puts serviceContent.about.fullName
-  end
-
-  def _connection
-    self
   end
 end
 
@@ -277,4 +296,53 @@ def tasks
     collector.DestroyCollector if collector
     view.DestroyView if view
   end
+end
+
+
+opts :logbundles do
+  summary "Download log bundles"
+  arg :servers, "VIM connection and/or ESX hosts", :lookup => [RbVmomi::VIM, VIM::HostSystem], :multi => true
+  opt :dest, "Destination directory", :default => '.'
+end
+
+DEFAULT_SERVER_PLACEHOLDER = '0.0.0.0'
+
+def logbundles servers, opts
+  vim = single_connection servers
+  diagMgr = vim.serviceContent.diagnosticManager
+  name = vim.host
+  FileUtils.mkdir_p opts[:dest]
+
+  hosts = servers.grep VIM::HostSystem
+  include_default = servers.member? vim
+
+  puts "#{Time.now}: Generating log bundles..."
+  bundles =
+    begin
+      diagMgr.GenerateLogBundles_Task(:includeDefault => include_default, :host => hosts).wait_for_completion
+    rescue VIM::TaskInProgress
+      $!.task.wait_for_completion
+    end
+
+  dest_path = nil
+  bundles.each do |b|
+    uri = URI.parse(b.url.sub('*', DEFAULT_SERVER_PLACEHOLDER))
+    bundle_name = b.system ? b.system.name : name
+    dest_path = File.join(opts[:dest], "#{bundle_name}-" + File.basename(uri.path))
+    puts "#{Time.now}: Downloading bundle #{b.url} to #{dest_path}"
+    uri.host = vim.http.address if uri.host == DEFAULT_SERVER_PLACEHOLDER
+    Net::HTTP.get_response uri do |res|
+      File.open dest_path, 'w' do |io|
+        res.read_body do |data|
+          io.write data
+          if $stdout.tty?
+            $stdout.write '.'
+            $stdout.flush
+          end
+        end
+      end
+      puts if $stdout.tty?
+    end
+  end
+  dest_path
 end

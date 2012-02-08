@@ -34,10 +34,10 @@ def summarize obj
 end
 
 opts :create_portgroup do
-  summary "Create a new potgroup on a vDS"
+  summary "Create a new portgroup on a vDS"
   arg :vds, nil, :lookup => VIM::DistributedVirtualSwitch
   arg :name, "Portgroup Name", :type => :string
-  opt :num_ports, "Number of Ports", :type => :int
+  opt :num_ports, "Number of Ports", :type => :int, :default => 128
   opt :type, "Portgroup Type (i.e. 'earlyBinding', 'ephemeral', 'lateBinding'",
       :type => :string, :default => 'earlyBinding'
 end
@@ -45,17 +45,17 @@ end
 def create_portgroup vds, name, opts
   tasks [vds], :AddDVPortgroup, :spec => [{ :name => name,
                                             :type => opts[:type],
-                                            :numPorts => opts[:numPorts] }]
+                                            :numPorts => opts[:num_ports] }]
 end
 
-opts :create do
+opts :create_vds do
   summary "Create a new vDS"
   arg :dest, "Destination", :lookup_parent => VIM::Folder
   opt :vds_version, "vDS version (i.e. '5.0.0', '4.1.0', '4.0.0')",
       :type => :string
 end
 
-def create dest, opts
+def create_vds dest, opts
   folder, name = *dest
   tasks [folder], :CreateDVS, :spec => { :configSpec => { :name => name },
                                          :productInfo => {
@@ -74,7 +74,8 @@ end
 
 def apply_settings obj, port_spec
   if obj.is_a?(VIM::DistributedVirtualSwitch)
-    tasks [obj], :ReconfigureDvs, :spec => { :defaultPortConfig => port_spec }
+    tasks [obj], :ReconfigureDvs, :spec =>{:defaultPortConfig => port_spec,
+                                           :configVersion => obj.config.configVersion}
   elsif obj.is_a?(VIM::DistributedVirtualPortgroup)
     vds = obj.config.distributedVirtualSwitch
     collapse_inheritance vds.config.defaultPortConfig, port_spec
@@ -88,6 +89,7 @@ def apply_settings obj, port_spec
     tasks [vds], :ReconfigureDVPort, :port => [{ :key => obj.key,
                                                  :operation => 'edit',
                                                  :setting => port_spec }]
+    obj.invalidate vds
   end
 end
 
@@ -186,6 +188,8 @@ def block obj
   apply_settings obj, { :blocked => { :value => true, :inherited => false } }
 end
 
+rvc_alias :block, :shut
+
 opts :unblock do
   summary "Unblock traffic on a vDS, portgroup, or port"
   arg :obj, nil,
@@ -197,6 +201,8 @@ end
 def unblock obj
   apply_settings obj, { :blocked => { :value => false, :inherited => false } }
 end
+
+rvc_alias :unblock, :"no-shut"
 
 # XXX pvlan?
 opts :vlan_trunk do
@@ -351,7 +357,6 @@ def subtract_ranges(ranges, minus_ranges)
   outages
 end
 
-
 opts :security do
   summary "Configure a security settings on a vDS or portgroup"
   arg :obj, nil,
@@ -427,4 +432,174 @@ end
 def set_respool obj, respool
   apply_settings obj, {:networkResourcePoolKey => {:inherited => false,
                                                    :value => respool.key} }
+end
+
+opts :show_running_config do
+  summary "Dump the configuration of a vDS and all child portgroups"
+  arg :vds, nil, :lookup => [VIM::DistributedVirtualSwitch]
+end
+
+def show_running_config vds
+  MODULES['basic'].info vds
+  portgroups = vds.children['portgroups']
+  portgroups.rvc_link vds, 'portgroups'
+  vds.children['portgroups'].children.each do |name, pg|
+    pg.rvc_link portgroups, name
+    puts '---'
+    MODULES['basic'].info pg
+  end
+end
+
+opts :show_all_portgroups do
+  summary "Show all portgroups in a given path."
+  arg :path, nil, :lookup => InventoryObject, :multi => true, :required => false
+end
+
+def show_all_portgroups path
+  paths = path.map { |p| p.rvc_path_str }
+  if paths.empty?
+    paths = nil
+  end
+
+  vds = MODULES['find'].find_items nil, paths, ['vds']
+  pgs = []
+  vds.each do |v|
+    v.portgroup.each { |pg| pgs << pg}
+  end
+  RVC::MODULES['basic'].table pgs, { :field => ["vds_name", "name", "vlan"],
+                                     :field_given => true }
+end
+
+opts :show_all_vds do
+  summary "Show all vDS's in a given path."
+  arg :path, nil, :lookup => InventoryObject, :multi => true, :required => false
+end
+
+def show_all_vds path
+  paths = path.map { |p| p.rvc_path_str }
+  if paths.empty?
+    paths = nil
+  end
+
+  vds = MODULES['find'].find_items nil, paths, ['vds']
+  RVC::MODULES['basic'].table vds, { :field => ['name', 'vlans', 'hosts'],
+                                     :field_given => true }
+end
+
+opts :show_all_ports do
+  summary "Show all ports in a given vDS/portgroup."
+  arg :path, nil, :lookup => [VIM::DistributedVirtualSwitch,
+                              VIM::DistributedVirtualPortgroup],
+                  :multi => true, :required => false
+end
+
+def show_all_ports path
+  rows = []
+  num_vds = 0
+  num_pgs = 0
+  path.each do |obj|
+    if obj.class < VIM::DistributedVirtualSwitch
+      num_vds += 1
+      vds = obj
+      ports = vds.FetchDVPorts(:criteria => { :active => true })
+    else #obj.class < VIM::DistributedVirtualPortgroup
+      num_pgs += 1
+      vds = obj.config.distributedVirtualSwitch
+      ports = vds.FetchDVPorts(:criteria => {
+                                 :portgroupKey => [obj.key], :inside => true,
+                                 :active => true})
+    end
+    pc = vds._connection.propertyCollector
+
+    # fetch names of VMs, portgroups, vDS
+    objects = []
+    ports.each do |port|
+      objects << port.proxyHost
+      if port.connectee
+         objects << port.connectee.connectedEntity
+      end
+    end
+    vds.portgroup.each { |pg| objects << pg }
+    objects << vds
+    spec = {
+      :objectSet => objects.map { |obj| { :obj => obj } },
+      :propSet => [{:type => "ManagedEntity", :pathSet => %w(name) },
+                   {:type => "DistributedVirtualPortgroup",
+                     :pathSet => %w(name key)}]
+    }
+    props = pc.RetrieveProperties(:specSet => [spec])
+    names = {}
+    props.each do |prop|
+      names[prop.obj] = prop['name']
+      if prop['key']
+        names[prop['key']] = prop['name']
+      end
+    end
+    vds_name = names[vds]
+
+    # put each port as a row in the table
+    ports.each do |port|
+      port_key = begin port.key.to_i; rescue port.key; end
+
+      connectee = nil
+      hostname = names[port.proxyHost].dup
+      if port.connectee and port.connectee.type == "vmVnic"
+        connectee = names[port.connectee.connectedEntity]
+      elsif port.connectee
+        connectee = port.connectee.nicKey
+      end
+
+      rows << [port_key, port.config.name, vds_name, names[port.portgroupKey],
+               translate_vlan(port.config.setting.vlan),
+               port.state.runtimeInfo.blocked, hostname, connectee]
+    end
+  end
+
+  abbrev_hostnames(rows.map { |r| r[6] })
+
+  columns = ['key', 'name', 'vds', 'portgroup', 'vlan', 'blocked', 'host', 'connectee']
+
+  # if we're just querying against a single vDS, skip the vds name column
+  if num_vds <= 1
+    columns.delete_at(2)
+    rows.each { |r| r.delete_at(2) }
+  end
+
+  # if we're just querying against one portgroup, skip portgroup name column
+  if num_pgs <= 1 and num_vds < 1
+    columns.delete_at(2)
+    rows.each { |r| r.delete_at(2) }
+  end
+
+  t = table(columns)
+  rows.sort_by { |o| o[0] }.each { |o| t << o }
+  puts t
+end
+
+def abbrev_hostnames names
+  min_len = 999
+  split_names = names.map { |name|
+    new_r = name.split('.').reverse
+    min_len = [min_len, new_r.size].min
+    new_r
+  }
+
+  matches = 0
+  (0..(min_len-1)).each do |i|
+    if split_names.first[i] == split_names.last[i]
+      matches = i+1
+    else
+      break
+    end
+  end
+
+  if matches == min_len
+    matches -= 1
+  end
+
+  if matches > 0
+    names.each { |n|
+      n.replace(n.split('.').reverse.drop(matches).reverse.join('.') + '.~')
+    }
+  end
 end

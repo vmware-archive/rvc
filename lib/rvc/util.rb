@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'delegate'
+
 module RVC
 module Util
   extend self
@@ -207,5 +209,108 @@ module Util
   def status_color str, status
     $terminal.color(str, *VIM::ManagedEntity::STATUS_COLORS[status])
   end
+
+  def metric num
+    MetricNumber.new(num.to_f, '', false).to_s
+  end
+
+  def retrieve_fields objs, fields
+    Hash[objs.map do |o|
+      begin
+        [o, Hash[fields.map { |f| [f, o.field(f)] }]]
+      rescue VIM::ManagedObjectNotFound
+        next
+      end
+    end]
+  end
 end
+end
+
+class Numeric
+  def metric
+    RVC::Util.metric self
+  end
+end
+
+class TimeDiff < SimpleDelegator
+  def to_s
+    i = self.to_i
+    seconds = i % 60
+    i /= 60
+    minutes = i % 60
+    i /= 60
+    hours = i
+    [hours, minutes, seconds].join ':'
+  end
+
+  def self.parse str
+    a = str.split(':', 3).reverse
+    seconds = a[0].to_i rescue 0
+    minutes = a[1].to_i rescue 0
+    hours = a[2].to_i rescue 0
+    TimeDiff.new(hours * 3600 + minutes * 60 + seconds)
+  end
+end
+
+class MetricNumber < SimpleDelegator
+  attr_reader :unit, :binary
+
+  def initialize val, unit, binary=false
+    @unit = unit
+    @binary = binary
+    super val.to_f
+  end
+
+  def to_s
+    limit = @binary ? 1024 : 1000
+    if self < limit
+      prefix = ''
+      multiple = 1
+    else
+      prefixes = @binary ? BINARY_PREFIXES : DECIMAL_PREFIXES
+      prefixes = prefixes.sort_by { |k,v| v }
+      prefix, multiple = prefixes.find { |k,v| self/v < limit }
+      prefix, multiple = prefixes.last unless prefix
+    end
+    ("%0.2f %s%s" % [self/multiple, prefix, @unit]).strip
+  end
+
+  # http://physics.nist.gov/cuu/Units/prefixes.html
+  DECIMAL_PREFIXES = {
+    'k' => 10 ** 3,
+    'M' => 10 ** 6,
+    'G' => 10 ** 9,
+    'T' => 10 ** 12,
+    'P' => 10 ** 15,
+  }
+
+  # http://physics.nist.gov/cuu/Units/binary.html
+  BINARY_PREFIXES = {
+    'Ki' => 2 ** 10,
+    'Mi' => 2 ** 20,
+    'Gi' => 2 ** 30,
+    'Ti' => 2 ** 40,
+    'Pi' => 2 ** 50,
+  }
+
+  CANONICAL_PREFIXES = Hash[(DECIMAL_PREFIXES.keys + BINARY_PREFIXES.keys).map { |x| [x.downcase, x] }]
+
+  def self.parse str
+    if str =~ /^([0-9,.]+)\s*([kmgtp]i?)?/i
+      x = $1.delete(',').to_f
+      binary = false
+      if $2
+        prefix = $2.downcase
+        binary = prefix[1..1] == 'i'
+        prefixes = binary ? BINARY_PREFIXES : DECIMAL_PREFIXES
+        multiple = prefixes[CANONICAL_PREFIXES[prefix]]
+      else
+        multiple = 1
+      end
+      units = $'
+      new x*multiple, units, binary
+    else
+      raise "Problem parsing SI number #{str.inspect}"
+    end
+  end
 end
