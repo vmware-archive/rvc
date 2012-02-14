@@ -111,6 +111,10 @@ def retrieve_datasets pm, counter, specs
   results = pm.QueryPerf(:querySpec => specs)
   datasets = results.map do |result|
     times = result.sampleInfoCSV.split(',').select { |x| x['T']  }
+    if result.value.empty?
+      puts "No data for #{result.entity.name} #{counter.name}"
+      next
+    end
     data = result.value[0].value.split(',').map(&:to_i)
 
     if counter.unitInfo.key == 'percent'
@@ -129,7 +133,7 @@ def retrieve_datasets pm, counter, specs
       ds.using = '1:2'
       ds.title = result.entity.name
     end
-  end
+  end.compact
 end
 
 def with_gnuplot persist
