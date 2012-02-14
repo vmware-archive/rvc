@@ -21,6 +21,26 @@ def require_gnuplot
   end
 end
 
+def find_interval pm, start
+  now = Time.now
+  ago = now - start
+
+  if ago < 3600
+    #puts "Using realtime interval, period = 20 seconds."
+    interval_id = 20
+    display_timefmt = DISPLAY_TIMEFMT[:realtime]
+  else
+    intervals = pm.historicalInterval
+    interval = intervals.find { |x| now - x.length < start }
+    err "start time is too long ago" unless interval
+    #puts "Using historical interval #{interval.name.inspect}, period = #{interval.samplingPeriod} seconds."
+    interval_id = interval.samplingPeriod
+    display_timefmt = DISPLAY_TIMEFMT[interval.key]
+  end
+
+  return interval_id, display_timefmt
+end
+
 opts :plot do
   summary "Plot a graph of the given performance counters"
   arg :counter, "Counter name"
@@ -41,20 +61,8 @@ def plot counter_name, objs, opts
   opts[:start] ||= opts[:end] - 1800
 
   err "end time is in the future" unless opts[:end] <= Time.now
-  ago = now - opts[:start]
 
-  if ago < 3600
-    #puts "Using realtime interval, period = 20 seconds."
-    interval_id = 20
-    display_timefmt = DISPLAY_TIMEFMT[:realtime]
-  else
-    intervals = pm.historicalInterval
-    interval = intervals.find { |x| now - x.length < opts[:start] }
-    err "start time is too long ago" unless interval
-    #puts "Using historical interval #{interval.name.inspect}, period = #{interval.samplingPeriod} seconds."
-    interval_id = interval.samplingPeriod
-    display_timefmt = DISPLAY_TIMEFMT[interval.key]
-  end
+  interval_id, display_timefmt = find_interval pm, opts[:start]
 
   all_counters = Hash[pm.perfCounter.map { |x| [x.key, x] }]
 
