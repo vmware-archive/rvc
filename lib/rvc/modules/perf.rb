@@ -65,8 +65,7 @@ def plot counter_name, objs, opts
   metric = metrics.find do |metric|
     counter = all_counters[metric.counterId]
     counter.groupInfo.key == group_key &&
-      counter.nameInfo.key == counter_key &&
-      counter.rollupType == rollup_type
+      counter.nameInfo.key == counter_key
   end or err "no such metric"
   counter = all_counters[metric.counterId]
 
@@ -206,8 +205,8 @@ def counters obj
   groups = available_counters.group_by { |counter| counter.groupInfo }
   groups.sort_by { |group,counters| group.key }.each do |group,counters|
     puts "#{group.label}:"
-    counters.sort_by(&:pretty_name).each do |counter|
-      puts " #{counter.pretty_name}: #{counter.nameInfo.label} (#{counter.unitInfo.label}) level #{counter.level} [#{active_intervals_text[counter.level]}]"
+    counters.sort_by(&:name).each do |counter|
+      puts " #{counter.name}: #{counter.nameInfo.label} (#{counter.unitInfo.label}) level #{counter.level} [#{active_intervals_text[counter.level]}]"
     end
   end
 end
@@ -269,9 +268,15 @@ end
 
 def stats metrics, objs, opts
   metrics = metrics.split(",")
-  obj = objs.first
-  pm = obj._connection.serviceContent.perfManager
-  interval = pm.provider_summary(obj).refreshRate
+
+  vim = single_connection objs
+  pm = vim.serviceContent.perfManager
+
+  metrics.each do |x|
+    err "no such metric #{x}" unless pm.perfcounter_hash.member? x
+  end
+
+  interval = pm.provider_summary(objs.first).refreshRate
   start_time = nil
   if interval == -1
     # Object does not support real time stats

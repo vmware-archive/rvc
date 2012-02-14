@@ -20,7 +20,7 @@
 
 class RbVmomi::VIM::PerfCounterInfo
   def name
-    "#{groupInfo.key}.#{nameInfo.key}.#{rollupType}"
+    "#{groupInfo.key}.#{nameInfo.key}"
   end
 end
 
