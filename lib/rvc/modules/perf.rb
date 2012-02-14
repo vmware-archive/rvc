@@ -48,6 +48,13 @@ opts :plot do
   opt :terminal, "Display plot on terminal", :default => ENV['DISPLAY'].nil?
   opt :start, "Start time", :type => :date, :short => 's'
   opt :end, "End time", :type => :date, :short => 'e'
+  summary <<-EOS
+
+Example:
+  perf.plot cpu.usagemhz myvm myvm2 --start '20 minutes ago'
+
+See perf.counters to determine which performance counters are available.
+  EOS
 end
 
 def plot counter_name, objs, opts
