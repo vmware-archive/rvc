@@ -74,7 +74,7 @@ def plot counter_name, objs, opts
     counter = all_counters[metric.counterId]
     counter.groupInfo.key == group_key &&
       counter.nameInfo.key == counter_key
-  end or err "no such metric"
+  end or err "counter #{group_key}.#{counter_key} was not found in the #{interval_id}s interval"
   counter = all_counters[metric.counterId]
 
   specs = objs.map do |obj|
