@@ -1,10 +1,3 @@
-begin
-  require 'gnuplot'
-  RVC::HAVE_GNUPLOT = true
-rescue LoadError
-  RVC::HAVE_GNUPLOT = false
-end
-
 TIMEFMT = '%Y-%m-%dT%H:%M:%SZ'
 
 DISPLAY_TIMEFMT = {
@@ -15,6 +8,39 @@ DISPLAY_TIMEFMT = {
   4 => '%Y/%m/%d',
 }
 
+def require_gnuplot
+  begin
+    require 'gnuplot'
+  rescue LoadError
+    Gem::Specification.reset
+    begin
+      require 'gnuplot'
+    rescue LoadError
+      err "The gnuplot gem is not installed"
+    end
+  end
+end
+
+def find_interval pm, start
+  now = Time.now
+  ago = now - start
+
+  if ago < 3600
+    #puts "Using realtime interval, period = 20 seconds."
+    interval_id = 20
+    display_timefmt = DISPLAY_TIMEFMT[:realtime]
+  else
+    intervals = pm.historicalInterval
+    interval = intervals.find { |x| now - x.length < start }
+    err "start time is too long ago" unless interval
+    #puts "Using historical interval #{interval.name.inspect}, period = #{interval.samplingPeriod} seconds."
+    interval_id = interval.samplingPeriod
+    display_timefmt = DISPLAY_TIMEFMT[interval.key]
+  end
+
+  return interval_id, display_timefmt
+end
+
 opts :plot do
   summary "Plot a graph of the given performance counters"
   arg :counter, "Counter name"
@@ -22,10 +48,17 @@ opts :plot do
   opt :terminal, "Display plot on terminal", :default => ENV['DISPLAY'].nil?
   opt :start, "Start time", :type => :date, :short => 's'
   opt :end, "End time", :type => :date, :short => 'e'
+  summary <<-EOS
+
+Example:
+  perf.plot cpu.usagemhz myvm myvm2 --start '20 minutes ago'
+
+See perf.counters to determine which performance counters are available.
+  EOS
 end
 
 def plot counter_name, objs, opts
-  err "The gnuplot gem is not installed" unless RVC::HAVE_GNUPLOT
+  require_gnuplot
   vim = single_connection objs
   pm = vim.serviceContent.perfManager
   group_key, counter_key, rollup_type = counter_name.split('.', 3)
@@ -35,20 +68,8 @@ def plot counter_name, objs, opts
   opts[:start] ||= opts[:end] - 1800
 
   err "end time is in the future" unless opts[:end] <= Time.now
-  ago = now - opts[:start]
 
-  if ago < 3600
-    #puts "Using realtime interval, period = 20 seconds."
-    interval_id = 20
-    display_timefmt = DISPLAY_TIMEFMT[:realtime]
-  else
-    intervals = pm.historicalInterval
-    interval = intervals.find { |x| now - x.length < opts[:start] }
-    err "start time is too long ago" unless interval
-    #puts "Using historical interval #{interval.name.inspect}, period = #{interval.samplingPeriod} seconds."
-    interval_id = interval.samplingPeriod
-    display_timefmt = DISPLAY_TIMEFMT[interval.key]
-  end
+  interval_id, display_timefmt = find_interval pm, opts[:start]
 
   all_counters = Hash[pm.perfCounter.map { |x| [x.key, x] }]
 
@@ -59,9 +80,8 @@ def plot counter_name, objs, opts
   metric = metrics.find do |metric|
     counter = all_counters[metric.counterId]
     counter.groupInfo.key == group_key &&
-      counter.nameInfo.key == counter_key &&
-      counter.rollupType == rollup_type
-  end or err "no such metric"
+      counter.nameInfo.key == counter_key
+  end or err "counter #{group_key}.#{counter_key} was not found in the #{interval_id}s interval"
   counter = all_counters[metric.counterId]
 
   specs = objs.map do |obj|
@@ -105,6 +125,10 @@ def retrieve_datasets pm, counter, specs
   results = pm.QueryPerf(:querySpec => specs)
   datasets = results.map do |result|
     times = result.sampleInfoCSV.split(',').select { |x| x['T']  }
+    if result.value.empty?
+      puts "No data for #{result.entity.name} #{counter.name}"
+      next
+    end
     data = result.value[0].value.split(',').map(&:to_i)
 
     if counter.unitInfo.key == 'percent'
@@ -123,7 +147,7 @@ def retrieve_datasets pm, counter, specs
       ds.using = '1:2'
       ds.title = result.entity.name
     end
-  end
+  end.compact
 end
 
 def with_gnuplot persist
@@ -152,7 +176,7 @@ opts :watch do
 end
 
 def watch counter_name, objs, opts
-  err "The gnuplot gem is not installed" unless RVC::HAVE_GNUPLOT
+  require_gnuplot
   with_gnuplot false do |gp|
     puts "Press Ctrl-C to stop."
     while true
@@ -181,6 +205,12 @@ def counters obj
     interval = nil
   end
 
+  active_intervals = pm.active_intervals
+  active_intervals_text = lambda do |level|
+    xs = active_intervals[level]
+    xs.map { |x| x.name.match(/Past (\w+)/)[1] } * ','
+  end
+
   metrics = pm.QueryAvailablePerfMetric(
     :entity => obj, 
     :intervalId => interval)
@@ -190,8 +220,8 @@ def counters obj
   groups = available_counters.group_by { |counter| counter.groupInfo }
   groups.sort_by { |group,counters| group.key }.each do |group,counters|
     puts "#{group.label}:"
-    counters.sort_by(&:pretty_name).each do |counter|
-      puts " #{counter.pretty_name}: #{counter.nameInfo.label} (#{counter.unitInfo.label})"
+    counters.sort_by(&:name).each do |counter|
+      puts " #{counter.name}: #{counter.nameInfo.label} (#{counter.unitInfo.label}) level #{counter.level} [#{active_intervals_text[counter.level]}]"
     end
   end
 end
@@ -208,8 +238,7 @@ def counter counter_name, obj
   pm = vim.serviceContent.perfManager
   counter = pm.perfcounter_hash[counter_name] or err "no such counter #{counter_name.inspect}"
 
-  intervals = pm.historicalInterval
-  active_intervals = lambda { |level| intervals.select { |x| x.level >= level } }
+  active_intervals = pm.active_intervals
   active_intervals_text = lambda do |level|
     xs = active_intervals[level]
     xs.empty? ? 'none' : xs.map(&:name).map(&:inspect) * ', '
@@ -254,9 +283,15 @@ end
 
 def stats metrics, objs, opts
   metrics = metrics.split(",")
-  obj = objs.first
-  pm = obj._connection.serviceContent.perfManager
-  interval = pm.provider_summary(obj).refreshRate
+
+  vim = single_connection objs
+  pm = vim.serviceContent.perfManager
+
+  metrics.each do |x|
+    err "no such metric #{x}" unless pm.perfcounter_hash.member? x
+  end
+
+  interval = pm.provider_summary(objs.first).refreshRate
   start_time = nil
   if interval == -1
     # Object does not support real time stats
