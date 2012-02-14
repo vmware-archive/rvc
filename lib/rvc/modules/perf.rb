@@ -1,10 +1,3 @@
-begin
-  require 'gnuplot'
-  RVC::HAVE_GNUPLOT = true
-rescue LoadError
-  RVC::HAVE_GNUPLOT = false
-end
-
 TIMEFMT = '%Y-%m-%dT%H:%M:%SZ'
 
 DISPLAY_TIMEFMT = {
@@ -14,6 +7,19 @@ DISPLAY_TIMEFMT = {
   3 => '%m/%d',
   4 => '%Y/%m/%d',
 }
+
+def require_gnuplot
+  begin
+    require 'gnuplot'
+  rescue LoadError
+    Gem::Specification.reset
+    begin
+      require 'gnuplot'
+    rescue LoadError
+      err "The gnuplot gem is not installed"
+    end
+  end
+end
 
 opts :plot do
   summary "Plot a graph of the given performance counters"
@@ -25,7 +31,7 @@ opts :plot do
 end
 
 def plot counter_name, objs, opts
-  err "The gnuplot gem is not installed" unless RVC::HAVE_GNUPLOT
+  require_gnuplot
   vim = single_connection objs
   pm = vim.serviceContent.perfManager
   group_key, counter_key, rollup_type = counter_name.split('.', 3)
@@ -152,7 +158,7 @@ opts :watch do
 end
 
 def watch counter_name, objs, opts
-  err "The gnuplot gem is not installed" unless RVC::HAVE_GNUPLOT
+  require_gnuplot
   with_gnuplot false do |gp|
     puts "Press Ctrl-C to stop."
     while true
