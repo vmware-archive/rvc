@@ -187,6 +187,12 @@ def counters obj
     interval = nil
   end
 
+  active_intervals = pm.active_intervals
+  active_intervals_text = lambda do |level|
+    xs = active_intervals[level]
+    xs.map { |x| x.name.match(/Past (\w+)/)[1] } * ','
+  end
+
   metrics = pm.QueryAvailablePerfMetric(
     :entity => obj, 
     :intervalId => interval)
@@ -197,7 +203,7 @@ def counters obj
   groups.sort_by { |group,counters| group.key }.each do |group,counters|
     puts "#{group.label}:"
     counters.sort_by(&:pretty_name).each do |counter|
-      puts " #{counter.pretty_name}: #{counter.nameInfo.label} (#{counter.unitInfo.label})"
+      puts " #{counter.pretty_name}: #{counter.nameInfo.label} (#{counter.unitInfo.label}) level #{counter.level} [#{active_intervals_text[counter.level]}]"
     end
   end
 end
@@ -214,8 +220,7 @@ def counter counter_name, obj
   pm = vim.serviceContent.perfManager
   counter = pm.perfcounter_hash[counter_name] or err "no such counter #{counter_name.inspect}"
 
-  intervals = pm.historicalInterval
-  active_intervals = lambda { |level| intervals.select { |x| x.level >= level } }
+  active_intervals = pm.active_intervals
   active_intervals_text = lambda do |level|
     xs = active_intervals[level]
     xs.empty? ? 'none' : xs.map(&:name).map(&:inspect) * ', '

@@ -80,4 +80,8 @@ class RbVmomi::VIM::PerformanceManager
     end]
   end
 
+  def active_intervals
+    intervals = historicalInterval
+    Hash[(1..4).map { |level| [level, intervals.select { |x| x.enabled && x.level >= level }] }]
+  end
 end
