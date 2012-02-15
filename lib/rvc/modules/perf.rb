@@ -207,7 +207,9 @@ def counters obj
 
   active_intervals = pm.active_intervals
   active_intervals_text = lambda do |level|
+    return '' unless level
     xs = active_intervals[level]
+    return 'none' if xs.empty?
     xs.map { |x| x.name.match(/Past (\w+)/)[1] } * ','
   end
 
@@ -218,12 +220,19 @@ def counters obj
                                map { |id| pm.perfcounter_idhash[id] }
 
   groups = available_counters.group_by { |counter| counter.groupInfo }
+
+  table = Terminal::Table.new
+  table.add_row ["Name", "Description", "Unit", "Level", "Active Intervals"]
   groups.sort_by { |group,counters| group.key }.each do |group,counters|
-    puts "#{group.label}:"
+    table.add_separator
+    table.add_row [{ :value => group.label, :colspan => 5}]
+    table.add_separator
     counters.sort_by(&:name).each do |counter|
-      puts " #{counter.name}: #{counter.nameInfo.label} (#{counter.unitInfo.label}) level #{counter.level} [#{active_intervals_text[counter.level]}]"
+      table.add_row [counter.name, counter.nameInfo.label, counter.unitInfo.label,
+                     counter.level, active_intervals_text[counter.level]]
     end
   end
+  puts(table)
 end
 
 
