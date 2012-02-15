@@ -40,18 +40,18 @@ end
 
 def list
   conn = single_connection [$shell.fs.cur]
-  perfman = conn.serviceContent.perfManager
+  pm = conn.serviceContent.perfManager
 
-  columns = ["    Name      ", "Interval Duration", "Save For   ", "Statistics Level"]
-  format = columns.map {|s| "%-#{s.size}s"}.join(" | ")
-  puts sprintf format, *columns
-  puts columns.map {|s| "-" * s.size }.join("-+-")
+  table = Terminal::Table.new
+  table.add_row ["Name", "Enabled", "Interval Duration", "Save For", "Statistics Level"]
+  table.add_separator
 
-  perfman.historicalInterval.each do |interval|
-    puts sprintf format, "[#{interval.enabled ? 'x' : ' '}] #{interval.name}",
-    stats_time(interval.samplingPeriod),
-    stats_time(interval.length), interval.level.to_s
+  pm.historicalInterval.each do |interval|
+    table.add_row [interval.name, interval.enabled, stats_time(interval.samplingPeriod),
+                   stats_time(interval.length), interval.level]
   end
+
+  puts table
 end
 
 
