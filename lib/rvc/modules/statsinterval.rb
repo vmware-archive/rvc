@@ -39,7 +39,7 @@ opts :list do
 end
 
 def list
-  conn = single_connection [$shell.fs.cur]
+  conn = lookup_single('~@')
   pm = conn.serviceContent.perfManager
 
   table = Terminal::Table.new
