@@ -49,7 +49,7 @@ def find_local_vmrc
 end
 
 def find_vmrc
-  find_local_vmrc || search_path('vmrc')
+  ENV['RVC_VMRC'] || find_local_vmrc || search_path('vmrc')
 end
 
 
