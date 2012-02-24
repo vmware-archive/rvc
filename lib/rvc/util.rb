@@ -24,34 +24,6 @@ module RVC
 module Util
   extend self
 
-  # XXX just use an optional argument for type
-  def lookup path
-    $shell.fs.lookup path
-  end
-
-  def lookup_single path
-    objs = lookup path
-    err "Not found: #{path.inspect}" if objs.empty?
-    err "More than one match for #{path.inspect}" if objs.size > 1
-    objs.first
-  end
-
-  def lookup! path, types
-    types = [types] unless types.is_a? Enumerable
-    lookup(path).tap do |objs|
-      objs.each do |obj|
-        err "Expected #{types*'/'} but got #{obj.class} at #{path.inspect}" unless types.any? { |type| obj.is_a? type }
-      end
-    end
-  end
-
-  def lookup_single! path, type
-    objs = lookup!(path, type)
-    err "Not found: #{path.inspect}" if objs.empty?
-    err "More than one match for #{path.inspect}" if objs.size > 1
-    objs.first
-  end
-
   def menu items
     items.each_with_index { |x, i| puts "#{i} #{x}" }
     input = Readline.readline("? ", false)

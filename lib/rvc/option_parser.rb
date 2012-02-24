@@ -98,7 +98,7 @@ class OptionParser < Trollop::Parser
 
     @specs.each do |name,spec|
       next unless klass = spec[:lookup] and path = opts[name]
-      opts[name] = RVC::Util.lookup_single! path, klass
+      opts[name] = $shell.fs.lookup_single! path, klass
     end
 
     argv = leftovers
@@ -137,10 +137,10 @@ class OptionParser < Trollop::Parser
 
   def postprocess_arg x, spec
     if spec[:lookup]
-      RVC::Util.lookup!(x, spec[:lookup]).
+      $shell.fs.lookup!(x, spec[:lookup]).
         tap { |a| RVC::Util.err "no matches for #{x.inspect}" if a.empty? }
     elsif spec[:lookup_parent]
-      RVC::Util.lookup!(File.dirname(x), spec[:lookup_parent]).
+      $shell.fs.lookup!(File.dirname(x), spec[:lookup_parent]).
         map { |y| [y, File.basename(x)] }.
         tap { |a| RVC::Util.err "no matches for #{File.dirname(x).inspect}" if a.empty? }
     else

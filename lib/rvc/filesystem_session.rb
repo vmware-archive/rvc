@@ -42,7 +42,7 @@ class FilesystemSession
     else
       return nil unless File.exists? mark_fn(key)
       File.readlines(mark_fn(key)).
-        map { |path| RVC::Util.lookup(path.chomp) }.
+        map { |path| $shell.fs.lookup(path.chomp) }.
         inject([], &:+)
     end
   end

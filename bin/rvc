@@ -124,19 +124,19 @@ end
 
 if $opts[:path]
   begin
-    $shell.cmds.basic.cd RVC::Util.lookup_single($opts[:path])
+    $shell.cmds.basic.cd $shell.fs.lookup_single($opts[:path])
   rescue RVC::Util::UserError
     raise unless $opts[:create_directory]
     parent_path = File.dirname($opts[:path])
-    RVC::Util.lookup_single(parent_path).CreateFolder(:name => File.basename($opts[:path]))
-    $shell.cmds.basic.cd RVC::Util.lookup_single($opts[:path])
+    $shell.fs.lookup_single(parent_path).CreateFolder(:name => File.basename($opts[:path]))
+    $shell.cmds.basic.cd $shell.fs.lookup_single($opts[:path])
   end
 elsif $shell.connections.size == 1 and $interactive
   conn_name, conn = $shell.connections.first
   if conn.serviceContent.about.apiType == 'VirtualCenter'
-    $shell.cmds.basic.cd RVC::Util.lookup_single(conn_name)
+    $shell.cmds.basic.cd $shell.fs.lookup_single(conn_name)
   else
-    $shell.cmds.basic.cd RVC::Util.lookup_single("#{conn_name}/ha-datacenter/vm")
+    $shell.cmds.basic.cd $shell.fs.lookup_single("#{conn_name}/ha-datacenter/vm")
   end
 end
 
@@ -151,7 +151,7 @@ if $interactive
     $stderr.puts "VMRC is not installed. You will be unable to view virtual machine consoles. Use the vmrc.install command to install it." unless $shell.cmds.vmrc.find_vmrc
   end
   $stderr.puts "Use the 'connect' command to connect to an ESX or VC server." if $shell.connections.empty?
-  $shell.cmds.basic.ls RVC::Util.lookup_single('.') unless $opts[:quiet]
+  $shell.cmds.basic.ls $shell.fs.lookup_single('.') unless $opts[:quiet]
 end
 
 if Signal.list["CHLD"]

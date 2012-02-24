@@ -26,6 +26,7 @@ require 'shellwords'
 
 module RVC
 
+# TODO split into slate and external object
 class CmdModule
   include RVC::Util
   attr_reader :shell
@@ -79,6 +80,24 @@ class CmdModule
   def rvc_alias cmd, target=nil
     target ||= cmd
     shell.aliases[target.to_s] = "#{@module_name}.#{cmd}"
+  end
+
+  # Utility functions
+
+  def lookup path
+    shell.fs.lookup path
+  end
+
+  def lookup_single path
+    shell.fs.lookup_single path
+  end
+
+  def lookup! path, types
+    shell.fs.lookup! path, types
+  end
+
+  def lookup_single! path, types
+    shell.fs.lookup_single! path, types
   end
 end
 
