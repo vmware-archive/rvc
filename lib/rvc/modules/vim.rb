@@ -151,11 +151,11 @@ def connect uri, opts
   vim.define_singleton_method(:_host) { host }
 
   conn_name = host.dup
-  conn_name = "#{conn_name}:1" if $shell.connections.member? conn_name
-  conn_name.succ! while $shell.connections.member? conn_name
+  conn_name = "#{conn_name}:1" if shell.connections.member? conn_name
+  conn_name.succ! while shell.connections.member? conn_name
 
-  $shell.connections[conn_name] = vim
-  $shell.session.set_connection conn_name,
+  shell.connections[conn_name] = vim
+  shell.session.set_connection conn_name,
     'host' => host,
     'username' => username,
     'rev' => opts[:rev]
@@ -223,7 +223,7 @@ opts :tasks do
 end
 
 def tasks
-  conn = single_connection [$shell.fs.cur]
+  conn = single_connection [shell.fs.cur]
 
   begin
     view = conn.serviceContent.viewManager.CreateListView

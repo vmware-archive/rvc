@@ -290,14 +290,14 @@ def find_orphans ds, opts
     RbVmomi::VIM::Datastore::FakeDatastoreFolder.new(ds, "#{dirInfo[0]}")
   end
   opts[:mark] ||= "#{dsName}_orphans"
-  $shell.cmds.mark.mark opts[:mark], results
+  shell.cmds.mark.mark opts[:mark], results
   puts "Saved results to mark '#{opts[:mark]}'"
 
   i = 0
   results.each do |r|
     display_path = r.path
     puts "#{i} #{display_path}"
-    $shell.cmds.mark.mark i.to_s, [r]
+    shell.cmds.mark.mark i.to_s, [r]
     i += 1
   end
 end

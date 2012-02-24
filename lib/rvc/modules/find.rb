@@ -39,14 +39,14 @@ def find args, opts
 
   results = find_items args[:term], args[:root], opts[:type]
 
-  $shell.cmds.mark.mark opts[:mark], results
+  shell.cmds.mark.mark opts[:mark], results
 
   i = 0
-  cwd = $shell.fs.cur.rvc_path_str
+  cwd = shell.fs.cur.rvc_path_str
   cwd_prefix = /^#{Regexp.escape cwd}\//
   results.each do |r|
     puts "#{i} #{r.rvc_path_str.gsub(cwd_prefix, '')}"
-    $shell.cmds.mark.mark i.to_s, [r]
+    shell.cmds.mark.mark i.to_s, [r]
     i += 1
   end
 end

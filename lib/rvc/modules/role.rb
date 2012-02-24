@@ -21,7 +21,7 @@
 require 'rvc/vim'
 
 def cur_auth_mgr
-  conn = $shell.fs.cur._connection
+  conn = shell.fs.cur._connection
   conn.serviceContent.authorizationManager
 end
 

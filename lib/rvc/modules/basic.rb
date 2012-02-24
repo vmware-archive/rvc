@@ -29,7 +29,7 @@ rvc_alias :type
 
 def type name
   klass = RbVmomi::VIM.type(name) rescue err("#{name.inspect} is not a VMODL type.")
-  $shell.introspect_class klass
+  shell.introspect_class klass
   nil
 end
 
@@ -44,18 +44,18 @@ rvc_alias :help
 HELP_ORDER = %w(basic vm)
 
 def help path
-  if mod = $shell.modules[path]
+  if mod = shell.modules[path]
     opts = mod.instance_variable_get(:@opts)
     opts.each do |method_name,parser|
       help_summary parser, path, method_name
     end
     return
-  elsif tgt = $shell.aliases[path]
+  elsif tgt = shell.aliases[path]
     fail unless tgt =~ /^(.+)\.(.+)$/
-    $shell.modules[$1].opts_for($2.to_sym).educate
+    shell.modules[$1].opts_for($2.to_sym).educate
     return
   elsif path =~ /^(.+)\.(.+)$/ and
-        mod = $shell.modules[$1] and
+        mod = shell.modules[$1] and
         parser = mod.opts_for($2.to_sym)
     parser.educate
     return
@@ -69,7 +69,7 @@ def help path
     puts "All commands:"
   end
 
-  $shell.modules.sort_by do |mod_name,mod|
+  shell.modules.sort_by do |mod_name,mod|
     HELP_ORDER.index(mod_name) || HELP_ORDER.size
   end.each do |mod_name,mod|
     opts = mod.instance_variable_get(:@opts)
@@ -89,7 +89,7 @@ To show only commands relevant to a specific object, use "help /path/to/object".
 end
 
 def help_summary parser, mod_name, method_name
-  aliases = $shell.aliases.select { |k,v| v == "#{mod_name}.#{method_name}" }.map(&:first)
+  aliases = shell.aliases.select { |k,v| v == "#{mod_name}.#{method_name}" }.map(&:first)
   aliases_text = aliases.empty? ? '' : " (#{aliases*', '})"
   puts "#{mod_name}.#{method_name}#{aliases_text}: #{parser.summary?}" if parser.summary?
 end
@@ -102,8 +102,8 @@ end
 rvc_alias :debug
 
 def debug
-  debug = $shell.debug = !$shell.debug
-  $shell.connections.each do |name,conn|
+  debug = shell.debug = !shell.debug
+  shell.connections.each do |name,conn|
     conn.debug = debug if conn.respond_to? :debug
   end
   puts "debug mode #{debug ? 'en' : 'dis'}abled"
@@ -118,14 +118,14 @@ end
 rvc_alias :cd
 
 def cd obj
-  $shell.fs.cd(obj)
-  $shell.session.set_mark '', [find_ancestor(RbVmomi::VIM::Datacenter)].compact
-  $shell.session.set_mark '@', [find_ancestor(RbVmomi::VIM)].compact
-  $shell.delete_numeric_marks
+  shell.fs.cd(obj)
+  shell.session.set_mark '', [find_ancestor(RbVmomi::VIM::Datacenter)].compact
+  shell.session.set_mark '@', [find_ancestor(RbVmomi::VIM)].compact
+  shell.delete_numeric_marks
 end
 
 def find_ancestor klass
-  $shell.fs.cur.rvc_path.map { |k,v| v }.reverse.find { |x| x.is_a? klass }
+  shell.fs.cur.rvc_path.map { |k,v| v }.reverse.find { |x| x.is_a? klass }
 end
 
 
@@ -150,7 +150,7 @@ def ls obj
   fake_children.each do |name,child|
     puts "#{i} #{name}#{child.ls_text(nil)}"
     child.rvc_link obj, name
-    $shell.cmds.mark.mark i.to_s, [child]
+    shell.cmds.mark.mark i.to_s, [child]
     i += 1
   end
 
@@ -181,7 +181,7 @@ def ls obj
     colored_name = status_color name, r['overallStatus']
     puts "#{i} #{colored_name}#{realname && " [#{realname}]"}#{text}"
     r.obj.rvc_link obj, name
-    $shell.cmds.mark.mark i.to_s, [r.obj]
+    shell.cmds.mark.mark i.to_s, [r.obj]
     i += 1
   end
 end
@@ -236,7 +236,7 @@ def show arg0, arg1
   case arg0
   when 'running-config'
     if obj.class < VIM::DistributedVirtualSwitch
-      $shell.modules['vds'].show_running_config obj
+      shell.modules['vds'].show_running_config obj
     else
       if arg1 != '.'
         err "'#{arg1}' is not a vDS!"
@@ -245,11 +245,11 @@ def show arg0, arg1
       end
     end
   when 'portgroups'
-    $shell.modules['vds'].show_all_portgroups [obj]
+    shell.modules['vds'].show_all_portgroups [obj]
   when 'vds'
-    $shell.modules['vds'].show_all_vds [obj]
+    shell.modules['vds'].show_all_vds [obj]
   when 'interface'
-    $shell.modules['vds'].show_all_ports [obj]
+    shell.modules['vds'].show_all_ports [obj]
   #when 'vlan'
   else
     path = lookup_single arg0
@@ -342,9 +342,9 @@ end
 rvc_alias :disconnect
 
 def disconnect connection
-  k, = $shell.connections.find { |k,v| v == connection }
-  $shell.connections.delete k
-  $shell.session.set_connection k, nil
+  k, = shell.connections.find { |k,v| v == connection }
+  shell.connections.delete k
+  shell.session.set_connection k, nil
 end
 
 

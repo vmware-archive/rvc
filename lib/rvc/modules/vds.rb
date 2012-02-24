@@ -442,13 +442,13 @@ opts :show_running_config do
 end
 
 def show_running_config vds
-  $shell.modules['basic'].info vds
+  shell.modules['basic'].info vds
   portgroups = vds.children['portgroups']
   portgroups.rvc_link vds, 'portgroups'
   vds.children['portgroups'].children.each do |name, pg|
     pg.rvc_link portgroups, name
     puts '---'
-    $shell.modules['basic'].info pg
+    shell.modules['basic'].info pg
   end
 end
 
@@ -463,12 +463,12 @@ def show_all_portgroups path
     paths = nil
   end
 
-  vds = $shell.modules['find'].find_items nil, paths, ['vds']
+  vds = shell.modules['find'].find_items nil, paths, ['vds']
   pgs = []
   vds.each do |v|
     v.portgroup.each { |pg| pgs << pg}
   end
-  $shell.modules['basic'].table pgs, { :field => ["vds_name", "name", "vlan"],
+  shell.modules['basic'].table pgs, { :field => ["vds_name", "name", "vlan"],
                                        :field_given => true }
 end
 
@@ -483,8 +483,8 @@ def show_all_vds path
     paths = nil
   end
 
-  vds = $shell.modules['find'].find_items nil, paths, ['vds']
-  $shell.modules['basic'].table vds, { :field => ['name', 'vlans', 'hosts'],
+  vds = shell.modules['find'].find_items nil, paths, ['vds']
+  shell.modules['basic'].table vds, { :field => ['name', 'vlans', 'hosts'],
                                      :field_given => true }
 end
 

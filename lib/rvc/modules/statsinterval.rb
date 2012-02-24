@@ -67,7 +67,7 @@ opts :update do
 end
 
 def update name, opts
-  conn = single_connection [$shell.fs.cur]
+  conn = single_connection [shell.fs.cur]
   perfman = conn.serviceContent.perfManager
 
   interval = perfman.historicalInterval.select {|i| i.name == name or i.name == "Past #{name}" }.first

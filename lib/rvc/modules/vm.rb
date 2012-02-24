@@ -275,7 +275,7 @@ rvc_alias :kill, :k
 def kill vms
   on_vms = vms.select { |x| x.summary.runtime.powerState == 'poweredOn' }
   off on_vms unless on_vms.empty?
-  $shell.cmds.basic.destroy vms unless vms.empty?
+  shell.cmds.basic.destroy vms unless vms.empty?
 end
 
 opts :answer do
