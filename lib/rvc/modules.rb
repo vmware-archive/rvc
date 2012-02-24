@@ -28,9 +28,11 @@ module RVC
 
 class CmdModule
   include RVC::Util
+  attr_reader :shell
 
-  def initialize module_name
+  def initialize module_name, shell
     @module_name = module_name
+    @shell = shell
     @opts = {}
     @completors = {}
     super()
@@ -76,7 +78,7 @@ class CmdModule
 
   def rvc_alias cmd, target=nil
     target ||= cmd
-    $shell.aliases[target.to_s] = "#{@module_name}.#{cmd}"
+    shell.aliases[target.to_s] = "#{@module_name}.#{cmd}"
   end
 end
 
@@ -129,7 +131,6 @@ ENV_MODULE_PATH = (ENV['RVC_MODULE_PATH'] || '').split ':'
 def self.reload_modules verbose=true
   $shell.modules.clear
   $shell.aliases.clear
-  $shell.modules['custom'] = CmdModule.new 'custom' # TODO remove?
   module_path = (BULTIN_MODULE_PATH+ENV_MODULE_PATH).select { |d| File.directory?(d) }
   globs = module_path.map { |d| File.join(d, '*.rb') }
   Dir.glob(globs) do |f|
@@ -138,7 +139,7 @@ def self.reload_modules verbose=true
     begin
       code = File.read f
       unless $shell.modules.member? module_name
-        m = CmdModule.new module_name
+        m = CmdModule.new module_name, $shell
         $shell.modules[module_name] = m
       end
       $shell.modules[module_name].instance_eval code, f
