@@ -58,11 +58,11 @@ class RbVmomi::VIM::DistributedVirtualSwitch
           vlan.vlanId.each { |range| trunk_ranges << Range.new(range.start,range.end) }
         end
       end
-      trunks = RVC::MODULES['vds'].merge_ranges(trunk_ranges).map { |r|
+      trunks = $shell.modules['vds'].merge_ranges(trunk_ranges).map { |r|
         if r.begin == r.end then "#{r.begin}" else "#{r.begin}-#{r.end}" end
       }.join ','
 
-      tags = RVC::MODULES['vds'].merge_ranges(tag_ranges).map { |r|
+      tags = $shell.modules['vds'].merge_ranges(tag_ranges).map { |r|
         if r.begin == r.end then "#{r.begin}" else "#{r.begin}-#{r.end}" end
       }.join ','
       str = ""
@@ -141,7 +141,7 @@ class RbVmomi::VIM::DistributedVirtualSwitch
     portgroups = RVC::FakeFolder.new(self, :portgroup_children)
     portgroups.define_singleton_method :display_info, lambda {
       vds = self.rvc_parent
-      RVC::MODULES['basic'].table vds.portgroup, {}
+      $shell.modules['basic'].table vds.portgroup, {}
     }
 
     {

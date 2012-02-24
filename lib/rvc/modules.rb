@@ -28,9 +28,6 @@ CMD = Module.new
 
 module RVC
 
-ALIASES = {}
-MODULES = {}
-
 class CmdModule
   include RVC::Util
 
@@ -81,7 +78,7 @@ class CmdModule
 
   def rvc_alias cmd, target=nil
     target ||= cmd
-    RVC::ALIASES[target.to_s] = "#{@module_name}.#{cmd}"
+    $shell.aliases[target.to_s] = "#{@module_name}.#{cmd}"
   end
 end
 
@@ -117,9 +114,9 @@ BULTIN_MODULE_PATH = [File.expand_path(File.join(File.dirname(__FILE__), 'module
 ENV_MODULE_PATH = (ENV['RVC_MODULE_PATH'] || '').split ':'
 
 def self.reload_modules verbose=true
-  RVC::MODULES.clear
-  RVC::ALIASES.clear
-  RVC::MODULES['custom'] = CmdModule.new 'custom'
+  $shell.modules.clear
+  $shell.aliases.clear
+  $shell.modules['custom'] = CmdModule.new 'custom' # TODO remove?
   module_path = (BULTIN_MODULE_PATH+ENV_MODULE_PATH).select { |d| File.directory?(d) }
   globs = module_path.map { |d| File.join(d, '*.rb') }
   Dir.glob(globs) do |f|
@@ -127,12 +124,12 @@ def self.reload_modules verbose=true
     puts "loading #{module_name} from #{f}" if verbose
     begin
       code = File.read f
-      unless RVC::MODULES.member? module_name
+      unless $shell.modules.member? module_name
         m = CmdModule.new module_name
         CMD.define_singleton_method(module_name.to_sym) { m }
-        RVC::MODULES[module_name] = m
+        $shell.modules[module_name] = m
       end
-      RVC::MODULES[module_name].instance_eval code, f
+      $shell.modules[module_name].instance_eval code, f
     rescue
       puts "#{$!.class} while loading #{f}: #{$!.message}"
       $!.backtrace.each { |x| puts x }

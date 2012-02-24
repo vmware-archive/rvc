@@ -44,18 +44,18 @@ rvc_alias :help
 HELP_ORDER = %w(basic vm)
 
 def help path
-  if mod = RVC::MODULES[path]
+  if mod = $shell.modules[path]
     opts = mod.instance_variable_get(:@opts)
     opts.each do |method_name,parser|
       help_summary parser, path, method_name
     end
     return
-  elsif tgt = RVC::ALIASES[path]
+  elsif tgt = $shell.aliases[path]
     fail unless tgt =~ /^(.+)\.(.+)$/
-    RVC::MODULES[$1].opts_for($2.to_sym).educate
+    $shell.modules[$1].opts_for($2.to_sym).educate
     return
   elsif path =~ /^(.+)\.(.+)$/ and
-        mod = RVC::MODULES[$1] and
+        mod = $shell.modules[$1] and
         parser = mod.opts_for($2.to_sym)
     parser.educate
     return
@@ -69,7 +69,7 @@ def help path
     puts "All commands:"
   end
 
-  MODULES.sort_by do |mod_name,mod|
+  $shell.modules.sort_by do |mod_name,mod|
     HELP_ORDER.index(mod_name) || HELP_ORDER.size
   end.each do |mod_name,mod|
     opts = mod.instance_variable_get(:@opts)
@@ -89,7 +89,7 @@ To show only commands relevant to a specific object, use "help /path/to/object".
 end
 
 def help_summary parser, mod_name, method_name
-  aliases = ALIASES.select { |k,v| v == "#{mod_name}.#{method_name}" }.map(&:first)
+  aliases = $shell.aliases.select { |k,v| v == "#{mod_name}.#{method_name}" }.map(&:first)
   aliases_text = aliases.empty? ? '' : " (#{aliases*', '})"
   puts "#{mod_name}.#{method_name}#{aliases_text}: #{parser.summary?}" if parser.summary?
 end
@@ -236,7 +236,7 @@ def show arg0, arg1
   case arg0
   when 'running-config'
     if obj.class < VIM::DistributedVirtualSwitch
-      MODULES['vds'].show_running_config obj
+      $shell.modules['vds'].show_running_config obj
     else
       if arg1 != '.'
         err "'#{arg1}' is not a vDS!"
@@ -245,11 +245,11 @@ def show arg0, arg1
       end
     end
   when 'portgroups'
-    MODULES['vds'].show_all_portgroups [obj]
+    $shell.modules['vds'].show_all_portgroups [obj]
   when 'vds'
-    MODULES['vds'].show_all_vds [obj]
+    $shell.modules['vds'].show_all_vds [obj]
   when 'interface'
-    MODULES['vds'].show_all_ports [obj]
+    $shell.modules['vds'].show_all_ports [obj]
   #when 'vlan'
   else
     path = lookup_single arg0

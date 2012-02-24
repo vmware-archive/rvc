@@ -107,10 +107,10 @@ module Completion
   def self.cmd_candidates word
     ret = []
     prefix_regex = /^#{Regexp.escape(word)}/
-    MODULES.each do |name,m|
+    $shell.modules.each do |name,m|
       m.commands.each { |s| ret << "#{name}.#{s}" }
     end
-    ret.concat ALIASES.keys
+    ret.concat $shell.aliases.keys
     ret.grep(prefix_regex).sort.
         map { |x| [x, ' '] }
   end

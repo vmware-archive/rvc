@@ -56,8 +56,6 @@ end
 
 $interactive = $opts[:script].nil? and $stdin.tty?
 
-RVC.reload_modules false
-
 session = if ENV['RVC_SESSION'] and not ENV['RVC_SESSION'].empty?
   RVC::FilesystemSession.new ENV['RVC_SESSION']
 else
@@ -65,6 +63,8 @@ else
 end
 
 $shell = RVC::Shell.new session
+
+RVC.reload_modules false
 
 # Prompt for hostname if none given. Useful on win32.
 if $shell.session.connections.empty? and ARGV.empty? and $interactive

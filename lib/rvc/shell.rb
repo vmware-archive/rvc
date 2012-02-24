@@ -23,7 +23,7 @@ require 'rvc/modules'
 module RVC
 
 class Shell
-  attr_reader :fs, :connections, :session
+  attr_reader :fs, :connections, :session, :modules, :aliases
   attr_accessor :debug
 
   def initialize session
@@ -33,6 +33,8 @@ class Shell
     @ruby_evaluator = RubyEvaluator.new @fs
     @connections = {}
     @debug = false
+    @modules = {}
+    @aliases = {}
   end
 
   def eval_input input
@@ -85,10 +87,10 @@ class Shell
     return nil unless cmd
     if cmd.include? '.'
       module_name, cmd, = cmd.split '.'
-    elsif ALIASES.member? cmd
-      module_name, cmd, = ALIASES[cmd].split '.'
+    elsif $shell.aliases.member? cmd
+      module_name, cmd, = $shell.aliases[cmd].split '.'
     end
-    [MODULES[module_name], cmd.to_sym, args]
+    [$shell.modules[module_name], cmd.to_sym, args]
   end
 
   def eval_command input
@@ -247,8 +249,8 @@ class RubyEvaluator
     super unless $shell
     str = sym.to_s
     if a.empty?
-      if MODULES.member? str
-        MODULES[str]
+      if $shell.modules.member? str
+        $shell.modules[str]
       elsif str =~ /_?([\w\d]+)(!?)/ && objs = $shell.session.get_mark($1)
         if $2 == '!'
           objs
