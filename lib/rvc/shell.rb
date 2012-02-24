@@ -30,7 +30,7 @@ class Shell
     @session = session
     @persist_ruby = false
     @fs = RVC::FS.new RVC::RootNode.new, session
-    @ruby_evaluator = RubyEvaluator.new @fs
+    @ruby_evaluator = RubyEvaluator.new self
     @connections = {}
     @debug = false
     @modules = {}
@@ -213,9 +213,9 @@ end
 class RubyEvaluator
   include RVC::Util
 
-  def initialize fs
+  def initialize shell
     @binding = toplevel
-    @fs = fs
+    @shell = shell
   end
 
   def toplevel
@@ -235,24 +235,23 @@ class RubyEvaluator
   end
 
   def this
-    @fs.cur
+    @shell.fs.cur
   end
 
   def dc
-    @fs.lookup("~").first
+    @shell.fs.lookup("~").first
   end
 
   def conn
-    @fs.lookup("~@").first
+    @shell.fs.lookup("~@").first
   end
 
   def method_missing sym, *a
-    super unless $shell
     str = sym.to_s
     if a.empty?
-      if $shell.modules.member? str
-        $shell.modules[str]
-      elsif str =~ /_?([\w\d]+)(!?)/ && objs = $shell.session.get_mark($1)
+      if @shell.modules.member? str
+        @shell.modules[str]
+      elsif str =~ /_?([\w\d]+)(!?)/ && objs = @shell.session.get_mark($1)
         if $2 == '!'
           objs
         else
