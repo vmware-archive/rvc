@@ -17,8 +17,8 @@ class FSTest < Test::Unit::TestCase
   Root.rvc_link nil, ''
 
   def setup
-    @context = RVC::FS.new Root
     session = RVC::MemorySession.new
+    @context = RVC::FS.new Root, session
     $shell = RVC::Shell.new session
     $shell.instance_variable_set :@fs, @context
   end
