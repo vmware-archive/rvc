@@ -19,6 +19,7 @@
 # THE SOFTWARE.
 
 require 'trollop'
+require 'set'
 
 begin
   require 'chronic'

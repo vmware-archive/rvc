@@ -18,13 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-require 'rvc/inventory'
-require 'rvc/modules'
-require 'rvc/util'
-require 'rvc/path'
-require 'rvc/fs'
-require 'rvc/completion'
-require 'rvc/option_parser'
-require 'rvc/shell'
-require 'rvc/memory_session'
-require 'rvc/filesystem_session'
+module RVC
+  VERSION = File.read(File.join(File.dirname(__FILE__), '..', '..', 'VERSION'))
+end
+

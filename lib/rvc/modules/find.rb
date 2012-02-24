@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/vim'
+
 opts :find do
   summary "Find objects matching certain criteria"
   arg :args, "Paths or +terms", :required => false, :multi => true

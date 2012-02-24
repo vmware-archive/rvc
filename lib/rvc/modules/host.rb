@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/vim'
+
 opts :reboot do
   summary "Reboot hosts"
   arg :host, nil, :lookup => VIM::HostSystem, :multi => true

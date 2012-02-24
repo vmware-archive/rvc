@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/vim'
+
 #see vSphere Client: Administration -> vCenter Server Settings -> Statistics -> Statistics Intervals
 
 def stats_time secs

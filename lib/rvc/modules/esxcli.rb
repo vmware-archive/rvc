@@ -18,6 +18,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/vim'
+
+require 'rvc/ttl_cache'
+
 raw_opts :execute, "Execute an esxcli command"
 
 EsxcliCache = TTLCache.new 60

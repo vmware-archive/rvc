@@ -18,24 +18,19 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
+require 'rvc'
+require 'rvc/version'
 require 'readline'
 require "highline/import"
 require 'pp'
-require 'trollop'
-require 'rbvmomi'
-require 'rbvmomi/trollop'
 require 'shellwords'
 require 'yaml'
 require 'backports'
-require 'rvc'
 require 'tempfile'
-
-VIM = RbVmomi::VIM
+require 'trollop'
+require 'rbvmomi/trollop'
 
 Thread.abort_on_exception = true
-
-CMD = Module.new
-RVC::VERSION = File.read(File.join(File.dirname(__FILE__), '..', 'VERSION'))
 
 HighLine.use_color = ENV['TERM'] != nil
 

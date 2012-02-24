@@ -18,6 +18,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/vim'
+require 'rvc/extensions/Datastore'
+
 opts :on do
   summary "Power on VMs"
   arg :vm, nil, :multi => true, :lookup => VIM::VirtualMachine

@@ -18,6 +18,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/vim'
+VIM::VirtualMachine
+
 opts :create do
   summary "Snapshot a VM"
   arg :vm, nil, :lookup => VIM::VirtualMachine

@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/vim'
+
 opts :quit do
   summary "Exit RVC"
 end
@@ -43,21 +45,7 @@ def reload opts
   $VERBOSE = nil unless opts[:verbose]
 
   RVC.reload_modules opts[:verbose]
-
-  typenames = Set.new(VIM.loader.typenames.select { |x| VIM.const_defined? x })
-  dirs = VIM.extension_dirs
-  dirs.each do |path|
-    Dir.open(path) do |dir|
-      dir.each do |file|
-        next unless file =~ /\.rb$/
-        next unless typenames.member? $`
-        file_path = File.join(dir, file)
-        puts "loading #{$`} extensions from #{file_path}" if opts[:verbose]
-        load file_path
-      end
-    end
-  end
-
+  RbVmomi::VIM.reload_extensions
 ensure
   $VERBOSE = old_verbose
 end

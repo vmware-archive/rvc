@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/vim'
+
 VNC = ENV['VNC'] || search_path('tightvnc') || search_path('vncviewer') || search_path('vinagre')
 
 opts :view do

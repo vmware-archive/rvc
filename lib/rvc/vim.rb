@@ -18,13 +18,26 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-require 'rvc/inventory'
-require 'rvc/modules'
-require 'rvc/util'
-require 'rvc/path'
-require 'rvc/fs'
-require 'rvc/completion'
-require 'rvc/option_parser'
-require 'rvc/shell'
-require 'rvc/memory_session'
-require 'rvc/filesystem_session'
+require 'rbvmomi'
+VIM = RbVmomi::VIM
+VIM.add_extension_dir File.join(File.dirname(__FILE__), "extensions")
+
+class RbVmomi::VIM
+  include RVC::InventoryObject
+
+  def children
+    rootFolder.children
+  end
+
+  def self.folder?
+    true
+  end
+
+  def display_info
+    puts serviceContent.about.fullName
+  end
+
+  def _connection
+    self
+  end
+end

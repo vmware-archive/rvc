@@ -19,6 +19,7 @@
 # THE SOFTWARE.
 
 require 'rvc/known_hosts'
+require 'rvc/vim'
 
 URI_REGEX = %r{
   ^
@@ -34,26 +35,6 @@ URI_REGEX = %r{
   (?::([0-9a-z]{64}))?
   $
 }x
-
-class RbVmomi::VIM
-  include RVC::InventoryObject
-
-  def children
-    rootFolder.children
-  end
-
-  def self.folder?
-    true
-  end
-
-  def display_info
-    puts serviceContent.about.fullName
-  end
-
-  def _connection
-    self
-  end
-end
 
 opts :connect do
   summary 'Open a connection to ESX/VC'

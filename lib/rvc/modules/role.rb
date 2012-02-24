@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/vim'
+
 def cur_auth_mgr
   conn = $shell.fs.cur._connection
   conn.serviceContent.authorizationManager

@@ -19,7 +19,12 @@
 # THE SOFTWARE.
 
 require 'rvc/util'
+require 'rvc/option_parser'
+require 'rvc/field'
+require 'rvc/inventory'
 require 'shellwords'
+
+CMD = Module.new
 
 module RVC
 
