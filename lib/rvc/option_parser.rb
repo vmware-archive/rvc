@@ -21,14 +21,14 @@
 require 'trollop'
 require 'set'
 
+module RVC
+
 begin
   require 'chronic'
-  RVC::HAVE_CHRONIC = true
+  HAVE_CHRONIC = true
 rescue LoadError
-  RVC::HAVE_CHRONIC = false
+  HAVE_CHRONIC = false
 end
-
-module RVC
 
 class OptionParser < Trollop::Parser
   attr_reader :applicable

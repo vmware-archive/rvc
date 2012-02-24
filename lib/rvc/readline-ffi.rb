@@ -19,14 +19,17 @@
 # THE SOFTWARE.
 
 require 'ffi'
+require 'readline'
 
-module RVC::ReadlineFFI
+module RVC
+module ReadlineFFI
   extend FFI::Library
   libreadline = ENV['RVC_READLINE'] == nil ? 'readline.so' : ENV['RVC_READLINE']
   ffi_lib libreadline
   callback :rl_linebuf_func_t, [ :string, :int ], :bool
   attach_variable :rl_char_is_quoted_p, :rl_char_is_quoted_p, :rl_linebuf_func_t
   attach_variable :rl_line_buffer, :rl_line_buffer, :string
+end
 end
 
 unless Readline.respond_to? :line_buffer

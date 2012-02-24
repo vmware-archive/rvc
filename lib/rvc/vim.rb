@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/inventory'
+
 require 'rbvmomi'
 VIM = RbVmomi::VIM
 VIM.add_extension_dir File.join(File.dirname(__FILE__), "extensions")

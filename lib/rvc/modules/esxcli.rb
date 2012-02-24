@@ -24,7 +24,7 @@ require 'rvc/ttl_cache'
 
 raw_opts :execute, "Execute an esxcli command"
 
-EsxcliCache = TTLCache.new 60
+EsxcliCache = RVC::TTLCache.new 60
 
 def lookup_esxcli host, args
   cur = EsxcliCache[host, :esxcli]
