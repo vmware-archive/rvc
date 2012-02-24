@@ -24,8 +24,6 @@ require 'rvc/field'
 require 'rvc/inventory'
 require 'shellwords'
 
-CMD = Module.new
-
 module RVC
 
 class CmdModule
@@ -82,6 +80,21 @@ class CmdModule
   end
 end
 
+class RootCmdModule
+  attr_reader :shell
+
+  def initialize shell
+    @shell = shell
+  end
+
+  def method_missing sym, *args
+    super unless args.empty?
+    m = @shell.modules[sym.to_s]
+    super unless m
+    m
+  end
+end
+
 def self.complete_for_cmd line, word
   if line == nil
     return []
@@ -126,7 +139,6 @@ def self.reload_modules verbose=true
       code = File.read f
       unless $shell.modules.member? module_name
         m = CmdModule.new module_name
-        CMD.define_singleton_method(module_name.to_sym) { m }
         $shell.modules[module_name] = m
       end
       $shell.modules[module_name].instance_eval code, f

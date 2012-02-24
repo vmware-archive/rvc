@@ -76,7 +76,7 @@ $shell.session.connections.each do |key|
   uri = "#{conn['username']}@#{conn['host']}"
   begin
     puts "Connecting to #{conn['host']}..."
-    CMD.vim.connect uri, {}
+    $shell.cmds.vim.connect uri, {}
   rescue RVC::Util::UserError
     puts "Failed to connect to #{conn['host']}: #{$!.message}"
     exit 1
@@ -103,8 +103,8 @@ ARGV.each do |uri|
          end
   begin
     puts "Connecting to #{host}..." if (ARGV+$shell.session.connections).size > 1
-    CMD.vim.connect uri, {:cookie => cookies[host],
-                          :certdigest => certdigests[host]}
+    $shell.cmds.vim.connect uri, {:cookie => cookies[host],
+                                  :certdigest => certdigests[host]}
   rescue RVC::Util::UserError
     puts "Failed to connect to #{host}: #{$!.message}"
     exit 1
@@ -124,19 +124,19 @@ end
 
 if $opts[:path]
   begin
-    CMD.basic.cd RVC::Util.lookup_single($opts[:path])
+    $shell.cmds.basic.cd RVC::Util.lookup_single($opts[:path])
   rescue RVC::Util::UserError
     raise unless $opts[:create_directory]
     parent_path = File.dirname($opts[:path])
     RVC::Util.lookup_single(parent_path).CreateFolder(:name => File.basename($opts[:path]))
-    CMD.basic.cd RVC::Util.lookup_single($opts[:path])
+    $shell.cmds.basic.cd RVC::Util.lookup_single($opts[:path])
   end
 elsif $shell.connections.size == 1 and $interactive
   conn_name, conn = $shell.connections.first
   if conn.serviceContent.about.apiType == 'VirtualCenter'
-    CMD.basic.cd RVC::Util.lookup_single(conn_name)
+    $shell.cmds.basic.cd RVC::Util.lookup_single(conn_name)
   else
-    CMD.basic.cd RVC::Util.lookup_single("#{conn_name}/ha-datacenter/vm")
+    $shell.cmds.basic.cd RVC::Util.lookup_single("#{conn_name}/ha-datacenter/vm")
   end
 end
 
@@ -148,10 +148,10 @@ end
 
 if $interactive
   if ENV['DISPLAY'] and !$opts[:quiet]
-    $stderr.puts "VMRC is not installed. You will be unable to view virtual machine consoles. Use the vmrc.install command to install it." unless CMD.vmrc.find_vmrc
+    $stderr.puts "VMRC is not installed. You will be unable to view virtual machine consoles. Use the vmrc.install command to install it." unless $shell.cmds.vmrc.find_vmrc
   end
   $stderr.puts "Use the 'connect' command to connect to an ESX or VC server." if $shell.connections.empty?
-  CMD.basic.ls RVC::Util.lookup_single('.') unless $opts[:quiet]
+  $shell.cmds.basic.ls RVC::Util.lookup_single('.') unless $opts[:quiet]
 end
 
 if Signal.list["CHLD"]

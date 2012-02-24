@@ -150,7 +150,7 @@ def ls obj
   fake_children.each do |name,child|
     puts "#{i} #{name}#{child.ls_text(nil)}"
     child.rvc_link obj, name
-    CMD.mark.mark i.to_s, [child]
+    $shell.cmds.mark.mark i.to_s, [child]
     i += 1
   end
 
@@ -181,7 +181,7 @@ def ls obj
     colored_name = status_color name, r['overallStatus']
     puts "#{i} #{colored_name}#{realname && " [#{realname}]"}#{text}"
     r.obj.rvc_link obj, name
-    CMD.mark.mark i.to_s, [r.obj]
+    $shell.cmds.mark.mark i.to_s, [r.obj]
     i += 1
   end
 end

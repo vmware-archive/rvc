@@ -23,7 +23,7 @@ require 'rvc/modules'
 module RVC
 
 class Shell
-  attr_reader :fs, :connections, :session, :modules, :aliases
+  attr_reader :fs, :connections, :session, :modules, :aliases, :cmds
   attr_accessor :debug
 
   def initialize session
@@ -35,6 +35,7 @@ class Shell
     @debug = false
     @modules = {}
     @aliases = {}
+    @cmds = RVC::RootCmdModule.new self
   end
 
   def eval_input input

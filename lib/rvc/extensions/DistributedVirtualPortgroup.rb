@@ -217,7 +217,7 @@ class RbVmomi::VIM::DistributedVirtualPortgroup
         puts ""
       end
       child.rvc_link self, name
-      CMD.mark.mark i.to_s, [child]
+      $shell.cmds.mark.mark i.to_s, [child]
       i += 1
     end
   end
