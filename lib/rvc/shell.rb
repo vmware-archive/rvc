@@ -154,7 +154,7 @@ class Shell
         introspect_class klasses.map(&:ancestors).inject(&:&)[0]
       end
     else
-      puts obj.class
+      introspect_class obj.class
     end
   end
 
@@ -179,7 +179,24 @@ class Shell
         puts " #{name}(#{params.map { |x| "#{x['name']} : #{q[x['wsdl_type'] || 'void']}#{x['is-array'] ? '[]' : ''}" } * ', '}) : #{q[desc['result']['wsdl_type'] || 'void']}"
       end
     else
-      puts klass
+      puts "#{klass} < #{klass.superclass}"
+      puts
+      methods_by_class = klass.instance_methods.map { |x| klass.instance_method(x) }.group_by { |m| m.owner }
+      klass.ancestors.each do |ancestor|
+        break if ancestor == Object
+        if ancestor == klass
+          puts "Methods:"
+        else
+          puts "Methods from #{ancestor}:"
+        end
+        methods_by_class[ancestor].sort_by { |m| m.name }.each do |m|
+          if m.respond_to? :parameters
+            puts " #{m.name}(#{m.parameters.map { |mode,name| "#{name}#{mode==:opt ? '?' : ''}" } * ', '})"
+          else
+            puts " #{m.name}"
+          end
+        end
+      end
     end
   end
 
