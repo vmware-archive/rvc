@@ -26,26 +26,74 @@ require 'shellwords'
 
 module RVC
 
-# TODO split into slate and external object
 class CmdModule
-  include RVC::Util
-  attr_reader :shell
+  attr_reader :name, :slate
 
-  def initialize module_name, shell
-    @module_name = module_name
-    @shell = shell
-    @opts = {}
-    @completors = {}
-    super()
+  def initialize name, shell
+    @name = name
+    @slate = CmdSlate.new name, shell
+  end
+
+  def load_code code, filename
+    @slate.instance_eval code, filename
   end
 
   def commands
-    @opts.keys
+    @slate._opts.keys
   end
 
   def has_command? cmd
-    @opts.member? cmd
+    @slate._opts.member? cmd
   end
+
+  def opts_for cmd
+    @slate._opts[cmd]
+  end
+
+  def completor_for cmd
+    @slate._completors[cmd]
+  end
+
+  def method_missing sym, *args
+    if has_command? sym
+      @slate.send sym, *args
+    else
+      super
+    end
+  end
+end
+
+class RootCmdModule
+  attr_reader :shell
+
+  def initialize shell
+    @shell = shell
+  end
+
+  def method_missing sym, *args
+    super unless args.empty?
+    m = @shell.modules[sym.to_s]
+    super unless m
+    m
+  end
+end
+
+# Execution environment for commands
+class CmdSlate
+  include RVC::Util
+  attr_reader :shell
+
+  def initialize name, shell
+    @name = name
+    @shell = shell
+    @opts = {}
+    @completors = {}
+  end
+
+  def _opts; @opts end
+  def _completors; @completors end
+
+  # Command definition functions
 
   def opts cmd, &b
     if cmd.to_s =~ /[A-Z]/
@@ -65,21 +113,13 @@ class CmdModule
     @opts[cmd] = RawOptionParser.new cmd.to_s, summary
   end
 
-  def opts_for cmd
-    @opts[cmd]
-  end
-
   def rvc_completor cmd, &b
     @completors[cmd] = b
   end
 
-  def completor_for cmd
-    @completors[cmd]
-  end
-
   def rvc_alias cmd, target=nil
     target ||= cmd
-    shell.aliases[target.to_s] = "#{@module_name}.#{cmd}"
+    shell.aliases[target.to_s] = "#{@name}.#{cmd}"
   end
 
   # Utility functions
@@ -98,21 +138,6 @@ class CmdModule
 
   def lookup_single! path, types
     shell.fs.lookup_single! path, types
-  end
-end
-
-class RootCmdModule
-  attr_reader :shell
-
-  def initialize shell
-    @shell = shell
-  end
-
-  def method_missing sym, *args
-    super unless args.empty?
-    m = @shell.modules[sym.to_s]
-    super unless m
-    m
   end
 end
 
@@ -161,7 +186,7 @@ def self.reload_modules verbose=true
         m = CmdModule.new module_name, $shell
         $shell.modules[module_name] = m
       end
-      $shell.modules[module_name].instance_eval code, f
+      $shell.modules[module_name].load_code code, f
     rescue
       puts "#{$!.class} while loading #{f}: #{$!.message}"
       $!.backtrace.each { |x| puts x }
