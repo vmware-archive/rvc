@@ -19,7 +19,7 @@
 # THE SOFTWARE.
 
 require 'rvc/vim'
-require 'rvc/extensions/Datastore'
+VIM::Datastore
 
 opts :on do
   summary "Power on VMs"
