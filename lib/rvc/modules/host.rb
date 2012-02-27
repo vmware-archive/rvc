@@ -189,3 +189,17 @@ def add_nfs_datastore hosts, opts
     datastoreSystem.CreateNasDatastore :spec => spec
   end
 end
+
+
+opts :rescan_storage do
+  summary "Rescan HBAs and VMFS"
+  arg :host, nil, :lookup => VIM::HostSystem, :multi => true
+end
+
+def rescan_storage hosts
+  hosts.each do |host|
+    storageSystem = host.configManager.storageSystem
+    storageSystem.RescanAllHba
+    storageSystem.RescanVmfs
+  end
+end
