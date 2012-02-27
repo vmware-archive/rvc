@@ -44,13 +44,14 @@ end
 opts :remove do
   summary "Remove a virtual device"
   arg :device, nil, :lookup => VIM::VirtualDevice, :multi => true
+  opt :no_destroy, "Do not delete backing files"
 end
 
-def remove devs
+def remove devs, opts
   vm_devs = devs.group_by(&:rvc_vm)
   tasks = vm_devs.map do |vm,my_devs|
     device_changes = my_devs.map do |dev|
-      fileOp = dev.backing.is_a?(VIM::VirtualDeviceFileBackingInfo) ? 'destroy' : nil
+      fileOp = (dev.backing.is_a?(VIM::VirtualDeviceFileBackingInfo) && !opts[:no_destroy]) ? 'destroy' : nil
       { :operation => :remove, :fileOperation => fileOp, :device => dev }
     end
     spec = { :deviceChange => device_changes }
