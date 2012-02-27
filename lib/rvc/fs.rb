@@ -110,7 +110,7 @@ class FS
     types = [types] unless types.is_a? Enumerable
     lookup(path).tap do |objs|
       objs.each do |obj|
-        err "Expected #{types*'/'} but got #{obj.class} at #{path.inspect}" unless types.any? { |type| obj.is_a? type }
+        Util.err "Expected #{types*'/'} but got #{obj.class} at #{path.inspect}" unless types.any? { |type| obj.is_a? type }
       end
     end
   end
