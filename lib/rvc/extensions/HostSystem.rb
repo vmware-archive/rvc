@@ -32,6 +32,7 @@ class RbVmomi::VIM::HostSystem
   end
 
   def display_info
+    super
     summary = self.summary
     runtime = summary.runtime
     stats = summary.quickStats
