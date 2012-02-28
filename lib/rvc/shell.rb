@@ -23,14 +23,16 @@ require 'rvc/modules'
 module RVC
 
 class Shell
-  attr_reader :fs, :connections, :session, :modules, :aliases, :cmds
+  attr_reader :fs, :completion, :session
+  attr_reader :connections, :modules, :aliases, :cmds
   attr_accessor :debug
 
   def initialize session
     @session = session
     @persist_ruby = false
     @fs = RVC::FS.new RVC::RootNode.new(self), session
-    @ruby_evaluator = RubyEvaluator.new self
+    @ruby_evaluator = RVC::RubyEvaluator.new self
+    @completion = RVC::Completion.new self
     @connections = {}
     @debug = false
     @modules = {}

@@ -112,7 +112,7 @@ ARGV.each do |uri|
 end
 
 if $interactive
-  RVC::Completion.install
+  $shell.completion.install
   history_fn = "#{ENV['HOME']}/.rvc-history"
   IO.foreach(history_fn) { |l| Readline::HISTORY << l.chomp } rescue puts "Welcome to RVC. Try the 'help' command."
   begin

@@ -35,14 +35,29 @@ if not defined? RbReadline
 end
 
 module RVC
-module Completion
-  Cache = TTLCache.new 10
 
-  Completor = lambda do |word|
+class Completion
+  def initialize shell
+    @shell = shell
+    @cache = TTLCache.new 10
+  end
+
+  def install
+    if Readline.respond_to? :char_is_quoted=
+      Readline.completer_word_break_characters = " \t\n\"'"
+      Readline.completer_quote_characters = "\"\\"
+      is_quoted = lambda { |str,i| i > 0 && str[i-1] == '\\' && !is_quoted[str,i-1] }
+      Readline.char_is_quoted = is_quoted
+    end
+
+    Readline.completion_proc = lambda { |word| completor(word) }
+  end
+
+  def completor word
     return unless word
     begin
       line = Readline.line_buffer if Readline.respond_to? :line_buffer
-      append_char, candidates = RVC::Completion.complete word, line
+      append_char, candidates = complete word, line
       Readline.completion_append_character = append_char
       candidates
     rescue RVC::Util::UserError
@@ -52,18 +67,7 @@ module Completion
     end
   end
 
-  def self.install
-    if Readline.respond_to? :char_is_quoted=
-      Readline.completer_word_break_characters = " \t\n\"'"
-      Readline.completer_quote_characters = "\"\\"
-      is_quoted = lambda { |str,i| i > 0 && str[i-1] == '\\' && !is_quoted[str,i-1] }
-      Readline.char_is_quoted = is_quoted
-    end
-
-    Readline.completion_proc = Completor
-  end
-
-  def self.complete word, line
+  def complete word, line
     line ||= ''
     first_whitespace_index = line.index(' ')
 
@@ -100,22 +104,22 @@ module Completion
     return append_char, candidates.map(&:first)
   end
 
-  def self.fs_candidates word
+  def fs_candidates word
     child_candidates(word) + mark_candidates(word)
   end
 
-  def self.cmd_candidates word
+  def cmd_candidates word
     ret = []
     prefix_regex = /^#{Regexp.escape(word)}/
-    $shell.modules.each do |name,m|
+    @shell.modules.each do |name,m|
       m.commands.each { |s| ret << "#{name}.#{s}" }
     end
-    ret.concat $shell.aliases.keys
+    ret.concat @shell.aliases.keys
     ret.grep(prefix_regex).sort.
         map { |x| [x, ' '] }
   end
 
-  def self.long_option_candidates mod, cmd, word
+  def long_option_candidates mod, cmd, word
     return [] unless mod and cmd
     parser = mod.opts_for cmd
     return [] unless parser.is_a? RVC::OptionParser
@@ -126,14 +130,14 @@ module Completion
   end
 
   # TODO convert to globbing
-  def self.child_candidates word
+  def child_candidates word
     arcs, absolute, trailing_slash = Path.parse word
     last = trailing_slash ? '' : (arcs.pop || '')
     arcs.map! { |x| x.gsub '\\', '' }
-    base = absolute ? $shell.fs.root : $shell.fs.cur
-    cur = $shell.fs.traverse(base, arcs).first or return []
+    base = absolute ? @shell.fs.root : @shell.fs.cur
+    cur = @shell.fs.traverse(base, arcs).first or return []
     arcs.unshift '' if absolute
-    children = Cache[cur, :children] rescue []
+    children = @cache[cur, :children] rescue []
     children.
       select { |k,v| k.gsub(' ', '\\ ') =~ /^#{Regexp.escape(last)}/ }.
       map { |k,v| (arcs+[k])*'/' }.
@@ -141,10 +145,10 @@ module Completion
       map { |x| [x, '/'] }
   end
 
-  def self.mark_candidates word
+  def mark_candidates word
     return [] unless word.empty? || word[0..0] == '~'
     prefix_regex = /^#{Regexp.escape(word[1..-1] || '')}/
-    $shell.session.marks.grep(prefix_regex).sort.
+    @shell.session.marks.grep(prefix_regex).sort.
                          map { |x| ["~#{x}", '/'] }
   end
 end

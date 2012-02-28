@@ -203,7 +203,7 @@ end
 rvc_alias :show
 
 rvc_completor :show do |line, args, word, index|
-  choices = RVC::Completion.fs_candidates word
+  choices = shell.completion.fs_candidates word
   obj = lookup_single '.'
   if index == 0
     if obj.class == VIM::Datacenter || obj.class == VIM
@@ -429,7 +429,7 @@ rvc_completor :table do |line, args, word, argnum|
   if argnum > 0 and args[argnum-1] == '-f'
     RVC::Field::ALL_FIELD_NAMES.map { |x| [x, ' '] }
   else
-    RVC::Completion.fs_candidates word
+    shell.completion.fs_candidates word
   end
 end
 

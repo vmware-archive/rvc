@@ -47,7 +47,7 @@ end
 rvc_completor :execute do |line, args, word, argnum|
   if argnum == 0
     # HostSystem argument
-    RVC::Completion.fs_candidates word
+    shell.completion.fs_candidates word
   else
     # esxcli namespace/method/arguments
     host = lookup_single! args[0], VIM::HostSystem
