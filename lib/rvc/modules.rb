@@ -100,7 +100,7 @@ class CmdSlate
       fail "Camel-casing is not allowed (#{cmd.to_s})"
     end
 
-    @opts[cmd] = OptionParser.new cmd.to_s, &b
+    @opts[cmd] = OptionParser.new cmd.to_s, @shell.fs, &b
 
     @opts[cmd].specs.each do |name,spec|
       if name.to_s =~ /[A-Z]/
