@@ -44,14 +44,14 @@ def lookup_esxcli host, args
   return cur
 end
 
-rvc_completor :execute do |line, args, word, argnum|
-  if argnum == 0
+rvc_completor :execute do |word, args|
+  if args.length == 1
     # HostSystem argument
     shell.completion.fs_candidates word
   else
     # esxcli namespace/method/arguments
     host = lookup_single! args[0], VIM::HostSystem
-    o = lookup_esxcli host, args[1...argnum]
+    o = lookup_esxcli host, args[1...-1]
 
     case o
     when VIM::EsxcliCommand

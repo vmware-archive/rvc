@@ -202,10 +202,10 @@ end
 
 rvc_alias :show
 
-rvc_completor :show do |line, args, word, index|
+rvc_completor :show do |word, args|
   choices = shell.completion.fs_candidates word
   obj = lookup_single '.'
-  if index == 0
+  if args.length == 1
     if obj.class == VIM::Datacenter || obj.class == VIM
       choices << ['portgroups', ' ']
       choices << ['vds', ' ']
@@ -425,8 +425,8 @@ shown by the "fields" command.
   opt :reverse, "Reverse sort order"
 end
 
-rvc_completor :table do |line, args, word, argnum|
-  if argnum > 0 and args[argnum-1] == '-f'
+rvc_completor :table do |word, args|
+  if index > 0 and args[-2] == '-f'
     RVC::Field::ALL_FIELD_NAMES.map { |x| [x, ' '] }
   else
     shell.completion.fs_candidates word

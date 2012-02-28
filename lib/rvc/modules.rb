@@ -27,10 +27,11 @@ require 'shellwords'
 module RVC
 
 class CmdModule
-  attr_reader :name, :slate
+  attr_reader :name, :slate, :shell
 
   def initialize name, shell
     @name = name
+    @shell = shell
     @slate = CmdSlate.new name, shell
   end
 
@@ -50,8 +51,15 @@ class CmdModule
     @slate._opts[cmd]
   end
 
-  def completor_for cmd
-    @slate._completors[cmd]
+  def complete op, word, args
+    unless completor = @slate._completors[op]
+      return shell.completion.fs_candidates(word) +
+             shell.completion.long_option_candidates(self, op, word)
+    end
+
+    candidates = completor.call word, args
+    prefix_regex = /^#{Regexp.escape word}/
+    candidates.select { |x,a| x =~ prefix_regex }
   end
 
   def method_missing sym, *args
@@ -119,7 +127,7 @@ class CmdSlate
 
   def rvc_alias cmd, target=nil
     target ||= cmd
-    shell.aliases[target.to_s] = "#{@name}.#{cmd}"
+    shell.aliases[target.to_s] = [@name, cmd]
   end
 
   # Utility functions
@@ -138,33 +146,6 @@ class CmdSlate
 
   def lookup_single! path, types
     shell.fs.lookup_single! path, types
-  end
-end
-
-def self.complete_for_cmd line, word
-  if line == nil
-    return []
-  end
-  mod, cmd, args = Shell.parse_input line
-  return [] unless mod != nil
-  #XXX assumes you aren't going to have any positional arguments with spaces
-  if(/ $/.match(line))
-    argnum = args.size
-  else
-    argnum = args.size - 1
-  end
-
-  completor = mod.completor_for(cmd.to_sym)
-  if completor == nil
-    return []
-  end
-
-  candidates = completor.call(line, args, word, argnum)
-  if candidates == nil
-    []
-  else
-    prefix_regex = /^#{Regexp.escape word}/
-    candidates.select { |x,a| x =~ prefix_regex }
   end
 end
 

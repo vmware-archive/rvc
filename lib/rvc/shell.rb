@@ -27,6 +27,8 @@ class Shell
   attr_reader :connections, :modules, :aliases, :cmds
   attr_accessor :debug
 
+  class InvalidCommand < StandardError; end
+
   def initialize session
     @session = session
     @persist_ruby = false
@@ -86,22 +88,40 @@ class Shell
   end
 
   def self.parse_input input
-    cmd, *args = Shellwords.shellwords(input)
-    return nil unless cmd
-    if cmd.include? '.'
-      module_name, cmd, = cmd.split '.'
-    elsif $shell.aliases.member? cmd
-      module_name, cmd, = $shell.aliases[cmd].split '.'
+    begin
+      cmd, *args = Shellwords.shellwords(input)
+    rescue ArgumentError # unmatched double quote
+      cmd, *args = Shellwords.shellwords(input + '"')
     end
-    [$shell.modules[module_name], cmd.to_sym, args]
+    return nil unless cmd
+    cmd = cmd.split '.'
+    [cmd, args]
+  end
+
+  def lookup_cmd cmd
+    if cmd.length == 2
+      ns_name, op, = cmd
+      ns = modules[ns_name] or raise InvalidCommand
+      op = op.to_sym
+      raise InvalidCommand unless ns.has_command? op
+      [ns, op]
+    elsif cmd.length == 1 and aliases.member? cmd[0]
+      lookup_cmd $shell.aliases[cmd[0]]
+    else
+      raise InvalidCommand
+    end
   end
 
   def eval_command input
-    m, cmd, args = Shell.parse_input input
-    RVC::Util.err "invalid command" unless m != nil and
-                                           cmd.is_a? Symbol and
-                                           m.has_command? cmd
-    parser = m.opts_for(cmd)
+    cmd, args = Shell.parse_input input
+
+    begin
+      ns, op = lookup_cmd cmd
+    rescue InvalidCommand
+      RVC::Util.err "invalid command"
+    end
+
+    parser = ns.opts_for(op)
 
     begin
       args, opts = parser.parse args
@@ -111,9 +131,9 @@ class Shell
     end
 
     if parser.has_options?
-      m.send cmd.to_sym, *(args + [opts])
+      ns.send op.to_sym, *(args + [opts])
     else
-      m.send cmd.to_sym, *args
+      ns.send op.to_sym, *args
     end
   end
 

@@ -42,6 +42,11 @@ class Completion
     @cache = TTLCache.new 10
   end
 
+  # Halt infinite loop when printing exceptions
+  def inspect
+    ""
+  end
+
   def install
     if Readline.respond_to? :char_is_quoted=
       Readline.completer_word_break_characters = " \t\n\"'"
@@ -57,42 +62,56 @@ class Completion
     return unless word
     begin
       line = Readline.line_buffer if Readline.respond_to? :line_buffer
-      append_char, candidates = complete word, line
+      point = Readline.point if Readline.respond_to? :point
+      append_char, candidates = complete word, line, point
       Readline.completion_append_character = append_char
       candidates
     rescue RVC::Util::UserError
       puts
       puts $!.message
       Readline.refresh_line
+    rescue
+      puts
+      puts "#{$!.class}: #{$!.message}"
+      $!.backtrace.each do |x|
+        puts x
+      end
+      Readline.refresh_line
     end
   end
 
-  def complete word, line
-    line ||= ''
-    first_whitespace_index = line.index(' ')
-
-    if Readline.respond_to? :point
-      do_complete_cmd = !first_whitespace_index || first_whitespace_index >= Readline.point
-      do_complete_args = !do_complete_cmd
-    else
-      do_complete_cmd = true
-      do_complete_args = true
-    end
-
+  def complete word, line, point
     candidates = []
 
-    if do_complete_cmd
-      candidates.concat cmd_candidates(word)
-    end
+    if line and point
+      # Full completion capabilities
+      line = line[0...point]
+      first_whitespace_index = line.index(' ')
 
-    if do_complete_args
-      mod, cmd, args = Shell.parse_input line
-      if mod and mod.completor_for cmd
-        candidates.concat RVC::complete_for_cmd(line, word)
+      if !first_whitespace_index
+        # Command
+        candidates.concat cmd_candidates(word)
       else
-        candidates.concat(fs_candidates(word) +
-                          long_option_candidates(mod, cmd, word))
+        # Arguments
+        begin
+          cmd, args = Shell.parse_input line
+        rescue ArgumentError
+          # Unmatched double quote
+          cmd, args = Shell.parse_input(line+'"')
+        end
+
+        begin
+          ns, op = @shell.lookup_cmd cmd
+          args << word if word == ''
+          candidates.concat ns.complete(op, word, args)
+        rescue Shell::InvalidCommand
+          candidates.concat fs_candidates(word)
+        end
       end
+    else
+      # Limited completion
+      candidates.concat cmd_candidates(word)
+      candidates.concat fs_candidates(word)
     end
 
     if candidates.size == 1
