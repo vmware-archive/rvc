@@ -29,7 +29,7 @@ class Shell
   def initialize session
     @session = session
     @persist_ruby = false
-    @fs = RVC::FS.new RVC::RootNode.new, session
+    @fs = RVC::FS.new RVC::RootNode.new(self), session
     @ruby_evaluator = RubyEvaluator.new self
     @connections = {}
     @debug = false
