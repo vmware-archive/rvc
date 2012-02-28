@@ -106,15 +106,26 @@ end
 opts :add_disk do
   summary "Add a hard drive to a virtual machine"
   arg :vm, nil, :lookup => VIM::VirtualMachine
+  arg :path, "Filename on the datastore", :lookup_parent => VIM::Datastore::FakeDatastoreFolder, :required => false
   opt :size, 'Size', :default => '10G'
   opt :controller, 'Virtual controller', :type => :string, :lookup => VIM::VirtualController
+  opt :file_op, 'File operation (create|reuse|replace)', :default => 'create'
 end
 
-def add_disk vm, opts
+def add_disk vm, path, opts
   controller, unit_number = pick_controller vm, opts[:controller], [VIM::VirtualSCSIController, VIM::VirtualIDEController]
   id = "disk-#{controller.key}-#{unit_number}"
-  filename = "#{File.dirname(vm.summary.config.vmPathName)}/#{id}.vmdk"
-  _add_device vm, :create, VIM::VirtualDisk(
+
+  if path
+    dir, file = *path
+    filename = "#{dir.datastore_path}/#{file}"
+  else
+    filename = "#{File.dirname(vm.summary.config.vmPathName)}/#{id}.vmdk"
+  end
+
+  opts[:file_op] = nil if opts[:file_op] == 'reuse'
+
+  _add_device vm, opts[:file_op], VIM::VirtualDisk(
     :key => -1,
     :backing => VIM.VirtualDiskFlatVer2BackingInfo(
       :fileName => filename,
