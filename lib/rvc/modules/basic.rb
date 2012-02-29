@@ -48,7 +48,7 @@ def help path
     case o
     when Operation
       o.parser.educate
-    when CmdModule
+    when Namespace
       o.operations.each do |name,op|
         help_summary op.parser, path, op.name
       end

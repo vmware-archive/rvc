@@ -25,7 +25,7 @@ require 'rvc/operation'
 
 module RVC
 
-class CmdModule
+class Namespace
   attr_reader :name, :shell, :slate, :operations
 
   def initialize name, shell
@@ -48,7 +48,7 @@ class CmdModule
   end
 end
 
-class RootCmdModule
+class RootNamespace
   attr_reader :shell
 
   def initialize shell

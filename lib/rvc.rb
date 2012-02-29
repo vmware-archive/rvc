@@ -19,7 +19,7 @@
 # THE SOFTWARE.
 
 require 'rvc/inventory'
-require 'rvc/modules'
+require 'rvc/namespace'
 require 'rvc/util'
 require 'rvc/path'
 require 'rvc/fs'

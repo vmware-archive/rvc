@@ -18,7 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-require 'rvc/modules'
+require 'rvc/namespace'
 require 'shellwords'
 
 module RVC
@@ -40,7 +40,7 @@ class Shell
     @debug = false
     @modules = {}
     @aliases = {}
-    @cmds = RVC::RootCmdModule.new self
+    @cmds = RVC::RootNamespace.new self
   end
 
   def inspect
@@ -250,7 +250,7 @@ class Shell
       begin
         code = File.read f
         unless modules.member? module_name
-          m = CmdModule.new module_name, self
+          m = Namespace.new module_name, self
           modules[module_name] = m
         end
         modules[module_name].load_code code, f
