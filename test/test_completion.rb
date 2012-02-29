@@ -5,7 +5,7 @@ class CompletionTest < Test::Unit::TestCase
   def setup
     session = RVC::MemorySession.new
     $shell = @shell = RVC::Shell.new(session)
-    RVC::reload_modules false
+    @shell.reload_modules false
   end
 
   def teardown

@@ -44,7 +44,7 @@ def reload opts
   old_verbose = $VERBOSE
   $VERBOSE = nil unless opts[:verbose]
 
-  RVC.reload_modules opts[:verbose]
+  shell.reload_modules opts[:verbose]
   RbVmomi::VIM.reload_extensions
 ensure
   $VERBOSE = old_verbose

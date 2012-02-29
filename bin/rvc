@@ -63,8 +63,7 @@ else
 end
 
 $shell = RVC::Shell.new session
-
-RVC.reload_modules false
+$shell.reload_modules false
 
 # Prompt for hostname if none given. Useful on win32.
 if $shell.session.connections.empty? and ARGV.empty? and $interactive
