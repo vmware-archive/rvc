@@ -19,6 +19,7 @@
 # THE SOFTWARE.
 
 require 'rvc/modules'
+require 'shellwords'
 
 module RVC
 
@@ -40,6 +41,10 @@ class Shell
     @modules = {}
     @aliases = {}
     @cmds = RVC::RootCmdModule.new self
+  end
+
+  def inspect
+    "#<RVC::Shell:#{object_id}>"
   end
 
   def eval_input input
@@ -100,13 +105,14 @@ class Shell
 
   def lookup_cmd cmd
     if cmd.length == 2
-      ns_name, op, = cmd
+      ns_name, op_name = cmd
       ns = modules[ns_name] or raise InvalidCommand
-      op = op.to_sym
-      raise InvalidCommand unless ns.has_command? op
-      [ns, op]
+      ns.operations[op_name.to_sym] or raise InvalidCommand
     elsif cmd.length == 1 and aliases.member? cmd[0]
       lookup_cmd $shell.aliases[cmd[0]]
+    elsif cmd.length == 1
+      ns_name, = cmd
+      modules[ns_name] or raise InvalidCommand
     else
       raise InvalidCommand
     end
@@ -116,24 +122,22 @@ class Shell
     cmd, args = Shell.parse_input input
 
     begin
-      ns, op = lookup_cmd cmd
+      op = lookup_cmd cmd
     rescue InvalidCommand
       RVC::Util.err "invalid command"
     end
 
-    parser = ns.opts_for(op)
-
     begin
-      args, opts = parser.parse args
+      args, opts = op.parser.parse args
     rescue Trollop::HelpNeeded
-      parser.educate
+      op.parser.educate
       return
     end
 
-    if parser.has_options?
-      ns.send op.to_sym, *(args + [opts])
+    if op.parser.has_options?
+      op.invoke *(args + [opts])
     else
-      ns.send op.to_sym, *args
+      op.invoke *args
     end
   end
 

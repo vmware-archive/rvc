@@ -44,20 +44,15 @@ rvc_alias :help
 HELP_ORDER = %w(basic vm)
 
 def help path
-  if mod = shell.modules[path]
-    opts = mod.instance_variable_get(:@opts)
-    opts.each do |method_name,parser|
-      help_summary parser, path, method_name
+  if path and o = (shell.lookup_cmd(path.split('.')) rescue nil)
+    case o
+    when Operation
+      o.parser.educate
+    when CmdModule
+      o.operations.each do |name,op|
+        help_summary op.parser, path, op.name
+      end
     end
-    return
-  elsif tgt = shell.aliases[path]
-    fail unless tgt =~ /^(.+)\.(.+)$/
-    shell.modules[$1].opts_for($2.to_sym).educate
-    return
-  elsif path =~ /^(.+)\.(.+)$/ and
-        mod = shell.modules[$1] and
-        parser = mod.opts_for($2.to_sym)
-    parser.educate
     return
   end
 
@@ -69,13 +64,12 @@ def help path
     puts "All commands:"
   end
 
-  shell.modules.sort_by do |mod_name,mod|
-    HELP_ORDER.index(mod_name) || HELP_ORDER.size
-  end.each do |mod_name,mod|
-    opts = mod.instance_variable_get(:@opts)
-    opts.each do |method_name,parser|
-      next unless obj.nil? or parser.applicable.any? { |x| obj.is_a? x }
-      help_summary parser, mod_name, method_name
+  shell.modules.sort_by do |ns_name,ns|
+    HELP_ORDER.index(ns_name) || HELP_ORDER.size
+  end.each do |ns_name,ns|
+    ns.operations.each do |op_name,op|
+      next unless obj.nil? or op.parser.applicable.any? { |x| obj.is_a? x }
+      help_summary op.parser, ns_name, op_name
     end
   end
 

@@ -101,9 +101,9 @@ class Completion
         end
 
         begin
-          ns, op = @shell.lookup_cmd cmd
+          op = @shell.lookup_cmd cmd
           args << word if word == ''
-          candidates.concat ns.complete(op, word, args)
+          candidates.concat op.complete(word, args)
         rescue Shell::InvalidCommand
           candidates.concat fs_candidates(word)
         end
@@ -130,22 +130,12 @@ class Completion
   def cmd_candidates word
     ret = []
     prefix_regex = /^#{Regexp.escape(word)}/
-    @shell.modules.each do |name,m|
-      m.commands.each { |s| ret << "#{name}.#{s}" }
+    @shell.modules.each do |ns_name,ns|
+      ns.operations.each { |op_name,op| ret << "#{ns_name}.#{op_name}" }
     end
     ret.concat @shell.aliases.keys
     ret.grep(prefix_regex).sort.
         map { |x| [x, ' '] }
-  end
-
-  def long_option_candidates mod, cmd, word
-    return [] unless mod and cmd
-    parser = mod.opts_for cmd
-    return [] unless parser.is_a? RVC::OptionParser
-    prefix_regex = /^#{Regexp.escape(word)}/
-    parser.specs.map { |k,v| "--#{v[:long]}" }.
-                 grep(prefix_regex).sort.
-                 map { |x| [x, ' '] }
   end
 
   # TODO convert to globbing

@@ -19,13 +19,14 @@ class ShellTest < Test::Unit::TestCase
   end
 
   def test_lookup_cmd
-    ns, op = @shell.lookup_cmd ['basic', 'info']
-    assert_equal @shell.modules['basic'], ns
-    assert_equal :info, op
+    op = @shell.lookup_cmd ['basic', 'info']
+    assert_equal @shell.modules['basic'].operations[:info], op
 
-    ns, op = @shell.lookup_cmd ['ls']
+    op = @shell.lookup_cmd ['ls']
+    assert_equal @shell.modules['basic'].operations[:ls], op
+
+    ns = @shell.lookup_cmd ['basic']
     assert_equal @shell.modules['basic'], ns
-    assert_equal :ls, op
 
     assert_raise RVC::Shell::InvalidCommand do
       @shell.lookup_cmd []

@@ -19,51 +19,28 @@
 # THE SOFTWARE.
 
 require 'rvc/util'
-require 'rvc/option_parser'
 require 'rvc/field'
 require 'rvc/inventory'
-require 'shellwords'
+require 'rvc/operation'
 
 module RVC
 
 class CmdModule
-  attr_reader :name, :slate, :shell
+  attr_reader :name, :shell, :slate, :operations
 
   def initialize name, shell
     @name = name
     @shell = shell
-    @slate = CmdSlate.new name, shell
+    @slate = CmdSlate.new self
+    @operations = {}
   end
 
   def load_code code, filename
     @slate.instance_eval code, filename
   end
 
-  def commands
-    @slate._opts.keys
-  end
-
-  def has_command? cmd
-    @slate._opts.member? cmd
-  end
-
-  def opts_for cmd
-    @slate._opts[cmd]
-  end
-
-  def complete op, word, args
-    unless completor = @slate._completors[op]
-      return shell.completion.fs_candidates(word) +
-             shell.completion.long_option_candidates(self, op, word)
-    end
-
-    candidates = completor.call word, args
-    prefix_regex = /^#{Regexp.escape word}/
-    candidates.select { |x,a| x =~ prefix_regex }
-  end
-
   def method_missing sym, *args
-    if has_command? sym
+    if @operations.member? sym
       @slate.send sym, *args
     else
       super
@@ -89,48 +66,60 @@ end
 # Execution environment for commands
 class CmdSlate
   include RVC::Util
-  attr_reader :shell
 
-  def initialize name, shell
-    @name = name
-    @shell = shell
-    @opts = {}
-    @completors = {}
+  def initialize ns
+    @ns = ns
   end
-
-  def _opts; @opts end
-  def _completors; @completors end
 
   # Command definition functions
 
-  def opts cmd, &b
-    if cmd.to_s =~ /[A-Z]/
-      fail "Camel-casing is not allowed (#{cmd.to_s})"
+  def opts name, &b
+    fail "operation name must be a symbol" unless name.is_a? Symbol
+
+    if name.to_s =~ /[A-Z]/
+      fail "Camel-casing is not allowed (#{name})"
     end
 
-    @opts[cmd] = OptionParser.new cmd.to_s, @shell.fs, &b
+    parser = OptionParser.new name.to_s, @ns.shell.fs, &b
 
-    @opts[cmd].specs.each do |name,spec|
-      if name.to_s =~ /[A-Z]/
-        fail "Camel-casing is not allowed (#{cmd.to_s} option #{name})"
+    parser.specs.each do |opt_name,spec|
+      if opt_name.to_s =~ /[A-Z]/
+        fail "Camel-casing is not allowed (#{name} option #{opt_name})"
       end
     end
+
+    @ns.operations[name] = Operation.new @ns, name, parser
   end
 
-  def raw_opts cmd, summary
-    @opts[cmd] = RawOptionParser.new cmd.to_s, summary
+  def raw_opts name, summary
+    fail "operation name must be a symbol" unless name.is_a? Symbol
+
+    if name.to_s =~ /[A-Z]/
+      fail "Camel-casing is not allowed (#{name})"
+    end
+
+    parser = RawOptionParser.new name.to_s, summary
+
+    @ns.operations[name] = Operation.new @ns, name, parser
   end
 
-  def rvc_completor cmd, &b
-    @completors[cmd] = b
+  def rvc_completor name, &b
+    fail "operation name must be a symbol" unless name.is_a? Symbol
+    op = @ns.operations[name] or fail "operation #{name} not defined"
+    op.completor = b
   end
 
-  def rvc_alias cmd, target=nil
-    target ||= cmd
-    shell.aliases[target.to_s] = [@name, cmd]
+  def rvc_alias name, target=nil
+    fail "operation name must be a symbol" unless name.is_a? Symbol
+    target ||= name
+    shell.aliases[target.to_s] = [@ns.name, name]
   end
 
   # Utility functions
+  
+  def shell
+    @ns.shell
+  end
 
   def lookup path
     shell.fs.lookup path
