@@ -14,30 +14,30 @@ class ShellTest < Test::Unit::TestCase
 
   def test_parse_input
     cmd, args = RVC::Shell.parse_input "module.cmd --longarg -s vm1 vm2"
-    assert_equal ['module', 'cmd'], cmd
+    assert_equal [:module, :cmd], cmd
     assert_equal ['--longarg', '-s', 'vm1', 'vm2'], args
   end
 
   def test_lookup_cmd
-    op = @shell.lookup_cmd ['basic', 'info']
-    assert_equal @shell.modules['basic'].operations[:info], op
+    op = @shell.lookup_cmd [:basic, :info]
+    assert_equal @shell.namespaces[:basic].operations[:info], op
 
-    op = @shell.lookup_cmd ['ls']
-    assert_equal @shell.modules['basic'].operations[:ls], op
+    op = @shell.lookup_cmd [:ls]
+    assert_equal @shell.namespaces[:basic].operations[:ls], op
 
-    ns = @shell.lookup_cmd ['basic']
-    assert_equal @shell.modules['basic'], ns
+    ns = @shell.lookup_cmd [:basic]
+    assert_equal @shell.namespaces[:basic], ns
 
     assert_raise RVC::Shell::InvalidCommand do
       @shell.lookup_cmd []
     end
 
     assert_raise RVC::Shell::InvalidCommand do
-      @shell.lookup_cmd ['nonexistent-alias']
+      @shell.lookup_cmd [:nonexistent_alias]
     end
 
     assert_raise RVC::Shell::InvalidCommand do
-      @shell.lookup_cmd ['nonexistent-module', 'foo']
+      @shell.lookup_cmd [:nonexistent_module, :foo]
     end
   end
 end

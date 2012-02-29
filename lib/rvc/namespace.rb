@@ -57,7 +57,7 @@ class RootNamespace
 
   def method_missing sym, *args
     super unless args.empty?
-    m = @shell.modules[sym.to_s]
+    m = @shell.namespaces[sym]
     super unless m
     m
   end
@@ -112,7 +112,7 @@ class CmdSlate
   def rvc_alias name, target=nil
     fail "operation name must be a symbol" unless name.is_a? Symbol
     target ||= name
-    shell.aliases[target.to_s] = [@ns.name, name]
+    shell.aliases[target] = [@ns.name, name]
   end
 
   # Utility functions

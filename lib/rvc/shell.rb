@@ -25,7 +25,7 @@ module RVC
 
 class Shell
   attr_reader :fs, :completion, :session
-  attr_reader :connections, :modules, :aliases, :cmds
+  attr_reader :connections, :namespaces, :aliases, :cmds
   attr_accessor :debug
 
   class InvalidCommand < StandardError; end
@@ -38,7 +38,7 @@ class Shell
     @completion = RVC::Completion.new self
     @connections = {}
     @debug = false
-    @modules = {}
+    @namespaces = {}
     @aliases = {}
     @cmds = RVC::RootNamespace.new self
   end
@@ -99,20 +99,20 @@ class Shell
       cmd, *args = Shellwords.shellwords(input + '"')
     end
     return nil unless cmd
-    cmd = cmd.split '.'
+    cmd = cmd.split('.').map(&:to_sym)
     [cmd, args]
   end
 
   def lookup_cmd cmd
     if cmd.length == 2
       ns_name, op_name = cmd
-      ns = modules[ns_name] or raise InvalidCommand
-      ns.operations[op_name.to_sym] or raise InvalidCommand
+      ns = namespaces[ns_name] or raise InvalidCommand
+      ns.operations[op_name] or raise InvalidCommand
     elsif cmd.length == 1 and aliases.member? cmd[0]
       lookup_cmd aliases[cmd[0]]
     elsif cmd.length == 1
       ns_name, = cmd
-      modules[ns_name] or raise InvalidCommand
+      namespaces[ns_name] or raise InvalidCommand
     else
       raise InvalidCommand
     end
@@ -240,20 +240,20 @@ class Shell
   ENV_MODULE_PATH = (ENV['RVC_MODULE_PATH'] || '').split ':'
 
   def reload_modules verbose=true
-    modules.clear
+    namespaces.clear
     aliases.clear
     module_path = (BULTIN_MODULE_PATH+ENV_MODULE_PATH).select { |d| File.directory?(d) }
     globs = module_path.map { |d| File.join(d, '*.rb') }
     Dir.glob(globs) do |f|
-      module_name = File.basename(f)[0...-3]
+      module_name = File.basename(f)[0...-3].to_sym
       puts "loading #{module_name} from #{f}" if verbose
       begin
         code = File.read f
-        unless modules.member? module_name
+        unless namespaces.member? module_name
           m = Namespace.new module_name, self
-          modules[module_name] = m
+          namespaces[module_name] = m
         end
-        modules[module_name].load_code code, f
+        namespaces[module_name].load_code code, f
       rescue
         puts "#{$!.class} while loading #{f}: #{$!.message}"
         $!.backtrace.each { |x| puts x }
@@ -299,11 +299,10 @@ class RubyEvaluator
   end
 
   def method_missing sym, *a
-    str = sym.to_s
     if a.empty?
-      if @shell.modules.member? str
-        @shell.modules[str]
-      elsif str =~ /_?([\w\d]+)(!?)/ && objs = @shell.session.get_mark($1)
+      if @shell.namespaces.member? sym
+        @shell.namespaces[sym]
+      elsif sym.to_s =~ /_?([\w\d]+)(!?)/ && objs = @shell.session.get_mark($1)
         if $2 == '!'
           objs
         else
