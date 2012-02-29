@@ -4,12 +4,12 @@ require 'rvc'
 class CompletionTest < Test::Unit::TestCase
   def setup
     session = RVC::MemorySession.new
-    $shell = @shell = RVC::Shell.new(session)
+    @shell = RVC::Shell.new(session)
     @shell.reload_modules false
   end
 
   def teardown
-    $shell = @shell = nil
+    @shell = nil
   end
 
   def test_cmd_candidates

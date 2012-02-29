@@ -109,7 +109,7 @@ class Shell
       ns = modules[ns_name] or raise InvalidCommand
       ns.operations[op_name.to_sym] or raise InvalidCommand
     elsif cmd.length == 1 and aliases.member? cmd[0]
-      lookup_cmd $shell.aliases[cmd[0]]
+      lookup_cmd aliases[cmd[0]]
     elsif cmd.length == 1
       ns_name, = cmd
       modules[ns_name] or raise InvalidCommand

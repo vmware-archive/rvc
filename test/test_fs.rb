@@ -19,19 +19,19 @@ class FSTest < Test::Unit::TestCase
   def setup
     session = RVC::MemorySession.new
     @context = RVC::FS.new Root, session
-    $shell = RVC::Shell.new session
-    $shell.instance_variable_set :@fs, @context
+    @shell = RVC::Shell.new session
+    @shell.instance_variable_set :@fs, @context
   end
 
   def teardown
     @context = nil
-    $shell = nil
+    @shell = nil
   end
 
   def test_new
     assert_equal Root, @context.cur
     assert_equal "", @context.display_path
-    assert_equal 0, $shell.session.marks.size
+    assert_equal 0, @shell.session.marks.size
     assert_equal [['', Root]], @context.cur.rvc_path
   end
 
@@ -97,20 +97,20 @@ class FSTest < Test::Unit::TestCase
     assert_equal nil, obj
 
     ['foo', '~', '7', ''].each do |mark|
-      $shell.session.set_mark mark, [b_obj]
+      @shell.session.set_mark mark, [b_obj]
       obj = @context.lookup("~#{mark}")[0]
       assert_equal [['', Root], ['a', NodeA], ['b', NodeB]], obj.rvc_path
 
-      $shell.session.set_mark mark, []
+      @shell.session.set_mark mark, []
       obj = @context.lookup("~#{mark}")[0]
       assert_equal nil, obj
     end
 
-    $shell.session.set_mark '7', [b_obj]
+    @shell.session.set_mark '7', [b_obj]
     obj = @context.lookup("7")[0]
     assert_equal [['', Root], ['a', NodeA], ['b', NodeB]], obj.rvc_path
 
-    $shell.session.set_mark '7', []
+    @shell.session.set_mark '7', []
     obj = @context.lookup("7")[0]
     assert_equal nil, obj
   end
