@@ -101,9 +101,9 @@ class Completion
         end
 
         begin
-          op = @shell.lookup_cmd cmd
+          cmd = @shell.lookup_cmd cmd
           args << word if word == ''
-          candidates.concat op.complete(word, args)
+          candidates.concat cmd.complete(word, args)
         rescue Shell::InvalidCommand
           candidates.concat fs_candidates(word)
         end
@@ -131,7 +131,7 @@ class Completion
     ret = []
     prefix_regex = /^#{Regexp.escape(word)}/
     @shell.namespaces.each do |ns_name,ns|
-      ns.operations.each { |op_name,op| ret << "#{ns_name}.#{op_name}" }
+      ns.commands.each { |cmd_name,cmd| ret << "#{ns_name}.#{cmd_name}" }
     end
     ret.concat @shell.aliases.keys
     ret.grep(prefix_regex).sort.

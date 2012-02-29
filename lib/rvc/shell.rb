@@ -105,9 +105,9 @@ class Shell
 
   def lookup_cmd cmd
     if cmd.length == 2
-      ns_name, op_name = cmd
+      ns_name, cmd_name = cmd
       ns = namespaces[ns_name] or raise InvalidCommand
-      ns.operations[op_name] or raise InvalidCommand
+      ns.commands[cmd_name] or raise InvalidCommand
     elsif cmd.length == 1 and aliases.member? cmd[0]
       lookup_cmd aliases[cmd[0]]
     elsif cmd.length == 1
@@ -119,25 +119,25 @@ class Shell
   end
 
   def eval_command input
-    cmd, args = Shell.parse_input input
+    cmdpath, args = Shell.parse_input input
 
     begin
-      op = lookup_cmd cmd
+      cmd = lookup_cmd cmdpath
     rescue InvalidCommand
       RVC::Util.err "invalid command"
     end
 
     begin
-      args, opts = op.parser.parse args
+      args, opts = cmd.parser.parse args
     rescue Trollop::HelpNeeded
-      op.parser.educate
+      cmd.parser.educate
       return
     end
 
-    if op.parser.has_options?
-      op.invoke *(args + [opts])
+    if cmd.parser.has_options?
+      cmd.invoke *(args + [opts])
     else
-      op.invoke *args
+      cmd.invoke *args
     end
   end
 

@@ -19,11 +19,11 @@ class ShellTest < Test::Unit::TestCase
   end
 
   def test_lookup_cmd
-    op = @shell.lookup_cmd [:basic, :info]
-    assert_equal @shell.namespaces[:basic].operations[:info], op
+    cmd = @shell.lookup_cmd [:basic, :info]
+    assert_equal @shell.namespaces[:basic].commands[:info], cmd
 
-    op = @shell.lookup_cmd [:ls]
-    assert_equal @shell.namespaces[:basic].operations[:ls], op
+    cmd = @shell.lookup_cmd [:ls]
+    assert_equal @shell.namespaces[:basic].commands[:ls], cmd
 
     ns = @shell.lookup_cmd [:basic]
     assert_equal @shell.namespaces[:basic], ns

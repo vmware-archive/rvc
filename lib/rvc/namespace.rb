@@ -21,18 +21,18 @@
 require 'rvc/util'
 require 'rvc/field'
 require 'rvc/inventory'
-require 'rvc/operation'
+require 'rvc/command'
 
 module RVC
 
 class Namespace
-  attr_reader :name, :shell, :slate, :operations
+  attr_reader :name, :shell, :slate, :commands
 
   def initialize name, shell
     @name = name
     @shell = shell
     @slate = CmdSlate.new self
-    @operations = {}
+    @commands = {}
   end
 
   def load_code code, filename
@@ -40,7 +40,7 @@ class Namespace
   end
 
   def method_missing sym, *args
-    if @operations.member? sym
+    if @commands.member? sym
       @slate.send sym, *args
     else
       super
@@ -74,7 +74,7 @@ class CmdSlate
   # Command definition functions
 
   def opts name, &b
-    fail "operation name must be a symbol" unless name.is_a? Symbol
+    fail "command name must be a symbol" unless name.is_a? Symbol
 
     if name.to_s =~ /[A-Z]/
       fail "Camel-casing is not allowed (#{name})"
@@ -88,11 +88,11 @@ class CmdSlate
       end
     end
 
-    @ns.operations[name] = Operation.new @ns, name, parser
+    @ns.commands[name] = Command.new @ns, name, parser
   end
 
   def raw_opts name, summary
-    fail "operation name must be a symbol" unless name.is_a? Symbol
+    fail "command name must be a symbol" unless name.is_a? Symbol
 
     if name.to_s =~ /[A-Z]/
       fail "Camel-casing is not allowed (#{name})"
@@ -100,17 +100,17 @@ class CmdSlate
 
     parser = RawOptionParser.new name.to_s, summary
 
-    @ns.operations[name] = Operation.new @ns, name, parser
+    @ns.commands[name] = Command.new @ns, name, parser
   end
 
   def rvc_completor name, &b
-    fail "operation name must be a symbol" unless name.is_a? Symbol
-    op = @ns.operations[name] or fail "operation #{name} not defined"
-    op.completor = b
+    fail "command name must be a symbol" unless name.is_a? Symbol
+    cmd = @ns.commands[name] or fail "command #{name} not defined"
+    cmd.completor = b
   end
 
   def rvc_alias name, target=nil
-    fail "operation name must be a symbol" unless name.is_a? Symbol
+    fail "command name must be a symbol" unless name.is_a? Symbol
     target ||= name
     shell.aliases[target] = [@ns.name, name]
   end

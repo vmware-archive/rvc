@@ -22,7 +22,7 @@ require 'rvc/option_parser'
 
 module RVC
 
-class Operation
+class Command
   attr_reader :ns, :name, :parser
   attr_accessor :summary, :completor
 

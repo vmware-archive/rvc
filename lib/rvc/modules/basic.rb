@@ -46,11 +46,11 @@ HELP_ORDER = %w(basic vm)
 def help path
   if path and o = (shell.lookup_cmd(path.split('.').map(&:to_sym)) rescue nil)
     case o
-    when Operation
+    when Command
       o.parser.educate
     when Namespace
-      o.operations.each do |name,op|
-        help_summary op.parser, path, op.name
+      o.commands.each do |cmd_name,cmd|
+        help_summary cmd.parser, path, cmd_name
       end
     end
     return
@@ -67,9 +67,9 @@ def help path
   shell.namespaces.sort_by do |ns_name,ns|
     HELP_ORDER.index(ns_name.to_s) || HELP_ORDER.size
   end.each do |ns_name,ns|
-    ns.operations.each do |op_name,op|
-      next unless obj.nil? or op.parser.applicable.any? { |x| obj.is_a? x }
-      help_summary op.parser, ns_name, op_name
+    ns.commands.each do |cmd_name,cmd|
+      next unless obj.nil? or cmd.parser.applicable.any? { |x| obj.is_a? x }
+      help_summary cmd.parser, ns_name, cmd_name
     end
   end
 
