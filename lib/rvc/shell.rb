@@ -241,7 +241,7 @@ class Shell
   ENV_MODULE_PATH = (ENV['RVC_MODULE_PATH'] || '').split ':'
 
   def reload_modules verbose=true
-    @cmds = RVC::Namespace.new 'root', self
+    @cmds = RVC::Namespace.new 'root', self, nil
     aliases.clear
     module_path = (BULTIN_MODULE_PATH+ENV_MODULE_PATH).select { |d| File.directory?(d) }
     globs = module_path.map { |d| File.join(d, '*.rb') }

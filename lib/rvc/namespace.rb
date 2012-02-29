@@ -26,11 +26,12 @@ require 'rvc/command'
 module RVC
 
 class Namespace
-  attr_reader :name, :shell, :slate, :namespaces, :commands
+  attr_reader :name, :shell, :parent, :slate, :namespaces, :commands
 
-  def initialize name, shell
+  def initialize name, shell, parent
     @name = name
     @shell = shell
+    @parent = parent
     @slate = CmdSlate.new self
     @namespaces = {}
     @commands = {}
@@ -44,7 +45,7 @@ class Namespace
     if ns = namespaces[name]
       return ns
     else
-      namespaces[name] = Namespace.new(name, shell)
+      namespaces[name] = Namespace.new(name, shell, self)
     end
   end
 
@@ -108,7 +109,16 @@ class CmdSlate
   def rvc_alias name, target=nil
     fail "command name must be a symbol" unless name.is_a? Symbol
     target ||= name
-    shell.aliases[target] = [@ns.name, name]
+
+    cmdpath = [name]
+    cur = @ns
+    while cur.parent
+      cmdpath << cur.name
+      cur = cur.parent
+    end
+    cmdpath.reverse!
+
+    shell.aliases[target] = cmdpath
   end
 
   # Utility functions
