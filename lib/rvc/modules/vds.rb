@@ -20,7 +20,7 @@
 
 require 'rvc/vim'
 
-require "terminal-table/import"
+require "terminal-table"
 
 opts :summarize do
   summary ""
@@ -573,7 +573,7 @@ def show_all_ports path
     rows.each { |r| r.delete_at(2) }
   end
 
-  t = table(columns)
+  t = Terminal::Table.new(columns)
   rows.sort_by { |o| o[0] }.each { |o| t << o }
   puts t
 end

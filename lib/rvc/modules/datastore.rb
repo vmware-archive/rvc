@@ -21,7 +21,7 @@
 require 'rvc/vim'
 VIM::Datastore
 
-require 'terminal-table/import'
+require 'terminal-table'
 
 opts :download do
   summary "Download a file from a datastore"
@@ -259,7 +259,7 @@ def find_orphans ds, opts
   if data.empty?
     puts "No orphans found"
   else
-    puts(table do
+    puts(Terminal::Table.new do
       data.sort_by { |a| a[1] }.each do |x|
         dir, dirSize, numFiles = x
         self.headings = 'Directory', 'Space Used', '# Files'
