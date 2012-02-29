@@ -45,9 +45,9 @@ HELP_ORDER = %w(basic vm)
 
 def help path
   if mod = shell.modules[path]
-    opts = mod.instance_variable_get(:@opts)
-    opts.each do |method_name,parser|
-      help_summary parser, path, method_name
+    mod.commands.each do |cmd_name|
+      parser = mod.opts_for cmd_name
+      help_summary parser, path, cmd_name
     end
     return
   elsif tgt = shell.aliases[path]
@@ -72,10 +72,10 @@ def help path
   shell.modules.sort_by do |mod_name,mod|
     HELP_ORDER.index(mod_name) || HELP_ORDER.size
   end.each do |mod_name,mod|
-    opts = mod.instance_variable_get(:@opts)
-    opts.each do |method_name,parser|
+    mod.commands.each do |cmd_name|
+      parser = mod.opts_for cmd_name
       next unless obj.nil? or parser.applicable.any? { |x| obj.is_a? x }
-      help_summary parser, mod_name, method_name
+      help_summary parser, mod_name, cmd_name
     end
   end
 
