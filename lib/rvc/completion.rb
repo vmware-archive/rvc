@@ -133,7 +133,7 @@ class Completion
     @shell.namespaces.each do |ns_name,ns|
       ns.commands.each { |cmd_name,cmd| ret << "#{ns_name}.#{cmd_name}" }
     end
-    ret.concat @shell.aliases.keys
+    ret.concat @shell.aliases.keys.map(&:to_s)
     ret.grep(prefix_regex).sort.
         map { |x| [x, ' '] }
   end
