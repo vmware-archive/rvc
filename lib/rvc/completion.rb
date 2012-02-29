@@ -94,14 +94,14 @@ class Completion
       else
         # Arguments
         begin
-          cmd, args = Shell.parse_input line
+          cmdpath, args = Shell.parse_input line
         rescue ArgumentError
           # Unmatched double quote
-          cmd, args = Shell.parse_input(line+'"')
+          cmdpath, args = Shell.parse_input(line+'"')
         end
 
         begin
-          cmd = @shell.lookup_cmd cmd
+          cmd = @shell.lookup_cmd cmdpath
           args << word if word == ''
           candidates.concat cmd.complete(word, args)
         rescue Shell::InvalidCommand
