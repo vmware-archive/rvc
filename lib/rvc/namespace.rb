@@ -26,12 +26,13 @@ require 'rvc/command'
 module RVC
 
 class Namespace
-  attr_reader :name, :shell, :slate, :commands
+  attr_reader :name, :shell, :slate, :namespaces, :commands
 
   def initialize name, shell
     @name = name
     @shell = shell
     @slate = CmdSlate.new self
+    @namespaces = {}
     @commands = {}
   end
 
@@ -39,27 +40,22 @@ class Namespace
     @slate.instance_eval code, filename
   end
 
+  def child_namespace name
+    if ns = namespaces[name]
+      return ns
+    else
+      namespaces[name] = Namespace.new(name, shell)
+    end
+  end
+
   def method_missing sym, *args
     if @commands.member? sym
       @slate.send sym, *args
+    elsif @namespaces.member? sym and args.empty?
+      @namespaces[sym]
     else
       super
     end
-  end
-end
-
-class RootNamespace
-  attr_reader :shell
-
-  def initialize shell
-    @shell = shell
-  end
-
-  def method_missing sym, *args
-    super unless args.empty?
-    m = @shell.namespaces[sym]
-    super unless m
-    m
   end
 end
 

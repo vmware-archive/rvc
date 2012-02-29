@@ -1,7 +1,7 @@
 require 'test/unit'
 require 'rvc'
 
-class ShellTest < Test::Unit::TestCase
+class HelpTest < Test::Unit::TestCase
   def setup
     session = RVC::MemorySession.new
     @shell = RVC::Shell.new(session)
@@ -24,31 +24,31 @@ class ShellTest < Test::Unit::TestCase
 
   def test_all
     redirect do
-      @shell.namespaces[:basic].help nil
+      @shell.cmds.basic.help nil
     end
   end
 
   def test_ns
     redirect do
-      @shell.namespaces[:basic].help 'basic'
+      @shell.cmds.basic.help 'basic'
     end
   end
 
   def test_cmd
     redirect do
-      @shell.namespaces[:basic].help 'basic.info'
+      @shell.cmds.basic.help 'basic.info'
     end
   end
 
   def test_alias
     redirect do
-      @shell.namespaces[:basic].help 'i'
+      @shell.cmds.basic.help 'i'
     end
   end
 
   def test_obj
     redirect do
-      @shell.namespaces[:basic].help '/'
+      @shell.cmds.basic.help '/'
     end
   end
 end

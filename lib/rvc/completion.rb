@@ -130,7 +130,7 @@ class Completion
   def cmd_candidates word
     ret = []
     prefix_regex = /^#{Regexp.escape(word)}/
-    @shell.namespaces.each do |ns_name,ns|
+    @shell.cmds.namespaces.each do |ns_name,ns|
       ns.commands.each { |cmd_name,cmd| ret << "#{ns_name}.#{cmd_name}" }
     end
     ret.concat @shell.aliases.keys.map(&:to_s)

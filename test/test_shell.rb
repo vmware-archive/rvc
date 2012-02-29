@@ -1,11 +1,22 @@
 require 'test/unit'
 require 'rvc'
 
+BASIC_MODULE = <<-EOS
+opts :info do
+  summary "Display information about an object"
+  arg :path, nil, :lookup => Object
+end
+
+rvc_alias :info
+rvc_alias :info, :i
+EOS
+
 class ShellTest < Test::Unit::TestCase
   def setup
     session = RVC::MemorySession.new
     @shell = RVC::Shell.new(session)
-    @shell.reload_modules false
+    @shell.cmds = RVC::Namespace.new 'root', @shell
+    @shell.cmds.child_namespace(:basic).load_code BASIC_MODULE, 'inline'
   end
 
   def teardown
@@ -19,25 +30,27 @@ class ShellTest < Test::Unit::TestCase
   end
 
   def test_lookup_cmd
-    cmd = @shell.lookup_cmd [:basic, :info]
-    assert_equal @shell.namespaces[:basic].commands[:info], cmd
+    ns = @shell.lookup_cmd []
+    assert_equal @shell.cmds, ns
 
-    cmd = @shell.lookup_cmd [:ls]
-    assert_equal @shell.namespaces[:basic].commands[:ls], cmd
+    cmd = @shell.lookup_cmd [:basic, :info]
+    assert_equal @shell.cmds.basic.commands[:info], cmd
+
+    cmd = @shell.lookup_cmd [:info]
+    assert_equal @shell.cmds.basic.commands[:info], cmd
+
+    cmd = @shell.lookup_cmd [:i]
+    assert_equal @shell.cmds.basic.commands[:info], cmd
 
     ns = @shell.lookup_cmd [:basic]
-    assert_equal @shell.namespaces[:basic], ns
+    assert_equal @shell.cmds.basic, ns
 
     assert_raise RVC::Shell::InvalidCommand do
-      @shell.lookup_cmd []
+      @shell.lookup_cmd [:nonexistent]
     end
 
     assert_raise RVC::Shell::InvalidCommand do
-      @shell.lookup_cmd [:nonexistent_alias]
-    end
-
-    assert_raise RVC::Shell::InvalidCommand do
-      @shell.lookup_cmd [:nonexistent_module, :foo]
+      @shell.lookup_cmd [:nonexistent, :foo]
     end
   end
 end

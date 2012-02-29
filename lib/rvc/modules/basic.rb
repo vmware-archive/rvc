@@ -64,7 +64,7 @@ def help path
     puts "All commands:"
   end
 
-  shell.namespaces.sort_by do |ns_name,ns|
+  shell.cmds.namespaces.sort_by do |ns_name,ns|
     HELP_ORDER.index(ns_name.to_s) || HELP_ORDER.size
   end.each do |ns_name,ns|
     ns.commands.each do |cmd_name,cmd|
@@ -230,7 +230,7 @@ def show arg0, arg1
   case arg0
   when 'running-config'
     if obj.class < VIM::DistributedVirtualSwitch
-      shell.namespaces[:vds].show_running_config obj
+      shell.cmds.vds.show_running_config obj
     else
       if arg1 != '.'
         err "'#{arg1}' is not a vDS!"
@@ -239,11 +239,11 @@ def show arg0, arg1
       end
     end
   when 'portgroups'
-    shell.namespaces[:vds].show_all_portgroups [obj]
+    shell.cmds.vds.show_all_portgroups [obj]
   when 'vds'
-    shell.namespaces[:vds].show_all_vds [obj]
+    shell.cmds.vds.show_all_vds [obj]
   when 'interface'
-    shell.namespaces[:vds].show_all_ports [obj]
+    shell.cmds.vds.show_all_ports [obj]
   #when 'vlan'
   else
     path = lookup_single arg0

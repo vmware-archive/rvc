@@ -25,8 +25,8 @@ module RVC
 
 class Shell
   attr_reader :fs, :completion, :session
-  attr_reader :connections, :namespaces, :aliases, :cmds
-  attr_accessor :debug
+  attr_reader :connections, :aliases
+  attr_accessor :debug, :cmds
 
   class InvalidCommand < StandardError; end
 
@@ -38,9 +38,8 @@ class Shell
     @completion = RVC::Completion.new self
     @connections = {}
     @debug = false
-    @namespaces = {}
     @aliases = {}
-    @cmds = RVC::RootNamespace.new self
+    @cmds = nil
   end
 
   def inspect
@@ -103,18 +102,20 @@ class Shell
     [cmd, args]
   end
 
-  def lookup_cmd cmd
-    if cmd.length == 2
-      ns_name, cmd_name = cmd
-      ns = namespaces[ns_name] or raise InvalidCommand
-      ns.commands[cmd_name] or raise InvalidCommand
-    elsif cmd.length == 1 and aliases.member? cmd[0]
-      lookup_cmd aliases[cmd[0]]
-    elsif cmd.length == 1
-      ns_name, = cmd
-      namespaces[ns_name] or raise InvalidCommand
+  def lookup_cmd cmdpath
+    if cmdpath.length == 1 and aliases.member? cmdpath[0]
+      lookup_cmd aliases[cmdpath[0]]
     else
-      raise InvalidCommand
+      cur = cmds
+      cmdpath.each do |e|
+        case cur
+        when Command
+          raise InvalidCommand
+        when Namespace
+          cur = cur.commands[e] || cur.namespaces[e] or raise InvalidCommand
+        end
+      end
+      cur
     end
   end
 
@@ -240,20 +241,16 @@ class Shell
   ENV_MODULE_PATH = (ENV['RVC_MODULE_PATH'] || '').split ':'
 
   def reload_modules verbose=true
-    namespaces.clear
+    @cmds = RVC::Namespace.new 'root', self
     aliases.clear
     module_path = (BULTIN_MODULE_PATH+ENV_MODULE_PATH).select { |d| File.directory?(d) }
     globs = module_path.map { |d| File.join(d, '*.rb') }
     Dir.glob(globs) do |f|
-      module_name = File.basename(f)[0...-3].to_sym
-      puts "loading #{module_name} from #{f}" if verbose
+      ns_name = File.basename(f)[0...-3].to_sym
+      puts "loading #{ns_name} from #{f}" if verbose
       begin
         code = File.read f
-        unless namespaces.member? module_name
-          m = Namespace.new module_name, self
-          namespaces[module_name] = m
-        end
-        namespaces[module_name].load_code code, f
+        cmds.child_namespace(ns_name).load_code code, f
       rescue
         puts "#{$!.class} while loading #{f}: #{$!.message}"
         $!.backtrace.each { |x| puts x }
@@ -300,8 +297,8 @@ class RubyEvaluator
 
   def method_missing sym, *a
     if a.empty?
-      if @shell.namespaces.member? sym
-        @shell.namespaces[sym]
+      if @shell.cmds.namespaces.member? sym
+        @shell.cmds.namespaces[sym]
       elsif sym.to_s =~ /_?([\w\d]+)(!?)/ && objs = @shell.session.get_mark($1)
         if $2 == '!'
           objs
