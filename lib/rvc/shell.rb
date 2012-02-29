@@ -251,15 +251,25 @@ class Shell
 
   def load_module_dir dir, parent_ns, verbose
     puts "loading module directory #{dir}" if verbose
-    Dir.glob(File.join(dir, '*.rb')) do |f|
-      ns_name = File.basename(f)[0...-3].to_sym
-      puts "loading #{ns_name} from #{f}" if verbose
-      begin
-        code = File.read f
-        parent_ns.child_namespace(ns_name).load_code code, f
-      rescue
-        puts "#{$!.class} while loading #{f}: #{$!.message}"
-        $!.backtrace.each { |x| puts x }
+    Dir.foreach(dir) do |f|
+      path = File.join(dir, f)
+      if f[0..0] == '.'
+        next
+      elsif File.directory? path
+        ns_name = f.to_sym
+        ns = parent_ns.child_namespace(ns_name)
+        load_module_dir path, ns, verbose
+      elsif f =~ /\.rb$/
+        ns_name = f[0...-3].to_sym
+        puts "loading #{ns_name} from #{f}" if verbose
+        begin
+          code = File.read path
+          ns = parent_ns.child_namespace(ns_name)
+          ns.load_code code, f
+        rescue
+          puts "#{$!.class} while loading #{f}: #{$!.message}"
+          $!.backtrace.each { |x| puts x }
+        end
       end
     end
   end

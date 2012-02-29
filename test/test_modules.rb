@@ -9,7 +9,6 @@ class ModulesTest < Test::Unit::TestCase
     @shell = RVC::Shell.new(session)
     @shell.cmds = RVC::Namespace.new 'root', @shell, nil
     @shell.load_module_dir MODULES_DIR, @shell.cmds, false
-    @shell.load_module_dir File.join(MODULES_DIR, 'foo'), @shell.cmds.foo, false
   end
 
   def teardown
