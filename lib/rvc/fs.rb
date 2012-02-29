@@ -101,8 +101,8 @@ class FS
 
   def lookup_single path
     objs = lookup path
-    err "Not found: #{path.inspect}" if objs.empty?
-    err "More than one match for #{path.inspect}" if objs.size > 1
+    Util.err "Not found: #{path.inspect}" if objs.empty?
+    Util.err "More than one match for #{path.inspect}" if objs.size > 1
     objs.first
   end
 
@@ -117,8 +117,8 @@ class FS
 
   def lookup_single! path, type
     objs = lookup!(path, type)
-    err "Not found: #{path.inspect}" if objs.empty?
-    err "More than one match for #{path.inspect}" if objs.size > 1
+    Util.err "Not found: #{path.inspect}" if objs.empty?
+    Util.err "More than one match for #{path.inspect}" if objs.size > 1
     objs.first
   end
 
