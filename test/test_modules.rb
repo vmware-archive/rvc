@@ -9,6 +9,7 @@ class ModulesTest < Test::Unit::TestCase
     @shell = RVC::Shell.new(session)
     @shell.cmds = RVC::Namespace.new 'root', @shell, nil
     @shell.load_module_dir MODULES_DIR, @shell.cmds, false
+    @shell.load_module_dir File.join(MODULES_DIR, 'foo'), @shell.cmds.foo, false
   end
 
   def teardown
@@ -21,5 +22,13 @@ class ModulesTest < Test::Unit::TestCase
 
     cmd = @shell.lookup_cmd [:foo]
     assert_equal @shell.cmds.foo.commands[:foo], cmd
+
+    assert_equal 13, foo.bar.bar
+
+    ns = @shell.lookup_cmd [:foo, :bar]
+    assert_equal @shell.cmds.foo.bar, ns
+
+    cmd = @shell.lookup_cmd [:foo, :bar, :bar]
+    assert_equal @shell.cmds.foo.bar.commands[:bar], cmd
   end
 end
