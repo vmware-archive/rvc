@@ -19,7 +19,7 @@
 # THE SOFTWARE.
 
 require 'rvc/vim'
-require "terminal-table/import"
+require "terminal-table"
 
 opts :create do
   summary "Create a cluster"
@@ -106,7 +106,7 @@ def recommendations cluster
   name_map = pc.collectMultiple(targets, 'name')
 
   # Compose the output (tries to avoid making any API calls)
-  out = table(['Key', 'Reason', 'Target', 'Actions']) do
+  out = Terminal::Table.new(['Key', 'Reason', 'Target', 'Actions']) do
     recommendation.each do |r|
       target_name = r.target ? name_map[r.target]['name'] : ""
       actions = r.action.map do |a|

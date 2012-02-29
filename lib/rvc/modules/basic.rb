@@ -20,6 +20,8 @@
 
 require 'rvc/vim'
 
+require 'terminal-table'
+
 opts :type do
   summary "Display information about a VMODL type"
   arg :name, "VMODL type name"
