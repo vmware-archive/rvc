@@ -244,13 +244,19 @@ class Shell
     @cmds = RVC::Namespace.new 'root', self, nil
     aliases.clear
     module_path = (BULTIN_MODULE_PATH+ENV_MODULE_PATH).select { |d| File.directory?(d) }
-    globs = module_path.map { |d| File.join(d, '*.rb') }
-    Dir.glob(globs) do |f|
+    module_path.each do |dir|
+      load_module_dir dir, cmds, verbose
+    end
+  end
+
+  def load_module_dir dir, parent_ns, verbose
+    puts "loading module directory #{dir}" if verbose
+    Dir.glob(File.join(dir, '*.rb')) do |f|
       ns_name = File.basename(f)[0...-3].to_sym
       puts "loading #{ns_name} from #{f}" if verbose
       begin
         code = File.read f
-        cmds.child_namespace(ns_name).load_code code, f
+        parent_ns.child_namespace(ns_name).load_code code, f
       rescue
         puts "#{$!.class} while loading #{f}: #{$!.message}"
         $!.backtrace.each { |x| puts x }
