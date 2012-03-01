@@ -112,4 +112,18 @@ class ShellTest < Test::Unit::TestCase
     end
     assert_equal 3, $ruby_mode_result
   end
+
+  def test_eval_command
+    assert_raise RVC::Util::UserError do
+      @shell.eval_command ''
+    end
+
+    assert_raise RVC::Util::UserError do
+      @shell.eval_command '.'
+    end
+
+    assert_raise RVC::Util::UserError do
+      @shell.eval_command '?'
+    end
+  end
 end

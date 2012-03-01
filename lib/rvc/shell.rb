@@ -123,11 +123,15 @@ class Shell
   def eval_command input
     cmdpath, args = Shell.parse_input input
 
+    RVC::Util.err "invalid input" unless cmdpath
+
     begin
       cmd = lookup_cmd cmdpath
     rescue InvalidCommand
       RVC::Util.err "invalid command"
     end
+
+    RVC::Util.err "invalid command" if cmd.is_a? Namespace
 
     begin
       args, opts = cmd.parser.parse args
