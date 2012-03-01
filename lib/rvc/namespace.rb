@@ -18,10 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-require 'rvc/util'
-require 'rvc/field'
-require 'rvc/inventory'
-require 'rvc/command'
+require 'rvc/command_slate'
 
 module RVC
 
@@ -32,7 +29,7 @@ class Namespace
     @name = name
     @shell = shell
     @parent = parent
-    @slate = CmdSlate.new self
+    @slate = CommandSlate.new self
     @namespaces = {}
     @commands = {}
   end
@@ -57,90 +54,6 @@ class Namespace
     else
       super
     end
-  end
-end
-
-# Execution environment for commands
-class CmdSlate
-  include RVC::Util
-
-  def initialize ns
-    @ns = ns
-  end
-
-  # Command definition functions
-
-  def opts name, &b
-    fail "command name must be a symbol" unless name.is_a? Symbol
-
-    if name.to_s =~ /[A-Z]/
-      fail "Camel-casing is not allowed (#{name})"
-    end
-
-    parser = OptionParser.new name.to_s, @ns.shell.fs, &b
-
-    parser.specs.each do |opt_name,spec|
-      if opt_name.to_s =~ /[A-Z]/
-        fail "Camel-casing is not allowed (#{name} option #{opt_name})"
-      end
-    end
-
-    @ns.commands[name] = Command.new @ns, name, parser
-  end
-
-  def raw_opts name, summary
-    fail "command name must be a symbol" unless name.is_a? Symbol
-
-    if name.to_s =~ /[A-Z]/
-      fail "Camel-casing is not allowed (#{name})"
-    end
-
-    parser = RawOptionParser.new name.to_s, summary
-
-    @ns.commands[name] = Command.new @ns, name, parser
-  end
-
-  def rvc_completor name, &b
-    fail "command name must be a symbol" unless name.is_a? Symbol
-    cmd = @ns.commands[name] or fail "command #{name} not defined"
-    cmd.completor = b
-  end
-
-  def rvc_alias name, target=nil
-    fail "command name must be a symbol" unless name.is_a? Symbol
-    target ||= name
-
-    cmdpath = [name]
-    cur = @ns
-    while cur.parent
-      cmdpath << cur.name
-      cur = cur.parent
-    end
-    cmdpath.reverse!
-
-    shell.aliases[target] = cmdpath
-  end
-
-  # Utility functions
-  
-  def shell
-    @ns.shell
-  end
-
-  def lookup path
-    shell.fs.lookup path
-  end
-
-  def lookup_single path
-    shell.fs.lookup_single path
-  end
-
-  def lookup! path, types
-    shell.fs.lookup! path, types
-  end
-
-  def lookup_single! path, types
-    shell.fs.lookup_single! path, types
   end
 end
 
