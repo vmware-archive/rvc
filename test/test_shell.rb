@@ -47,9 +47,13 @@ class ShellTest < Test::Unit::TestCase
   end
 
   def test_parse_input
-    cmdpath, args = RVC::Shell.parse_input "module.cmd --longarg -s vm1 vm2"
+    cmdpath, args = RVC::Shell.parse_input 'module.cmd --longarg -s vm1 vm2 "spacy vm"'
     assert_equal [:module, :cmd], cmdpath
-    assert_equal ['--longarg', '-s', 'vm1', 'vm2'], args
+    assert_equal ['--longarg', '-s', 'vm1', 'vm2', 'spacy vm'], args
+
+    cmdpath, args = RVC::Shell.parse_input 'module.cmd --longarg -s vm1 vm2 "spacy vm'
+    assert_equal [:module, :cmd], cmdpath
+    assert_equal ['--longarg', '-s', 'vm1', 'vm2', 'spacy vm'], args
   end
 
   def test_lookup_cmd
