@@ -1,5 +1,4 @@
-require 'test/unit'
-require 'rvc'
+require 'test_helper'
 
 MODULES_DIR = File.join(File.dirname(__FILE__), 'modules')
 

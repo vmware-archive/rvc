@@ -1,5 +1,4 @@
-require 'test/unit'
-require 'rvc'
+require 'test_helper'
 
 class HelpTest < Test::Unit::TestCase
   def setup

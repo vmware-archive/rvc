@@ -1,5 +1,4 @@
-require 'test/unit'
-require 'rvc'
+require 'test_helper'
 require 'inventory_fixtures'
 
 class FSTest < Test::Unit::TestCase

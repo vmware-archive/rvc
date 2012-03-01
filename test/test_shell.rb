@@ -1,5 +1,4 @@
-require 'test/unit'
-require 'rvc'
+require 'test_helper'
 
 FOO_MODULE = <<-EOS
 opts :foo do
