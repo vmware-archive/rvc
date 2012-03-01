@@ -94,13 +94,13 @@ class Shell
 
   def self.parse_input input
     begin
-      cmd, *args = Shellwords.shellwords(input)
+      cmdpath, *args = Shellwords.shellwords(input)
     rescue ArgumentError # unmatched double quote
-      cmd, *args = Shellwords.shellwords(input + '"')
+      cmdpath, *args = Shellwords.shellwords(input + '"')
     end
-    return nil unless cmd
-    cmd = cmd.split('.').map(&:to_sym)
-    [cmd, args]
+    return nil unless cmdpath
+    cmdpath = cmdpath.split('.').map(&:to_sym)
+    [cmdpath, args]
   end
 
   def lookup_cmd cmdpath
