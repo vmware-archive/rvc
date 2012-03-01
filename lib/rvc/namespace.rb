@@ -25,6 +25,10 @@ module RVC
 class Namespace
   attr_reader :name, :shell, :parent, :slate, :namespaces, :commands
 
+  def inspect
+    "#<RVC::Namespace:#{name}>"
+  end
+
   def initialize name, shell, parent
     @name = name
     @shell = shell

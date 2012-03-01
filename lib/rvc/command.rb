@@ -34,6 +34,10 @@ class Command
     @completor = nil
   end
 
+  def inspect
+    "#<RVC::Command:#{name}>"
+  end
+
   def invoke *args
     @ns.slate.send @name, *args
   end
