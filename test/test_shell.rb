@@ -6,6 +6,9 @@ opts :foo do
   summary "Foo it"
 end
 
+def foo
+end
+
 rvc_alias :foo
 rvc_alias :foo, :f
 EOS
@@ -15,8 +18,21 @@ opts :bar do
   summary "Bar it"
 end
 
+def bar
+end
+
 rvc_alias :bar
 EOS
+
+def redirect
+  orig = $stdout
+  begin
+    $stdout = File.new('/dev/null', 'w')
+    yield
+  ensure
+    $stdout = orig
+  end
+end
 
 class ShellTest < Test::Unit::TestCase
   def setup
@@ -66,5 +82,34 @@ class ShellTest < Test::Unit::TestCase
     assert_raise RVC::Shell::InvalidCommand do
       @shell.lookup_cmd [:nonexistent, :foo]
     end
+  end
+
+  def test_ruby_mode
+    $ruby_mod_result = 0
+
+    redirect do
+      @shell.eval_input '/$ruby_mode_result = 1'
+    end
+    assert_equal 1, $ruby_mode_result
+
+    redirect do
+      @shell.eval_input '//'
+      @shell.eval_input '$ruby_mode_result = 2'
+    end
+    assert_equal 2, $ruby_mode_result
+
+    redirect do
+      @shell.cmds.foo.foo
+    end
+
+    redirect do
+      @shell.eval_input '/nonexistent_command'
+    end
+
+    redirect do
+      @shell.eval_input '//'
+      @shell.eval_input '/$ruby_mode_result = 3'
+    end
+    assert_equal 3, $ruby_mode_result
   end
 end

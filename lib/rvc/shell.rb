@@ -19,6 +19,7 @@
 # THE SOFTWARE.
 
 require 'rvc/namespace'
+require 'rvc/ruby_evaluator'
 require 'shellwords'
 
 module RVC
@@ -271,61 +272,6 @@ class Shell
           $!.backtrace.each { |x| puts x }
         end
       end
-    end
-  end
-end
-
-class RubyEvaluator
-  include RVC::Util
-
-  def initialize shell
-    @binding = toplevel
-    @shell = shell
-  end
-
-  def toplevel
-    binding
-  end
-
-  def do_eval input, file
-    begin
-      eval input, @binding, file
-    rescue Exception => e
-      bt = e.backtrace
-      bt = bt.reverse.drop_while { |x| !(x =~ /toplevel/) }.reverse
-      bt[-1].gsub! ':in `toplevel\'', '' if bt[-1]
-      e.set_backtrace bt
-      raise
-    end
-  end
-
-  def this
-    @shell.fs.cur
-  end
-
-  def dc
-    @shell.fs.lookup("~").first
-  end
-
-  def conn
-    @shell.fs.lookup("~@").first
-  end
-
-  def method_missing sym, *a
-    if a.empty?
-      if @shell.cmds.namespaces.member? sym
-        @shell.cmds.namespaces[sym]
-      elsif sym.to_s =~ /_?([\w\d]+)(!?)/ && objs = @shell.session.get_mark($1)
-        if $2 == '!'
-          objs
-        else
-          objs.first
-        end
-      else
-        super
-      end
-    else
-      super
     end
   end
 end
