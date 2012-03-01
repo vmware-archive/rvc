@@ -38,56 +38,68 @@ end
 
 opts :help do
   summary "Display this text"
-  arg :path, "Limit commands to those applicable to the given object", :required => false
+  arg :cmd, "Command or namespace to display help for", :required => false
 end
 
 rvc_alias :help
 
 HELP_ORDER = %w(basic vm)
 
-def help path
-  if path and o = (shell.lookup_cmd(path.split('.').map(&:to_sym)) rescue nil)
-    case o
-    when Command
-      o.parser.educate
-    when Namespace
-      o.commands.each do |cmd_name,cmd|
-        help_summary cmd.parser, path, cmd_name
-      end
+def help input
+  if input
+    cmdpath, args = Shell.parse_input input
+    
+    begin
+      o = shell.lookup_cmd cmdpath
+    rescue Shell::InvalidCommand
+      RVC::Util.err "invalid command or namespace"
     end
-    return
-  end
-
-  obj = lookup_single(path) if path
-
-  if obj
-    puts "Relevant commands for #{obj.class}:"
   else
-    puts "All commands:"
+    o = shell.cmds
   end
 
-  shell.cmds.namespaces.sort_by do |ns_name,ns|
-    HELP_ORDER.index(ns_name.to_s) || HELP_ORDER.size
-  end.each do |ns_name,ns|
-    ns.commands.each do |cmd_name,cmd|
-      next unless obj.nil? or cmd.parser.applicable.any? { |x| obj.is_a? x }
-      help_summary cmd.parser, ns_name, cmd_name
+  case o
+  when Command
+    o.parser.educate
+  when Namespace
+    help_namespace o
+  end
+
+  # TODO apropos
+  puts (<<-EOS)
+
+To see commands in a namespace: help namespace_name
+To see detailed help for a command: help namespace_name.command_name
+  EOS
+end
+
+# TODO namespace summaries
+def help_namespace ns
+  unless ns.namespaces.empty?
+    puts "Namespaces:"
+    ns.namespaces.sort_by do |child_name,child|
+      HELP_ORDER.index(child_name.to_s) || HELP_ORDER.size
+    end.each do |child_name,child|
+      puts child_name
     end
   end
 
-  if not obj
-    puts (<<-EOS)
+  puts unless ns.namespaces.empty? or ns.commands.empty?
 
-To see detailed help for a command, use its --help option.
-To show only commands relevant to a specific object, use "help /path/to/object".
-    EOS
+  unless ns.commands.empty?
+    puts "Commands:"
+    ns.commands.sort_by do |cmd_name,cmd|
+      HELP_ORDER.index(cmd_name.to_s) || HELP_ORDER.size
+    end.each do |cmd_name,cmd|
+      help_summary cmd
+    end
   end
 end
 
-def help_summary parser, mod_name, method_name
-  aliases = shell.aliases.select { |k,v| v == "#{mod_name}.#{method_name}" }.map(&:first)
+def help_summary cmd
+  aliases = shell.aliases.select { |k,v| shell.lookup_cmd(v) == cmd }.map(&:first)
   aliases_text = aliases.empty? ? '' : " (#{aliases*', '})"
-  puts "#{mod_name}.#{method_name}#{aliases_text}: #{parser.summary?}" if parser.summary?
+  puts "#{cmd.name}#{aliases_text}: #{cmd.summary}"
 end
 
 
