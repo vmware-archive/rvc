@@ -42,6 +42,7 @@ class CommandSlate
     end
 
     parser = OptionParser.new name.to_s, @ns.shell.fs, &b
+    summary = parser.summary?
 
     parser.specs.each do |opt_name,spec|
       if opt_name.to_s =~ /[A-Z]/
@@ -49,7 +50,7 @@ class CommandSlate
       end
     end
 
-    @ns.commands[name] = Command.new @ns, name, parser
+    @ns.commands[name] = Command.new @ns, name, summary, parser
   end
 
   def raw_opts name, summary
@@ -59,9 +60,9 @@ class CommandSlate
       fail "Camel-casing is not allowed (#{name})"
     end
 
-    parser = RawOptionParser.new name.to_s, summary
+    parser = RawOptionParser.new name.to_s
 
-    @ns.commands[name] = Command.new @ns, name, parser
+    @ns.commands[name] = Command.new @ns, name, summary, parser
   end
 
   def rvc_completor name, &b

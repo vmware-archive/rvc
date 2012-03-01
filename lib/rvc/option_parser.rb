@@ -165,14 +165,9 @@ end
 class RawOptionParser
   attr_reader :applicable
 
-  def initialize cmd, summary
+  def initialize cmd
     @cmd = cmd
-    @summary = summary
     @applicable = []
-  end
-
-  def summary?
-    @summary
   end
 
   def parse args

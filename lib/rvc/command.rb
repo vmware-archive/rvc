@@ -23,14 +23,14 @@ require 'rvc/option_parser'
 module RVC
 
 class Command
-  attr_reader :ns, :name, :parser
-  attr_accessor :summary, :completor
+  attr_reader :ns, :name, :summary, :parser
+  attr_accessor :completor
 
-  def initialize ns, name, parser
+  def initialize ns, name, summary, parser
     @ns = ns
     @name = name
+    @summary = summary
     @parser = parser
-    @summary = nil
     @completor = nil
   end
 
