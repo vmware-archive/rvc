@@ -50,11 +50,15 @@ class Namespace
     end
   end
 
+  def [] sym
+    @namespaces[sym]
+  end
+
   def method_missing sym, *args
-    if @commands.member? sym
-      @slate.send sym, *args
-    elsif @namespaces.member? sym and args.empty?
-      @namespaces[sym]
+    if cmd = @commands[sym]
+      cmd.invoke *args
+    elsif args.empty? and x = self[sym]
+      x
     else
       super
     end

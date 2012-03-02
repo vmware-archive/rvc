@@ -18,6 +18,9 @@ class ModulesTest < Test::Unit::TestCase
     foo = @shell.cmds.foo
     assert_equal 42, foo.foo
 
+    cmd = @shell.cmds[:foo]
+    assert_equal @shell.cmds.foo, cmd
+
     cmd = @shell.lookup_cmd [:foo]
     assert_equal @shell.cmds.foo.commands[:foo], cmd
 
@@ -28,5 +31,6 @@ class ModulesTest < Test::Unit::TestCase
 
     cmd = @shell.lookup_cmd [:foo, :bar, :bar]
     assert_equal @shell.cmds.foo.bar.commands[:bar], cmd
+    assert_equal cmd, @shell.cmds[:foo].bar.commands[:bar]
   end
 end
