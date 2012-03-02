@@ -44,10 +44,4 @@ class HelpTest < Test::Unit::TestCase
       @shell.cmds.basic.help 'i'
     end
   end
-
-  def test_obj
-    redirect do
-      @shell.cmds.basic.help '/'
-    end
-  end
 end
