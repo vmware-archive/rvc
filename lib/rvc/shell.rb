@@ -29,8 +29,6 @@ class Shell
   attr_reader :connections, :aliases
   attr_accessor :debug, :cmds
 
-  class InvalidCommand < StandardError; end
-
   def initialize session
     @session = session
     @persist_ruby = false

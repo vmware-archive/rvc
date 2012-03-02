@@ -100,11 +100,10 @@ class Completion
           cmdpath, args = Shell.parse_input(line+'"')
         end
 
-        begin
-          cmd = @shell.lookup_cmd cmdpath
+        if cmd = @shell.lookup_cmd(cmdpath)
           args << word if word == ''
           candidates.concat cmd.complete(word, args)
-        rescue Shell::InvalidCommand
+        else
           candidates.concat fs_candidates(word)
         end
       end
@@ -132,30 +131,29 @@ class Completion
     cmdpath << '' if cmdpath.empty? or word[-1..-1] == '.'
     prefix_regex = /^#{Regexp.escape(cmdpath[-1])}/
 
-    begin
-      ret = []
-      ns = @shell.lookup_cmd(cmdpath[0...-1].map(&:to_sym), RVC::Namespace)
-      cmdpath_prefix = cmdpath[0...-1].join('.')
-      cmdpath_prefix << '.' unless cmdpath_prefix.empty?
+    ns = @shell.lookup_cmd(cmdpath[0...-1].map(&:to_sym), RVC::Namespace)
+    return [] unless ns
 
-      ns.commands.each do |cmd_name,cmd|
-        ret << ["#{cmdpath_prefix}#{cmd_name}", ' '] if cmd_name.to_s =~ prefix_regex
-      end
+    cmdpath_prefix = cmdpath[0...-1].join('.')
+    cmdpath_prefix << '.' unless cmdpath_prefix.empty?
 
-      ns.namespaces.each do |ns_name,ns|
-        ret << ["#{cmdpath_prefix}#{ns_name}.", ''] if ns_name.to_s =~ prefix_regex
-      end
+    ret = []
 
-      # Aliases
-      if ns == @shell.cmds then
-        ret.concat @shell.aliases.keys.map(&:to_s).grep(prefix_regex).map { |x| [x, ' '] }
-      end
-
-      ret.sort_by! { |a,b| a }
-      ret
-    rescue Shell::InvalidCommand
-      []
+    ns.commands.each do |cmd_name,cmd|
+      ret << ["#{cmdpath_prefix}#{cmd_name}", ' '] if cmd_name.to_s =~ prefix_regex
     end
+
+    ns.namespaces.each do |ns_name,ns|
+      ret << ["#{cmdpath_prefix}#{ns_name}.", ''] if ns_name.to_s =~ prefix_regex
+    end
+
+    # Aliases
+    if ns == @shell.cmds then
+      ret.concat @shell.aliases.keys.map(&:to_s).grep(prefix_regex).map { |x| [x, ' '] }
+    end
+
+    ret.sort_by! { |a,b| a }
+    ret
   end
 
   # TODO convert to globbing

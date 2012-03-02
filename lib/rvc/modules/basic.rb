@@ -48,12 +48,8 @@ HELP_ORDER = %w(basic vm)
 def help input
   if input
     cmdpath, args = Shell.parse_input input
-    
-    begin
-      o = shell.lookup_cmd cmdpath
-    rescue Shell::InvalidCommand
-      RVC::Util.err "invalid command or namespace"
-    end
+    o = shell.lookup_cmd(cmdpath, Namespace) || shell.lookup_cmd(cmdpath)
+    RVC::Util.err "invalid command or namespace" unless o
   else
     o = shell.cmds
   end
