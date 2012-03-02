@@ -96,7 +96,8 @@ ARGV.each do |str|
 
   begin
     puts "Connecting to #{uri.host}..." if (ARGV+shell.session.connections).size > 1
-    scheme_handler = RVC::SCHEMES[uri.scheme] or RVC::Util.err "invalid scheme #{uri.scheme.inspect}"
+    scheme = uri.scheme || 'vim'
+    scheme_handler = RVC::SCHEMES[scheme] or RVC::Util.err "invalid scheme #{scheme.inspect}"
     scheme_handler[uri]
   rescue RVC::Util::UserError
     puts "Failed to connect to #{uri.host}: #{$!.message}"

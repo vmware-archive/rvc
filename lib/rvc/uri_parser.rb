@@ -47,7 +47,7 @@ class URIParser
     Util.err "invalid URI" unless match
 
     URI::Generic.build({}).tap do |uri|
-      uri.scheme = match[1] || 'vim'
+      uri.scheme = match[1] if match[1]
       uri.user = match[2] if match[2]
       uri.password = match[3] if match[3]
       uri.host = match[4] if match[4]
