@@ -128,14 +128,42 @@ class Completion
   end
 
   def cmd_candidates word
-    ret = []
-    prefix_regex = /^#{Regexp.escape(word)}/
-    @shell.cmds.namespaces.each do |ns_name,ns|
-      ns.commands.each { |cmd_name,cmd| ret << "#{ns_name}.#{cmd_name}" }
+    cmdpath = word.split '.'
+    cmdpath << '' if cmdpath.empty? or word[-1..-1] == '.'
+    prefix_regex = /^#{Regexp.escape(cmdpath[-1])}/
+
+    begin
+      ret = []
+      ns = @shell.lookup_cmd(cmdpath[0...-1].map(&:to_sym))
+      cmdpath_prefix = cmdpath[0...-1].join('.')
+      cmdpath_prefix << '.' unless cmdpath_prefix.empty?
+
+      # HACK
+      # Shell#lookup_cmd needs to be able to choose commands, namespaces, or
+      # both.
+      if ns.is_a? Command
+        ns = @shell.cmds.namespaces[cmdpath[-2].to_sym]
+        fail "no #{cmdpath[-2].inspect} in root" unless ns
+      end
+
+      ns.commands.each do |cmd_name,cmd|
+        ret << ["#{cmdpath_prefix}#{cmd_name}", ' '] if cmd_name.to_s =~ prefix_regex
+      end
+
+      ns.namespaces.each do |ns_name,ns|
+        ret << ["#{cmdpath_prefix}#{ns_name}.", ''] if ns_name.to_s =~ prefix_regex
+      end
+
+      # Aliases
+      if ns == @shell.cmds then
+        ret.concat @shell.aliases.keys.map(&:to_s).grep(prefix_regex).map { |x| [x, ' '] }
+      end
+
+      ret.sort_by! { |a,b| a }
+      ret
+    rescue Shell::InvalidCommand
+      []
     end
-    ret.concat @shell.aliases.keys.map(&:to_s)
-    ret.grep(prefix_regex).sort.
-        map { |x| [x, ' '] }
   end
 
   # TODO convert to globbing
