@@ -23,7 +23,7 @@ class ModulesTest < Test::Unit::TestCase
 
     assert_equal 13, foo.bar.bar
 
-    ns = @shell.lookup_cmd [:foo, :bar]
+    ns = @shell.lookup_cmd [:foo, :bar], RVC::Namespace
     assert_equal @shell.cmds.foo.bar, ns
 
     cmd = @shell.lookup_cmd [:foo, :bar, :bar]

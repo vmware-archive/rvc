@@ -103,17 +103,21 @@ class Shell
     [cmdpath, args]
   end
 
-  def lookup_cmd cmdpath
-    if cmdpath.length == 1 and aliases.member? cmdpath[0]
-      lookup_cmd aliases[cmdpath[0]]
+  def lookup_cmd cmdpath, accept=Command
+    if accept == Command and
+       cmdpath.length == 1 and
+       aliases.member? cmdpath[0]
+      lookup_cmd aliases[cmdpath[0]], accept
+    elsif accept == Command and cmdpath.empty?
+      return nil
     else
       cur = cmds
-      cmdpath.each do |e|
-        case cur
-        when Command
-          raise InvalidCommand
-        when Namespace
-          cur = cur.commands[e] || cur.namespaces[e] or raise InvalidCommand
+      cmdpath.each_with_index do |e,i|
+        is_last = i == cmdpath.length-1
+        if is_last and accept == Command
+          cur = cur.commands[e] or return nil
+        else
+          cur = cur.namespaces[e] or return nil
         end
       end
       cur
@@ -125,13 +129,8 @@ class Shell
 
     RVC::Util.err "invalid input" unless cmdpath
 
-    begin
-      cmd = lookup_cmd cmdpath
-    rescue InvalidCommand
-      RVC::Util.err "invalid command"
-    end
-
-    RVC::Util.err "invalid command" if cmd.is_a? Namespace
+    cmd = lookup_cmd cmdpath
+    RVC::Util.err "invalid command" unless cmd
 
     begin
       args, opts = cmd.parser.parse args

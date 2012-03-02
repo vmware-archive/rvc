@@ -57,19 +57,28 @@ class ShellTest < Test::Unit::TestCase
   end
 
   def test_lookup_cmd
-    ns = @shell.lookup_cmd []
+    ns = @shell.lookup_cmd [], RVC::Namespace
     assert_equal @shell.cmds, ns
+
+    ret = @shell.lookup_cmd [], RVC::Command
+    assert_equal nil, ret
 
     cmd = @shell.lookup_cmd [:foo, :foo]
     assert_equal @shell.cmds.foo.commands[:foo], cmd
 
+    ret = @shell.lookup_cmd [:foo, :foo], RVC::Namespace
+    assert_equal nil, ret
+
     cmd = @shell.lookup_cmd [:foo]
     assert_equal @shell.cmds.foo.commands[:foo], cmd
+
+    ns = @shell.lookup_cmd [:foo], RVC::Namespace
+    assert_equal @shell.cmds.foo, ns
 
     cmd = @shell.lookup_cmd [:f]
     assert_equal @shell.cmds.foo.commands[:foo], cmd
 
-    ns = @shell.lookup_cmd [:foo, :bar]
+    ns = @shell.lookup_cmd [:foo, :bar], RVC::Namespace
     assert_equal @shell.cmds.foo.bar, ns
 
     cmd = @shell.lookup_cmd [:foo, :bar, :bar]
@@ -78,13 +87,11 @@ class ShellTest < Test::Unit::TestCase
     cmd = @shell.lookup_cmd [:bar]
     assert_equal @shell.cmds.foo.bar.commands[:bar], cmd
 
-    assert_raise RVC::Shell::InvalidCommand do
-      @shell.lookup_cmd [:nonexistent]
-    end
+    ret = @shell.lookup_cmd [:nonexistent], RVC::Namespace
+    assert_equal nil, ret
 
-    assert_raise RVC::Shell::InvalidCommand do
-      @shell.lookup_cmd [:nonexistent, :foo]
-    end
+    ret = @shell.lookup_cmd [:nonexistent, :foo]
+    assert_equal nil, ret
   end
 
   def test_ruby_mode

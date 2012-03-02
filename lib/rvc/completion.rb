@@ -134,17 +134,9 @@ class Completion
 
     begin
       ret = []
-      ns = @shell.lookup_cmd(cmdpath[0...-1].map(&:to_sym))
+      ns = @shell.lookup_cmd(cmdpath[0...-1].map(&:to_sym), RVC::Namespace)
       cmdpath_prefix = cmdpath[0...-1].join('.')
       cmdpath_prefix << '.' unless cmdpath_prefix.empty?
-
-      # HACK
-      # Shell#lookup_cmd needs to be able to choose commands, namespaces, or
-      # both.
-      if ns.is_a? Command
-        ns = @shell.cmds.namespaces[cmdpath[-2].to_sym]
-        fail "no #{cmdpath[-2].inspect} in root" unless ns
-      end
 
       ns.commands.each do |cmd_name,cmd|
         ret << ["#{cmdpath_prefix}#{cmd_name}", ' '] if cmd_name.to_s =~ prefix_regex
