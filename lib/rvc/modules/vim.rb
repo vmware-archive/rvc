@@ -21,20 +21,7 @@
 require 'rvc/known_hosts'
 require 'rvc/vim'
 
-URI_REGEX = %r{
-  ^
-  (?:
-    ([^@:]+)
-    (?::
-     ([^@]*)
-    )?
-    @
-  )?
-  ([^@:]+)
-  (?::(\d{1,5}))?
-  (?::([0-9a-z]{64}))?
-  $
-}x
+RVC::SCHEMES['vim'] = lambda { |uri| connect uri, {} }
 
 opts :connect do
   summary 'Open a connection to ESX/VC'
@@ -45,14 +32,13 @@ end
 rvc_alias :connect
 
 def connect uri, opts
-  match = URI_REGEX.match uri
-  Trollop.die "invalid hostname" unless match
+  uri = RVC::URIParser.parse uri unless uri.is_a? URI
 
-  username = match[1] || ENV['RBVMOMI_USER']
-  password = match[2] || ENV['RBVMOMI_PASSWORD']
-  host = match[3]
-  port = match[4] || 443
-  certdigest = match[5] || opts[:certdigest]
+  username = uri.user || ENV['RBVMOMI_USER']
+  password = uri.password || ENV['RBVMOMI_PASSWORD']
+  host = uri.host
+  port = uri.port || 443
+  certdigest = opts[:certdigest] # TODO put in URI
   bad_cert = false
 
   vim = nil

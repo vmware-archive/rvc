@@ -20,6 +20,7 @@
 # THE SOFTWARE.
 require 'rvc'
 require 'rvc/version'
+require 'rvc/uri_parser'
 require 'readline'
 require "highline/import"
 require 'pp'
@@ -71,6 +72,7 @@ if shell.session.connections.empty? and ARGV.empty? and $interactive
   ARGV << Readline.readline("Host to connect to (user@host): ")
 end
 
+# TODO update or remove
 shell.session.connections.each do |key|
   conn = shell.session.get_connection(key) or fail "no such connection #{key.inspect}"
   uri = "#{conn['username']}@#{conn['host']}"
@@ -83,30 +85,21 @@ shell.session.connections.each do |key|
   end
 end
 
-cookies = {}
-certdigests = {}
-if $opts[:cookie]
-  File.readlines($opts[:cookie]).each do |info|
-    host, cookie, certdigest = info.chomp.split('|')
-    cookies[host] = cookie
-    certdigests[host] = certdigest
-  end
-end
-
-ARGV.each do |uri|
-  # get hostname from uri to display in "connecting to..." message
-  hostinfo = uri.split("@")
-  host = if hostinfo.length > 1
-           hostinfo[1].split(":")[0]
-         else
-           hostinfo[0].split(":")[0]
-         end
+# TODO cookies, cert digests
+ARGV.each do |str|
   begin
-    puts "Connecting to #{host}..." if (ARGV+shell.session.connections).size > 1
-    shell.cmds.vim.connect uri, {:cookie => cookies[host],
-                                  :certdigest => certdigests[host]}
+    uri = RVC::URIParser.parse str
+  rescue
+    puts "Failed to parse URI #{str.inspect}: #{$!.message}"
+    exit 1
+  end
+
+  begin
+    puts "Connecting to #{uri.host}..." if (ARGV+shell.session.connections).size > 1
+    scheme_handler = RVC::SCHEMES[uri.scheme] or RVC::Util.err "invalid scheme #{uri.scheme.inspect}"
+    scheme_handler[uri]
   rescue RVC::Util::UserError
-    puts "Failed to connect to #{host}: #{$!.message}"
+    puts "Failed to connect to #{uri.host}: #{$!.message}"
     exit 1
   end
 end
@@ -131,7 +124,8 @@ if $opts[:path]
     shell.fs.lookup_single(parent_path).CreateFolder(:name => File.basename($opts[:path]))
     shell.cmds.basic.cd shell.fs.lookup_single($opts[:path])
   end
-elsif shell.connections.size == 1 and $interactive
+elsif shell.connections.size == 1 and $interactive and
+      shell.connections.first[1].is_a? RbVmomi::VIM # HACK
   conn_name, conn = shell.connections.first
   if conn.serviceContent.about.apiType == 'VirtualCenter'
     shell.cmds.basic.cd shell.fs.lookup_single(conn_name)

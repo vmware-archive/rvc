@@ -3,8 +3,8 @@ require 'rvc/uri_parser'
 
 class UriTest < Test::Unit::TestCase
   def test_only_host
-    uri = RVC::URIParser.parse "host"
-    assert_equal "vim://host", uri.to_s
+    uri = RVC::URIParser.parse "host.example.com"
+    assert_equal "vim://host.example.com", uri.to_s
   end
 
   def test_scheme
