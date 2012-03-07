@@ -56,40 +56,40 @@ class ShellTest < Test::Unit::TestCase
   end
 
   def test_lookup_cmd
-    ns = @shell.lookup_cmd [], RVC::Namespace
+    ns = @shell.cmds.lookup [], RVC::Namespace
     assert_equal @shell.cmds, ns
 
-    ret = @shell.lookup_cmd [], RVC::Command
+    ret = @shell.cmds.lookup [], RVC::Command
     assert_equal nil, ret
 
-    cmd = @shell.lookup_cmd [:foo, :foo]
+    cmd = @shell.cmds.lookup [:foo, :foo]
     assert_equal @shell.cmds.foo.commands[:foo], cmd
 
-    ret = @shell.lookup_cmd [:foo, :foo], RVC::Namespace
+    ret = @shell.cmds.lookup [:foo, :foo], RVC::Namespace
     assert_equal nil, ret
 
-    cmd = @shell.lookup_cmd [:foo]
+    cmd = @shell.cmds.lookup [:foo]
     assert_equal @shell.cmds.foo.commands[:foo], cmd
 
-    ns = @shell.lookup_cmd [:foo], RVC::Namespace
+    ns = @shell.cmds.lookup [:foo], RVC::Namespace
     assert_equal @shell.cmds.foo, ns
 
-    cmd = @shell.lookup_cmd [:f]
+    cmd = @shell.cmds.lookup [:f]
     assert_equal @shell.cmds.foo.commands[:foo], cmd
 
-    ns = @shell.lookup_cmd [:foo, :bar], RVC::Namespace
+    ns = @shell.cmds.lookup [:foo, :bar], RVC::Namespace
     assert_equal @shell.cmds.foo.bar, ns
 
-    cmd = @shell.lookup_cmd [:foo, :bar, :bar]
+    cmd = @shell.cmds.lookup [:foo, :bar, :bar]
     assert_equal @shell.cmds.foo.bar.commands[:bar], cmd
 
-    cmd = @shell.lookup_cmd [:bar]
+    cmd = @shell.cmds.lookup [:bar]
     assert_equal @shell.cmds.foo.bar.commands[:bar], cmd
 
-    ret = @shell.lookup_cmd [:nonexistent], RVC::Namespace
+    ret = @shell.cmds.lookup [:nonexistent], RVC::Namespace
     assert_equal nil, ret
 
-    ret = @shell.lookup_cmd [:nonexistent, :foo]
+    ret = @shell.cmds.lookup [:nonexistent, :foo]
     assert_equal nil, ret
   end
 

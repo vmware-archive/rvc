@@ -20,15 +20,18 @@ class ModulesTest < Test::Unit::TestCase
     cmd = @shell.cmds[:foo]
     assert_equal @shell.cmds.foo, cmd
 
-    cmd = @shell.lookup_cmd [:foo]
+    cmd = @shell.cmds.lookup [:foo]
     assert_equal @shell.cmds.foo.commands[:foo], cmd
 
     assert_equal 13, foo.bar.bar
 
-    ns = @shell.lookup_cmd [:foo, :bar], RVC::Namespace
+    ns = @shell.cmds.lookup [:foo], RVC::Namespace
+    assert_equal @shell.cmds[:foo], ns
+
+    ns = @shell.cmds.lookup [:foo, :bar], RVC::Namespace
     assert_equal @shell.cmds.foo.bar, ns
 
-    cmd = @shell.lookup_cmd [:foo, :bar, :bar]
+    cmd = @shell.cmds.lookup [:foo, :bar, :bar]
     assert_equal @shell.cmds.foo.bar.commands[:bar], cmd
     assert_equal cmd, @shell.cmds[:foo].bar.commands[:bar]
   end

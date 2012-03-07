@@ -100,7 +100,7 @@ class Completion
           cmdpath, args = Shell.parse_input(line+'"')
         end
 
-        if cmd = @shell.lookup_cmd(cmdpath)
+        if cmd = @shell.cmds.lookup(cmdpath)
           args << word if word == ''
           candidates.concat cmd.complete(word, args)
         else
@@ -131,7 +131,7 @@ class Completion
     cmdpath << '' if cmdpath.empty? or word[-1..-1] == '.'
     prefix_regex = /^#{Regexp.escape(cmdpath[-1])}/
 
-    ns = @shell.lookup_cmd(cmdpath[0...-1].map(&:to_sym), RVC::Namespace)
+    ns = @shell.cmds.lookup(cmdpath[0...-1].map(&:to_sym), RVC::Namespace)
     return [] unless ns
 
     cmdpath_prefix = cmdpath[0...-1].join('.')
@@ -149,7 +149,7 @@ class Completion
 
     # Aliases
     if ns == @shell.cmds then
-      ret.concat @shell.aliases.keys.map(&:to_s).grep(prefix_regex).map { |x| [x, ' '] }
+      ret.concat @shell.cmds.aliases.keys.map(&:to_s).grep(prefix_regex).map { |x| [x, ' '] }
     end
 
     ret.sort_by! { |a,b| a }

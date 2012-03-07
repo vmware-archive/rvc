@@ -83,7 +83,7 @@ class CommandSlate
     end
     cmdpath.reverse!
 
-    shell.aliases[target] = cmdpath
+    shell.cmds.aliases[target] = cmdpath
   end
 
   # Utility functions

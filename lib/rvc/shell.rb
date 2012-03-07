@@ -25,8 +25,8 @@ require 'shellwords'
 module RVC
 
 class Shell
-  attr_reader :fs, :completion, :marks
-  attr_reader :connections, :aliases
+  attr_reader :fs, :completion
+  attr_reader :connections
   attr_accessor :debug, :cmds
 
   def initialize
@@ -36,7 +36,6 @@ class Shell
     @completion = RVC::Completion.new self
     @connections = {}
     @debug = false
-    @aliases = {}
     @cmds = nil
   end
 
@@ -100,33 +99,12 @@ class Shell
     [cmdpath, args]
   end
 
-  def lookup_cmd cmdpath, accept=Command
-    if accept == Command and
-       cmdpath.length == 1 and
-       aliases.member? cmdpath[0]
-      lookup_cmd aliases[cmdpath[0]], accept
-    elsif accept == Command and cmdpath.empty?
-      return nil
-    else
-      cur = cmds
-      cmdpath.each_with_index do |e,i|
-        is_last = i == cmdpath.length-1
-        if is_last and accept == Command
-          cur = cur.commands[e] or return nil
-        else
-          cur = cur.namespaces[e] or return nil
-        end
-      end
-      cur
-    end
-  end
-
   def eval_command input
     cmdpath, args = Shell.parse_input input
 
     RVC::Util.err "invalid input" unless cmdpath
 
-    cmd = lookup_cmd cmdpath
+    cmd = cmds.lookup cmdpath
     RVC::Util.err "invalid command" unless cmd
 
     begin
@@ -239,7 +217,6 @@ class Shell
 
   def reload_modules verbose=true
     @cmds = RVC::Namespace.new 'root', self, nil
-    aliases.clear
     module_path = (BULTIN_MODULE_PATH+ENV_MODULE_PATH).select { |d| File.directory?(d) }
     module_path.each do |dir|
       load_module_dir dir, cmds, verbose

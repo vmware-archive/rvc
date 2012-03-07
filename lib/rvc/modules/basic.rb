@@ -48,7 +48,7 @@ HELP_ORDER = %w(basic vm)
 def help input
   if input
     cmdpath, args = Shell.parse_input input
-    o = shell.lookup_cmd(cmdpath, Namespace) || shell.lookup_cmd(cmdpath)
+    o = shell.cmds.lookup(cmdpath, Namespace) || shell.cmds.lookup(cmdpath)
     RVC::Util.err "invalid command or namespace" unless o
   else
     o = shell.cmds
@@ -93,7 +93,7 @@ def help_namespace ns
 end
 
 def help_summary cmd
-  aliases = shell.aliases.select { |k,v| shell.lookup_cmd(v) == cmd }.map(&:first)
+  aliases = shell.cmds.aliases.select { |k,v| shell.cmds.lookup(v) == cmd }.map(&:first)
   aliases_text = aliases.empty? ? '' : " (#{aliases*', '})"
   puts "#{cmd.name}#{aliases_text}: #{cmd.summary}"
 end

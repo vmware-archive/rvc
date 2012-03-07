@@ -23,7 +23,7 @@ require 'rvc/command_slate'
 module RVC
 
 class Namespace
-  attr_reader :name, :shell, :parent, :slate, :namespaces, :commands
+  attr_reader :name, :shell, :parent, :slate, :namespaces, :commands, :aliases
 
   def inspect
     "#<RVC::Namespace:#{name}>"
@@ -36,6 +36,7 @@ class Namespace
     @slate = CommandSlate.new self
     @namespaces = {}
     @commands = {}
+    @aliases = {}
   end
 
   def load_code code, filename
@@ -47,6 +48,28 @@ class Namespace
       return ns
     else
       namespaces[name] = Namespace.new(name, shell, self)
+    end
+  end
+
+  def lookup cmdpath, accept=Command
+    if cmdpath.empty?
+      if accept == Command
+        return nil
+      elsif accept == Namespace
+        return self
+      end
+    elsif cmdpath.length == 1 and accept == Command
+      sym = cmdpath[0]
+      if @aliases.member? sym
+        @shell.cmds.lookup @aliases[sym], accept
+      else
+        @commands[sym]
+      end
+    else
+      sym = cmdpath[0]
+      child = @namespaces[sym]
+      return nil if child == nil
+      child.lookup cmdpath[1..-1], accept
     end
   end
 
