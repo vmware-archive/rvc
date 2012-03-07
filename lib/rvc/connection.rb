@@ -1,4 +1,4 @@
-# Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
+# Copyright (c) 2012 VMware, Inc.  All Rights Reserved.
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -18,20 +18,27 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-require 'rvc/connection'
+module RVC
 
-require 'rbvmomi'
-VIM = RbVmomi::VIM
-VIM.add_extension_dir File.join(File.dirname(__FILE__), "extensions")
+# This module should be mixed in with all connection classes.
+module Connection
+  include InventoryObject
 
-class RbVmomi::VIM
-  include RVC::Connection
+  module ClassMethods
+    include InventoryObject::ClassMethods
 
-  def children
-    rootFolder.children
+    def folder?
+      true
+    end
   end
 
-  def display_info
-    puts serviceContent.about.fullName
+  def self.included m
+    m.extend ClassMethods
   end
+
+  def _connection
+    self
+  end
+end
+
 end
