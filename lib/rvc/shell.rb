@@ -25,14 +25,13 @@ require 'shellwords'
 module RVC
 
 class Shell
-  attr_reader :fs, :completion, :session
+  attr_reader :fs, :completion, :marks
   attr_reader :connections, :aliases
   attr_accessor :debug, :cmds
 
-  def initialize session
-    @session = session
+  def initialize
     @persist_ruby = false
-    @fs = RVC::FS.new RVC::RootNode.new(self), session
+    @fs = RVC::FS.new RVC::RootNode.new(self)
     @ruby_evaluator = RVC::RubyEvaluator.new self
     @completion = RVC::Completion.new self
     @connections = {}
@@ -232,10 +231,6 @@ class Shell
         end
       end
     end
-  end
-
-  def delete_numeric_marks
-    @session.marks.grep(/^\d+$/).each { |x| @session.set_mark x, nil }
   end
 
   BULTIN_MODULE_PATH = [File.expand_path(File.join(File.dirname(__FILE__), 'modules')),

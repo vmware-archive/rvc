@@ -175,7 +175,7 @@ class Completion
   def mark_candidates word
     return [] unless word.empty? || word[0..0] == '~'
     prefix_regex = /^#{Regexp.escape(word[1..-1] || '')}/
-    @shell.session.marks.grep(prefix_regex).sort.
+    @shell.fs.marks.keys.grep(prefix_regex).sort.
                          map { |x| ["~#{x}", '/'] }
   end
 end

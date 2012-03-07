@@ -62,7 +62,7 @@ class RubyEvaluator
     if a.empty?
       if @shell.cmds.namespaces.member? sym
         @shell.cmds.namespaces[sym]
-      elsif sym.to_s =~ /_?([\w\d]+)(!?)/ && objs = @shell.session.get_mark($1)
+      elsif sym.to_s =~ /_?([\w\d]+)(!?)/ && objs = @shell.fs.marks[$1]
         if $2 == '!'
           objs
         else

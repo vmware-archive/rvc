@@ -35,8 +35,7 @@ end
 
 class ShellTest < Test::Unit::TestCase
   def setup
-    session = RVC::MemorySession.new
-    @shell = RVC::Shell.new(session)
+    @shell = RVC::Shell.new
     @shell.cmds = RVC::Namespace.new 'root', @shell, nil
     @shell.cmds.child_namespace(:foo).load_code FOO_MODULE, 'inline'
     @shell.cmds.child_namespace(:foo).child_namespace(:bar).load_code FOO_BAR_MODULE, 'inline'

@@ -2,8 +2,7 @@ require 'test_helper'
 
 class HelpTest < Test::Unit::TestCase
   def setup
-    session = RVC::MemorySession.new
-    @shell = RVC::Shell.new(session)
+    @shell = RVC::Shell.new
     @shell.reload_modules false
   end
 

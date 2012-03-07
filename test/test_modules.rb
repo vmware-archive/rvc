@@ -4,8 +4,7 @@ MODULES_DIR = File.join(File.dirname(__FILE__), 'modules')
 
 class ModulesTest < Test::Unit::TestCase
   def setup
-    session = RVC::MemorySession.new
-    @shell = RVC::Shell.new(session)
+    @shell = RVC::Shell.new
     @shell.cmds = RVC::Namespace.new 'root', @shell, nil
     @shell.load_module_dir MODULES_DIR, @shell.cmds, false
   end

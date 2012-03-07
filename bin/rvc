@@ -57,32 +57,13 @@ end
 
 $interactive = $opts[:script].nil? and $stdin.tty?
 
-session = if ENV['RVC_SESSION'] and not ENV['RVC_SESSION'].empty?
-  RVC::FilesystemSession.new ENV['RVC_SESSION']
-else
-  RVC::MemorySession.new
-end
-
 # TODO remove $shell when all references are gone
-$shell = shell = RVC::Shell.new(session)
+$shell = shell = RVC::Shell.new
 shell.reload_modules false
 
 # Prompt for hostname if none given. Useful on win32.
-if shell.session.connections.empty? and ARGV.empty? and $interactive
+if ARGV.empty? and $interactive
   ARGV << Readline.readline("Host to connect to (user@host): ")
-end
-
-# TODO update or remove
-shell.session.connections.each do |key|
-  conn = shell.session.get_connection(key) or fail "no such connection #{key.inspect}"
-  uri = "#{conn['username']}@#{conn['host']}"
-  begin
-    puts "Connecting to #{conn['host']}..."
-    shell.cmds.vim.connect uri, {}
-  rescue RVC::Util::UserError
-    puts "Failed to connect to #{conn['host']}: #{$!.message}"
-    exit 1
-  end
 end
 
 # TODO cookies, cert digests
@@ -95,7 +76,7 @@ ARGV.each do |str|
   end
 
   begin
-    puts "Connecting to #{uri.host}..." if (ARGV+shell.session.connections).size > 1
+    puts "Connecting to #{uri.host}..." if ARGV.size > 1
     scheme = uri.scheme || 'vim'
     scheme_handler = RVC::SCHEMES[scheme] or RVC::Util.err "invalid scheme #{scheme.inspect}"
     scheme_handler[uri]

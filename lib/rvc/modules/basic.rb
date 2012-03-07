@@ -123,9 +123,9 @@ rvc_alias :cd
 
 def cd obj
   shell.fs.cd(obj)
-  shell.session.set_mark '', [find_ancestor(RbVmomi::VIM::Datacenter)].compact
-  shell.session.set_mark '@', [find_ancestor(RbVmomi::VIM)].compact
-  shell.delete_numeric_marks
+  shell.fs.marks[''] = [find_ancestor(RbVmomi::VIM::Datacenter)].compact
+  shell.fs.marks['@'] = [find_ancestor(RbVmomi::VIM)].compact
+  shell.fs.delete_numeric_marks
 end
 
 def find_ancestor klass
@@ -348,7 +348,6 @@ rvc_alias :disconnect
 def disconnect connection
   k, = shell.connections.find { |k,v| v == connection }
   shell.connections.delete k
-  shell.session.set_connection k, nil
 end
 
 
