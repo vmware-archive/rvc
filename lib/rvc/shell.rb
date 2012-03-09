@@ -19,6 +19,7 @@
 # THE SOFTWARE.
 
 require 'rvc/namespace'
+require 'rvc/connection'
 require 'rvc/ruby_evaluator'
 require 'shellwords'
 
@@ -26,7 +27,7 @@ module RVC
 
 class Shell
   attr_reader :fs, :completion
-  attr_reader :connections
+  attr_reader :connections, :connection
   attr_accessor :debug, :cmds
 
   def initialize
@@ -34,9 +35,14 @@ class Shell
     @fs = RVC::FS.new RVC::RootNode.new(self)
     @ruby_evaluator = RVC::RubyEvaluator.new self
     @completion = RVC::Completion.new self
-    @connections = {}
+    @connection = NullConnection.new
+    @connections = { '' => @connection }
     @debug = false
     @cmds = nil
+  end
+
+  def switch_connection name
+    @connection = @connections[name] || fail("no such connection")
   end
 
   def inspect

@@ -18,31 +18,23 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-module RVC
-
-# This module should be mixed in with all connection classes.
-module Connection
-  include InventoryObject
-
-  module ClassMethods
-    include InventoryObject::ClassMethods
-
-    def folder?
-      true
-    end
-  end
-
-  def self.included m
-    m.extend ClassMethods
-  end
-
-  def _connection
-    self
-  end
+opts :switch do
+  summary "Switch to another connection"
+  arg :name, "Connection name"
 end
 
-class NullConnection
-  include Connection
+def switch name
+  shell.switch_connection name
 end
 
+
+opts :list do
+  summary "List connections"
+end
+
+def list
+  shell.connections.each do |name, conn|
+    next if name.empty?
+    puts name
+  end
 end
