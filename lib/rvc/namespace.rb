@@ -86,6 +86,29 @@ class Namespace
       super
     end
   end
+
+  def load_module_dir dir, verbose
+    puts "loading module directory #{dir}" if verbose
+    Dir.foreach(dir) do |f|
+      path = File.join(dir, f)
+      if f[0..0] == '.'
+        next
+      elsif File.directory? path
+        ns_name = f.to_sym
+        child_namespace(ns_name).load_module_dir(path, verbose)
+      elsif f =~ /\.rb$/
+        ns_name = f[0...-3].to_sym
+        puts "loading #{ns_name} from #{path}" if verbose
+        begin
+          code = File.read path
+          child_namespace(ns_name).load_code(code, f)
+        rescue
+          puts "#{$!.class} while loading #{f}: #{$!.message}"
+          $!.backtrace.each { |x| puts x }
+        end
+      end
+    end
+  end
 end
 
 end
