@@ -101,7 +101,7 @@ class Namespace
         puts "loading #{ns_name} from #{path}" if verbose
         begin
           code = File.read path
-          child_namespace(ns_name).load_code(code, f)
+          child_namespace(ns_name).load_code(code, path)
         rescue
           puts "#{$!.class} while loading #{f}: #{$!.message}"
           $!.backtrace.each { |x| puts x }
