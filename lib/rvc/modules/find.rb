@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/vim'
+
 opts :find do
   summary "Find objects matching certain criteria"
   arg :args, "Paths or +terms", :required => false, :multi => true
@@ -37,14 +39,14 @@ def find args, opts
 
   results = find_items args[:term], args[:root], opts[:type]
 
-  CMD.mark.mark opts[:mark], results
+  shell.cmds.mark.mark opts[:mark], results
 
   i = 0
-  cwd = $shell.fs.cur.rvc_path_str
+  cwd = shell.fs.cur.rvc_path_str
   cwd_prefix = /^#{Regexp.escape cwd}\//
   results.each do |r|
     puts "#{i} #{r.rvc_path_str.gsub(cwd_prefix, '')}"
-    CMD.mark.mark i.to_s, [r]
+    shell.cmds.mark.mark i.to_s, [r]
     i += 1
   end
 end
@@ -68,7 +70,7 @@ def leaves roots, types = []
     nodes = new_nodes
     new_nodes = Set.new
     nodes.each do |node|
-      if (node.class.folder? or roots.member? node) and
+      if (node.class.traverse? or roots.member? node) and
           (types & (node.field('type') || [])).empty?
         node.children.each { |k,v| v.rvc_link(node, k); new_nodes << v }
       else

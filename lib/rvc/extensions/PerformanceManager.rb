@@ -12,13 +12,6 @@ class Time
   end
 end
 
-RbVmomi::VIM::PerfCounterInfo
-class RbVmomi::VIM::PerfCounterInfo
-  def pretty_name
-    @pretty_name ||= "#{self.groupInfo.key}.#{self.nameInfo.key}.#{self.rollupType}"
-  end
-end
-
 RbVmomi::VIM::PerformanceManager
 class RbVmomi::VIM::PerformanceManager
   def perfcounter_cached
@@ -26,7 +19,7 @@ class RbVmomi::VIM::PerformanceManager
   end
   
   def perfcounter_hash
-    @perfcounter_hash ||= Hash[perfcounter_cached.map{|x| [x.pretty_name, x]}]
+    @perfcounter_hash ||= Hash[perfcounter_cached.map{|x| [x.name, x]}]
   end
   
   def perfcounter_idhash 
@@ -73,11 +66,15 @@ class RbVmomi::VIM::PerformanceManager
         {
           :sampleInfo => res.sampleInfo,
           :metrics => Hash[res.value.map do |metric|
-            [perfcounter_idhash[metric.id.counterId].pretty_name, metric.value]
+            [perfcounter_idhash[metric.id.counterId].name, metric.value]
           end]
         }
       ]
     end]
   end
 
+  def active_intervals
+    intervals = historicalInterval
+    Hash[(1..4).map { |level| [level, intervals.select { |x| x.enabled && x.level >= level }] }]
+  end
 end

@@ -18,6 +18,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/vim'
+
+require 'terminal-table'
+
 opts :type do
   summary "Display information about a VMODL type"
   arg :name, "VMODL type name"
@@ -27,69 +31,71 @@ rvc_alias :type
 
 def type name
   klass = RbVmomi::VIM.type(name) rescue err("#{name.inspect} is not a VMODL type.")
-  $shell.introspect_class klass
+  shell.introspect_class klass
   nil
 end
 
 
 opts :help do
   summary "Display this text"
-  arg :path, "Limit commands to those applicable to the given object", :required => false
+  arg :cmd, "Command or namespace to display help for", :required => false
 end
 
 rvc_alias :help
 
 HELP_ORDER = %w(basic vm)
 
-def help path
-  if mod = RVC::MODULES[path]
-    opts = mod.instance_variable_get(:@opts)
-    opts.each do |method_name,parser|
-      help_summary parser, path, method_name
-    end
-    return
-  elsif tgt = RVC::ALIASES[path]
-    fail unless tgt =~ /^(.+)\.(.+)$/
-    RVC::MODULES[$1].opts_for($2.to_sym).educate
-    return
-  elsif path =~ /^(.+)\.(.+)$/ and
-        mod = RVC::MODULES[$1] and
-        parser = mod.opts_for($2.to_sym)
-    parser.educate
-    return
-  end
-
-  obj = lookup_single(path) if path
-
-  if obj
-    puts "Relevant commands for #{obj.class}:"
+def help input
+  if input
+    cmdpath, args = Shell.parse_input input
+    o = shell.cmds.lookup(cmdpath, Namespace) || shell.cmds.lookup(cmdpath)
+    RVC::Util.err "invalid command or namespace" unless o
   else
-    puts "All commands:"
+    o = shell.cmds
   end
 
-  MODULES.sort_by do |mod_name,mod|
-    HELP_ORDER.index(mod_name) || HELP_ORDER.size
-  end.each do |mod_name,mod|
-    opts = mod.instance_variable_get(:@opts)
-    opts.each do |method_name,parser|
-      next unless obj.nil? or parser.applicable.any? { |x| obj.is_a? x }
-      help_summary parser, mod_name, method_name
+  case o
+  when Command
+    o.parser.educate
+  when Namespace
+    help_namespace o
+  end
+
+  # TODO apropos
+  puts (<<-EOS)
+
+To see commands in a namespace: help namespace_name
+To see detailed help for a command: help namespace_name.command_name
+  EOS
+end
+
+# TODO namespace summaries
+def help_namespace ns
+  unless ns.namespaces.empty?
+    puts "Namespaces:"
+    ns.namespaces.sort_by do |child_name,child|
+      HELP_ORDER.index(child_name.to_s) || HELP_ORDER.size
+    end.each do |child_name,child|
+      puts child_name
     end
   end
 
-  if not obj
-    puts (<<-EOS)
+  puts unless ns.namespaces.empty? or ns.commands.empty?
 
-To see detailed help for a command, use its --help option.
-To show only commands relevant to a specific object, use "help /path/to/object".
-    EOS
+  unless ns.commands.empty?
+    puts "Commands:"
+    ns.commands.sort_by do |cmd_name,cmd|
+      HELP_ORDER.index(cmd_name.to_s) || HELP_ORDER.size
+    end.each do |cmd_name,cmd|
+      help_summary cmd
+    end
   end
 end
 
-def help_summary parser, mod_name, method_name
-  aliases = ALIASES.select { |k,v| v == "#{mod_name}.#{method_name}" }.map(&:first)
+def help_summary cmd
+  aliases = shell.cmds.aliases.select { |k,v| shell.cmds.lookup(v) == cmd }.map(&:first)
   aliases_text = aliases.empty? ? '' : " (#{aliases*', '})"
-  puts "#{mod_name}.#{method_name}#{aliases_text}: #{parser.summary?}" if parser.summary?
+  puts "#{cmd.name}#{aliases_text}: #{cmd.summary}"
 end
 
 
@@ -100,8 +106,8 @@ end
 rvc_alias :debug
 
 def debug
-  debug = $shell.debug = !$shell.debug
-  $shell.connections.each do |name,conn|
+  debug = shell.debug = !shell.debug
+  shell.connections.each do |name,conn|
     conn.debug = debug if conn.respond_to? :debug
   end
   puts "debug mode #{debug ? 'en' : 'dis'}abled"
@@ -116,14 +122,14 @@ end
 rvc_alias :cd
 
 def cd obj
-  $shell.fs.cd(obj)
-  $shell.session.set_mark '', [find_ancestor(RbVmomi::VIM::Datacenter)].compact
-  $shell.session.set_mark '@', [find_ancestor(RbVmomi::VIM)].compact
-  $shell.delete_numeric_marks
+  shell.fs.cd(obj)
+  shell.fs.marks[''] = [find_ancestor(RbVmomi::VIM::Datacenter)].compact
+  shell.fs.marks['@'] = [find_ancestor(RbVmomi::VIM)].compact
+  shell.fs.delete_numeric_marks
 end
 
 def find_ancestor klass
-  $shell.fs.cur.rvc_path.map { |k,v| v }.reverse.find { |x| x.is_a? klass }
+  shell.fs.cur.rvc_path.map { |k,v| v }.reverse.find { |x| x.is_a? klass }
 end
 
 
@@ -148,7 +154,7 @@ def ls obj
   fake_children.each do |name,child|
     puts "#{i} #{name}#{child.ls_text(nil)}"
     child.rvc_link obj, name
-    CMD.mark.mark i.to_s, [child]
+    shell.cmds.mark.mark i.to_s, [child]
     i += 1
   end
 
@@ -179,7 +185,7 @@ def ls obj
     colored_name = status_color name, r['overallStatus']
     puts "#{i} #{colored_name}#{realname && " [#{realname}]"}#{text}"
     r.obj.rvc_link obj, name
-    CMD.mark.mark i.to_s, [r.obj]
+    shell.cmds.mark.mark i.to_s, [r.obj]
     i += 1
   end
 end
@@ -200,10 +206,10 @@ end
 
 rvc_alias :show
 
-rvc_completor :show do |line, args, word, index|
-  choices = RVC::Completion.fs_candidates word
+rvc_completor :show do |word, args|
+  choices = shell.completion.fs_candidates word
   obj = lookup_single '.'
-  if index == 0
+  if args.length == 1
     if obj.class == VIM::Datacenter || obj.class == VIM
       choices << ['portgroups', ' ']
       choices << ['vds', ' ']
@@ -234,7 +240,7 @@ def show arg0, arg1
   case arg0
   when 'running-config'
     if obj.class < VIM::DistributedVirtualSwitch
-      MODULES['vds'].show_running_config obj
+      shell.cmds.vds.show_running_config obj
     else
       if arg1 != '.'
         err "'#{arg1}' is not a vDS!"
@@ -243,11 +249,11 @@ def show arg0, arg1
       end
     end
   when 'portgroups'
-    MODULES['vds'].show_all_portgroups [obj]
+    shell.cmds.vds.show_all_portgroups [obj]
   when 'vds'
-    MODULES['vds'].show_all_vds [obj]
+    shell.cmds.vds.show_all_vds [obj]
   when 'interface'
-    MODULES['vds'].show_all_ports [obj]
+    shell.cmds.vds.show_all_ports [obj]
   #when 'vlan'
   else
     path = lookup_single arg0
@@ -340,9 +346,8 @@ end
 rvc_alias :disconnect
 
 def disconnect connection
-  k, = $shell.connections.find { |k,v| v == connection }
-  $shell.connections.delete k
-  $shell.session.set_connection k, nil
+  k, = shell.connections.find { |k,v| v == connection }
+  shell.connections.delete k
 end
 
 
@@ -423,11 +428,11 @@ shown by the "fields" command.
   opt :reverse, "Reverse sort order"
 end
 
-rvc_completor :table do |line, args, word, argnum|
-  if argnum > 0 and args[argnum-1] == '-f'
+rvc_completor :table do |word, args|
+  if index > 0 and args[-2] == '-f'
     RVC::Field::ALL_FIELD_NAMES.map { |x| [x, ' '] }
   else
-    RVC::Completion.fs_candidates word
+    shell.completion.fs_candidates word
   end
 end
 

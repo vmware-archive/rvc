@@ -18,7 +18,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-require "terminal-table/import"
+require 'rvc/vim'
+
+require "terminal-table"
 
 opts :summarize do
   summary ""
@@ -440,13 +442,13 @@ opts :show_running_config do
 end
 
 def show_running_config vds
-  MODULES['basic'].info vds
+  shell.cmds.basic.info vds
   portgroups = vds.children['portgroups']
   portgroups.rvc_link vds, 'portgroups'
   vds.children['portgroups'].children.each do |name, pg|
     pg.rvc_link portgroups, name
     puts '---'
-    MODULES['basic'].info pg
+    shell.cmds.basic.info pg
   end
 end
 
@@ -461,13 +463,13 @@ def show_all_portgroups path
     paths = nil
   end
 
-  vds = MODULES['find'].find_items nil, paths, ['vds']
+  vds = shell.cmds.find.find_items nil, paths, ['vds']
   pgs = []
   vds.each do |v|
     v.portgroup.each { |pg| pgs << pg}
   end
-  RVC::MODULES['basic'].table pgs, { :field => ["vds_name", "name", "vlan"],
-                                     :field_given => true }
+  shell.cmds.basic.table pgs, { :field => ["vds_name", "name", "vlan"],
+                                        :field_given => true }
 end
 
 opts :show_all_vds do
@@ -481,9 +483,9 @@ def show_all_vds path
     paths = nil
   end
 
-  vds = MODULES['find'].find_items nil, paths, ['vds']
-  RVC::MODULES['basic'].table vds, { :field => ['name', 'vlans', 'hosts'],
-                                     :field_given => true }
+  vds = shell.cmds.find.find_items nil, paths, ['vds']
+  shell.cmds.basic.table vds, { :field => ['name', 'vlans', 'hosts'],
+                                        :field_given => true }
 end
 
 opts :show_all_ports do
@@ -571,7 +573,7 @@ def show_all_ports path
     rows.each { |r| r.delete_at(2) }
   end
 
-  t = table(columns)
+  t = Terminal::Table.new(columns)
   rows.sort_by { |o| o[0] }.each { |o| t << o }
   puts t
 end

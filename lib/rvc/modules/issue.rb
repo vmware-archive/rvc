@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/vim'
+
 opts :show do
   summary "Show issues on the given entities"
   arg :entity, nil, :lookup => VIM::ManagedEntity, :multi => true

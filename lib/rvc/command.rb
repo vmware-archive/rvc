@@ -18,34 +18,48 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-require 'rvc/vim'
+require 'rvc/option_parser'
 
-opts :quit do
-  summary "Exit RVC"
+module RVC
+
+class Command
+  attr_reader :ns, :name, :summary, :parser
+  attr_accessor :completor
+
+  def initialize ns, name, summary, parser
+    @ns = ns
+    @name = name
+    @summary = summary
+    @parser = parser
+    @completor = nil
+  end
+
+  def inspect
+    "#<RVC::Command:#{name}>"
+  end
+
+  def invoke *args
+    @ns.slate.send @name, *args
+  end
+
+  def complete word, args
+    if @completor
+      candidates = @completor.call word, args
+      prefix_regex = /^#{Regexp.escape word}/
+      candidates.select { |x,a| x =~ prefix_regex }
+    else
+      return @ns.shell.completion.fs_candidates(word) +
+             long_option_candidates(word)
+    end
+  end
+
+  def long_option_candidates word
+    return [] unless parser.is_a? RVC::OptionParser
+    prefix_regex = /^#{Regexp.escape(word)}/
+    parser.specs.map { |k,v| "--#{v[:long]}" }.
+                 grep(prefix_regex).sort.
+                 map { |x| [x, ' '] }
+  end
 end
 
-rvc_alias :quit
-rvc_alias :quit, :exit
-rvc_alias :quit, :q
-
-def quit
-  exit
-end
-
-
-opts :reload do
-  summary "Reload RVC command modules and extensions"
-  opt :verbose, "Display filenames loaded", :short => 'v', :default => false
-end
-
-rvc_alias :reload
-
-def reload opts
-  old_verbose = $VERBOSE
-  $VERBOSE = nil unless opts[:verbose]
-
-  shell.reload_modules opts[:verbose]
-  RbVmomi::VIM.reload_extensions
-ensure
-  $VERBOSE = old_verbose
 end

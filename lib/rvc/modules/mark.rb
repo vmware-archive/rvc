@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/vim'
+
 opts :mark do
   summary "Save an object for later use"
   arg :key, "Name for this mark"
@@ -29,7 +31,7 @@ rvc_alias :mark, :m
 
 def mark key, objs
   err "invalid mark name" unless key =~ /^\w+$/
-  $shell.session.set_mark key, objs
+  shell.fs.marks[key] = objs
 end
 
 
@@ -42,7 +44,7 @@ rvc_alias :edit, :me
 
 def edit key
   editor = ENV['VISUAL'] || ENV['EDITOR'] || 'vi'
-  objs = $shell.session.get_mark(key) or err "no such mark #{key.inspect}"
+  objs = shell.fs.marks[key] or err "no such mark #{key.inspect}"
   filename = File.join(Dir.tmpdir, "rvc.#{Time.now.to_i}.#{rand(65536)}")
   File.open(filename, 'w') { |io| objs.each { |obj| io.puts(obj.rvc_path_str) } }
   begin
@@ -61,5 +63,5 @@ opts :list do
 end
 
 def list
-  $shell.session.marks.each { |x| puts x }
+  shell.fs.marks.each { |k,v| puts k }
 end

@@ -19,41 +19,9 @@
 # THE SOFTWARE.
 
 require 'rvc/known_hosts'
+require 'rvc/vim'
 
-URI_REGEX = %r{
-  ^
-  (?:
-    ([^@:]+)
-    (?::
-     ([^@]*)
-    )?
-    @
-  )?
-  ([^@:]+)
-  (?::(\d{1,5}))?
-  (?::([0-9a-z]{64}))?
-  $
-}x
-
-class RbVmomi::VIM
-  include RVC::InventoryObject
-
-  def children
-    rootFolder.children
-  end
-
-  def self.folder?
-    true
-  end
-
-  def display_info
-    puts serviceContent.about.fullName
-  end
-
-  def _connection
-    self
-  end
-end
+RVC::SCHEMES['vim'] = lambda { |uri| connect uri, {} }
 
 opts :connect do
   summary 'Open a connection to ESX/VC'
@@ -64,14 +32,13 @@ end
 rvc_alias :connect
 
 def connect uri, opts
-  match = URI_REGEX.match uri
-  Trollop.die "invalid hostname" unless match
+  uri = RVC::URIParser.parse uri unless uri.is_a? URI
 
-  username = match[1] || ENV['RBVMOMI_USER']
-  password = match[2] || ENV['RBVMOMI_PASSWORD']
-  host = match[3]
-  port = match[4] || 443
-  certdigest = match[5] || opts[:certdigest]
+  username = uri.user || ENV['RBVMOMI_USER']
+  password = uri.password || ENV['RBVMOMI_PASSWORD']
+  host = uri.host
+  port = uri.port || 443
+  certdigest = opts[:certdigest] # TODO put in URI
   bad_cert = false
 
   vim = nil
@@ -170,14 +137,10 @@ def connect uri, opts
   vim.define_singleton_method(:_host) { host }
 
   conn_name = host.dup
-  conn_name = "#{conn_name}:1" if $shell.connections.member? conn_name
-  conn_name.succ! while $shell.connections.member? conn_name
+  conn_name = "#{conn_name}:1" if shell.connections.member? conn_name
+  conn_name.succ! while shell.connections.member? conn_name
 
-  $shell.connections[conn_name] = vim
-  $shell.session.set_connection conn_name,
-    'host' => host,
-    'username' => username,
-    'rev' => opts[:rev]
+  shell.connections[conn_name] = vim
 end
 
 def prompt_password
@@ -242,7 +205,7 @@ opts :tasks do
 end
 
 def tasks
-  conn = single_connection [$shell.fs.cur]
+  conn = single_connection [shell.fs.cur]
 
   begin
     view = conn.serviceContent.viewManager.CreateListView

@@ -1,5 +1,4 @@
-require 'test/unit'
-require 'rvc'
+require 'test_helper'
 
 class MetricTest < Test::Unit::TestCase
   def test_decimal_str

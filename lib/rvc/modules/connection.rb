@@ -1,4 +1,4 @@
-# Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
+# Copyright (c) 2012 VMware, Inc.  All Rights Reserved.
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -18,42 +18,23 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-module RVC
-
-class MemorySession
-  def initialize
-    @marks = {}
-    @connections = {}
-  end
-
-  def marks
-    @marks.keys
-  end
-
-  def get_mark key
-    @marks[key]
-  end
-
-  def set_mark key, objs
-    if objs == nil
-      @marks.delete key
-    else
-      fail "not an array" unless objs.is_a? Array
-      @marks[key] = objs
-    end
-  end
-
-  def connections
-    @connections.keys
-  end
-
-  def get_connection key
-    @connections[key]
-  end
-
-  def set_connection key, conn
-    @connections[key] = conn
-  end
+opts :switch do
+  summary "Switch to another connection"
+  arg :name, "Connection name"
 end
 
+def switch name
+  shell.switch_connection name
+end
+
+
+opts :list do
+  summary "List connections"
+end
+
+def list
+  shell.connections.each do |name, conn|
+    next if name.empty?
+    puts name
+  end
 end

@@ -18,7 +18,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-require 'terminal-table/import'
+require 'rvc/vim'
+VIM::Datastore
+
+require 'terminal-table'
 
 opts :download do
   summary "Download a file from a datastore"
@@ -256,7 +259,7 @@ def find_orphans ds, opts
   if data.empty?
     puts "No orphans found"
   else
-    puts(table do
+    puts(Terminal::Table.new do
       data.sort_by { |a| a[1] }.each do |x|
         dir, dirSize, numFiles = x
         self.headings = 'Directory', 'Space Used', '# Files'
@@ -287,14 +290,14 @@ def find_orphans ds, opts
     RbVmomi::VIM::Datastore::FakeDatastoreFolder.new(ds, "#{dirInfo[0]}")
   end
   opts[:mark] ||= "#{dsName}_orphans"
-  CMD.mark.mark opts[:mark], results
+  shell.cmds.mark.mark opts[:mark], results
   puts "Saved results to mark '#{opts[:mark]}'"
 
   i = 0
   results.each do |r|
     display_path = r.path
     puts "#{i} #{display_path}"
-    CMD.mark.mark i.to_s, [r]
+    shell.cmds.mark.mark i.to_s, [r]
     i += 1
   end
 end

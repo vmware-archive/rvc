@@ -1,3 +1,26 @@
+# Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
+require 'rvc/vim'
+VIM::Datastore
+
 opts :connect do
   summary "Connect a virtual device"
   arg :device, nil, :lookup => VIM::VirtualDevice, :multi => true
@@ -21,13 +44,14 @@ end
 opts :remove do
   summary "Remove a virtual device"
   arg :device, nil, :lookup => VIM::VirtualDevice, :multi => true
+  opt :no_destroy, "Do not delete backing files"
 end
 
-def remove devs
+def remove devs, opts
   vm_devs = devs.group_by(&:rvc_vm)
   tasks = vm_devs.map do |vm,my_devs|
     device_changes = my_devs.map do |dev|
-      fileOp = dev.backing.is_a?(VIM::VirtualDeviceFileBackingInfo) ? 'destroy' : nil
+      fileOp = (dev.backing.is_a?(VIM::VirtualDeviceFileBackingInfo) && !opts[:no_destroy]) ? 'destroy' : nil
       { :operation => :remove, :fileOperation => fileOp, :device => dev }
     end
     spec = { :deviceChange => device_changes }
@@ -82,15 +106,26 @@ end
 opts :add_disk do
   summary "Add a hard drive to a virtual machine"
   arg :vm, nil, :lookup => VIM::VirtualMachine
+  arg :path, "Filename on the datastore", :lookup_parent => VIM::Datastore::FakeDatastoreFolder, :required => false
   opt :size, 'Size', :default => '10G'
   opt :controller, 'Virtual controller', :type => :string, :lookup => VIM::VirtualController
+  opt :file_op, 'File operation (create|reuse|replace)', :default => 'create'
 end
 
-def add_disk vm, opts
+def add_disk vm, path, opts
   controller, unit_number = pick_controller vm, opts[:controller], [VIM::VirtualSCSIController, VIM::VirtualIDEController]
   id = "disk-#{controller.key}-#{unit_number}"
-  filename = "#{File.dirname(vm.summary.config.vmPathName)}/#{id}.vmdk"
-  _add_device vm, :create, VIM::VirtualDisk(
+
+  if path
+    dir, file = *path
+    filename = "#{dir.datastore_path}/#{file}"
+  else
+    filename = "#{File.dirname(vm.summary.config.vmPathName)}/#{id}.vmdk"
+  end
+
+  opts[:file_op] = nil if opts[:file_op] == 'reuse'
+
+  _add_device vm, opts[:file_op], VIM::VirtualDisk(
     :key => -1,
     :backing => VIM.VirtualDiskFlatVer2BackingInfo(
       :fileName => filename,

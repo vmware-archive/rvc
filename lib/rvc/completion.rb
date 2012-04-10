@@ -35,24 +35,19 @@ if not defined? RbReadline
 end
 
 module RVC
-module Completion
-  Cache = TTLCache.new 10
 
-  Completor = lambda do |word|
-    return unless word
-    begin
-      line = Readline.line_buffer if Readline.respond_to? :line_buffer
-      append_char, candidates = RVC::Completion.complete word, line
-      Readline.completion_append_character = append_char
-      candidates
-    rescue RVC::Util::UserError
-      puts
-      puts $!.message
-      Readline.refresh_line
-    end
+class Completion
+  def initialize shell
+    @shell = shell
+    @cache = TTLCache.new 10
   end
 
-  def self.install
+  # Halt infinite loop when printing exceptions
+  def inspect
+    ""
+  end
+
+  def install
     if Readline.respond_to? :char_is_quoted=
       Readline.completer_word_break_characters = " \t\n\"'"
       Readline.completer_quote_characters = "\"\\"
@@ -60,35 +55,62 @@ module Completion
       Readline.char_is_quoted = is_quoted
     end
 
-    Readline.completion_proc = Completor
+    Readline.completion_proc = lambda { |word| completor(word) }
   end
 
-  def self.complete word, line
-    line ||= ''
-    first_whitespace_index = line.index(' ')
-
-    if Readline.respond_to? :point
-      do_complete_cmd = !first_whitespace_index || first_whitespace_index >= Readline.point
-      do_complete_args = !do_complete_cmd
-    else
-      do_complete_cmd = true
-      do_complete_args = true
+  def completor word
+    return unless word
+    begin
+      line = Readline.line_buffer if Readline.respond_to? :line_buffer
+      point = Readline.point if Readline.respond_to? :point
+      append_char, candidates = complete word, line, point
+      Readline.completion_append_character = append_char
+      candidates
+    rescue RVC::Util::UserError
+      puts
+      puts $!.message
+      Readline.refresh_line
+    rescue
+      puts
+      puts "#{$!.class}: #{$!.message}"
+      $!.backtrace.each do |x|
+        puts x
+      end
+      Readline.refresh_line
     end
+  end
 
+  def complete word, line, point
     candidates = []
 
-    if do_complete_cmd
-      candidates.concat cmd_candidates(word)
-    end
+    if line and point
+      # Full completion capabilities
+      line = line[0...point]
+      first_whitespace_index = line.index(' ')
 
-    if do_complete_args
-      mod, cmd, args = Shell.parse_input line
-      if mod and mod.completor_for cmd
-        candidates.concat RVC::complete_for_cmd(line, word)
+      if !first_whitespace_index
+        # Command
+        candidates.concat cmd_candidates(word)
       else
-        candidates.concat(fs_candidates(word) +
-                          long_option_candidates(mod, cmd, word))
+        # Arguments
+        begin
+          cmdpath, args = Shell.parse_input line
+        rescue ArgumentError
+          # Unmatched double quote
+          cmdpath, args = Shell.parse_input(line+'"')
+        end
+
+        if cmd = @shell.cmds.lookup(cmdpath)
+          args << word if word == ''
+          candidates.concat cmd.complete(word, args)
+        else
+          candidates.concat fs_candidates(word)
+        end
       end
+    else
+      # Limited completion
+      candidates.concat cmd_candidates(word)
+      candidates.concat fs_candidates(word)
     end
 
     if candidates.size == 1
@@ -100,40 +122,49 @@ module Completion
     return append_char, candidates.map(&:first)
   end
 
-  def self.fs_candidates word
+  def fs_candidates word
     child_candidates(word) + mark_candidates(word)
   end
 
-  def self.cmd_candidates word
-    ret = []
-    prefix_regex = /^#{Regexp.escape(word)}/
-    MODULES.each do |name,m|
-      m.commands.each { |s| ret << "#{name}.#{s}" }
-    end
-    ret.concat ALIASES.keys
-    ret.grep(prefix_regex).sort.
-        map { |x| [x, ' '] }
-  end
+  def cmd_candidates word
+    cmdpath = word.split '.'
+    cmdpath << '' if cmdpath.empty? or word[-1..-1] == '.'
+    prefix_regex = /^#{Regexp.escape(cmdpath[-1])}/
 
-  def self.long_option_candidates mod, cmd, word
-    return [] unless mod and cmd
-    parser = mod.opts_for cmd
-    return [] unless parser.is_a? RVC::OptionParser
-    prefix_regex = /^#{Regexp.escape(word)}/
-    parser.specs.map { |k,v| "--#{v[:long]}" }.
-                 grep(prefix_regex).sort.
-                 map { |x| [x, ' '] }
+    ns = @shell.cmds.lookup(cmdpath[0...-1].map(&:to_sym), RVC::Namespace)
+    return [] unless ns
+
+    cmdpath_prefix = cmdpath[0...-1].join('.')
+    cmdpath_prefix << '.' unless cmdpath_prefix.empty?
+
+    ret = []
+
+    ns.commands.each do |cmd_name,cmd|
+      ret << ["#{cmdpath_prefix}#{cmd_name}", ' '] if cmd_name.to_s =~ prefix_regex
+    end
+
+    ns.namespaces.each do |ns_name,ns|
+      ret << ["#{cmdpath_prefix}#{ns_name}.", ''] if ns_name.to_s =~ prefix_regex
+    end
+
+    # Aliases
+    if ns == @shell.cmds then
+      ret.concat @shell.cmds.aliases.keys.map(&:to_s).grep(prefix_regex).map { |x| [x, ' '] }
+    end
+
+    ret.sort_by! { |a,b| a }
+    ret
   end
 
   # TODO convert to globbing
-  def self.child_candidates word
+  def child_candidates word
     arcs, absolute, trailing_slash = Path.parse word
     last = trailing_slash ? '' : (arcs.pop || '')
     arcs.map! { |x| x.gsub '\\', '' }
-    base = absolute ? $shell.fs.root : $shell.fs.cur
-    cur = $shell.fs.traverse(base, arcs).first or return []
+    base = absolute ? @shell.fs.root : @shell.fs.cur
+    cur = @shell.fs.traverse(base, arcs).first or return []
     arcs.unshift '' if absolute
-    children = Cache[cur, :children] rescue []
+    children = @cache[cur, :children] rescue []
     children.
       select { |k,v| k.gsub(' ', '\\ ') =~ /^#{Regexp.escape(last)}/ }.
       map { |k,v| (arcs+[k])*'/' }.
@@ -141,10 +172,10 @@ module Completion
       map { |x| [x, '/'] }
   end
 
-  def self.mark_candidates word
+  def mark_candidates word
     return [] unless word.empty? || word[0..0] == '~'
     prefix_regex = /^#{Regexp.escape(word[1..-1] || '')}/
-    $shell.session.marks.grep(prefix_regex).sort.
+    @shell.fs.marks.keys.grep(prefix_regex).sort.
                          map { |x| ["~#{x}", '/'] }
   end
 end

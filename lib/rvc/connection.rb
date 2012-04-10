@@ -1,4 +1,4 @@
-# Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
+# Copyright (c) 2012 VMware, Inc.  All Rights Reserved.
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -18,34 +18,31 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-require 'rvc/vim'
+module RVC
 
-opts :quit do
-  summary "Exit RVC"
+# This module should be mixed in with all connection classes.
+module Connection
+  include InventoryObject
+
+  module ClassMethods
+    include InventoryObject::ClassMethods
+
+    def folder?
+      true
+    end
+  end
+
+  def self.included m
+    m.extend ClassMethods
+  end
+
+  def _connection
+    self
+  end
 end
 
-rvc_alias :quit
-rvc_alias :quit, :exit
-rvc_alias :quit, :q
-
-def quit
-  exit
+class NullConnection
+  include Connection
 end
 
-
-opts :reload do
-  summary "Reload RVC command modules and extensions"
-  opt :verbose, "Display filenames loaded", :short => 'v', :default => false
-end
-
-rvc_alias :reload
-
-def reload opts
-  old_verbose = $VERBOSE
-  $VERBOSE = nil unless opts[:verbose]
-
-  shell.reload_modules opts[:verbose]
-  RbVmomi::VIM.reload_extensions
-ensure
-  $VERBOSE = old_verbose
 end

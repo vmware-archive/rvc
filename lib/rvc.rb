@@ -18,16 +18,15 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-require 'rbvmomi'
+module RVC
+  SCHEMES = {}
+end
+
 require 'rvc/inventory'
-require 'rvc/modules'
+require 'rvc/namespace'
 require 'rvc/util'
 require 'rvc/path'
 require 'rvc/fs'
 require 'rvc/completion'
 require 'rvc/option_parser'
 require 'rvc/shell'
-require 'rvc/memory_session'
-require 'rvc/filesystem_session'
-
-RbVmomi::VIM.extension_dirs << File.join(File.dirname(__FILE__), "rvc/extensions")

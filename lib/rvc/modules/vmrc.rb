@@ -18,39 +18,58 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/vim'
+
 require 'tmpdir'
 require 'digest/sha2'
 require 'zip'
 require 'rbconfig'
 
-case RbConfig::CONFIG['host_os']
-when /mswin/, /mingw/
-  VMRC_NAME = "vmware-vmrc-win32-x86-3.0.0-309851"
-  VMRC_SHA256 = "8d8f9655121db5987bef1c2fa3a08ef2c4dd7769eb230bbd5b3ba9fd9576db56"
-  VMRC_BIN = "vmware-vmrc.exe"
-when /linux/
-  VMRC_NAME = "vmware-vmrc-linux-x86-3.0.0-309851"
-  VMRC_SHA256 = "c86ecd9d9a1dd909a119c19d28325cb87d6e2853885d3014a7dac65175dd2ae1"
-  VMRC_BIN = "vmware-vmrc"
-else
-  VMRC_NAME = nil
-  VMRC_SHA256 = nil
-  VMRC_BIN = nil
-  $stderr.puts "No VMRC available for OS #{RbConfig::CONFIG['host_os']}"
+VMRC_CHECKSUMS = {
+  "i686-linux" => "b8f11c92853502c3dd208da79514a66d2dd4734b8564aceb9952333037859d04",
+  "x86_64-linux" => "86ec4bc6f23da0c33045d9bf48d9fe66ab2f426b523d8b37531646819891bf54",
+  "i686-mswin" => "f8455f0df038fbc8e817e4381af44fa2141496cb4e2b61f505f75bc447841949",
+}
+
+PACKAGE_VERSION = 'A'
+ARCH = RbConfig::CONFIG['arch']
+ON_WINDOWS = (RbConfig::CONFIG['host_os'] =~ /(mswin|mingw)/) != nil
+
+def vmrc_url arch
+  "http://cloud.github.com/downloads/vmware/rvc/vmware-vmrc-public-#{arch}-#{PACKAGE_VERSION}.zip"
 end
 
-VMRC_BASENAME = "#{VMRC_NAME}.xpi"
-VMRC_URL = "http://cloud.github.com/downloads/vmware/rvc/#{VMRC_BASENAME}"
+def local_vmrc_dir arch
+  File.join(Dir.tmpdir, "vmware-vmrc-#{arch}-#{Process.uid}-#{PACKAGE_VERSION}")
+end
 
-def find_local_vmrc
-  return nil if VMRC_NAME.nil?
-  path = File.join(Dir.tmpdir, VMRC_NAME, 'plugins', VMRC_BIN)
+def check_installed
+  File.exists? local_vmrc_dir(ARCH)
+end
+
+def find_vmrc arch, version
+  path = if version == '3.0.0'
+    basename = ON_WINDOWS ? 'vmware-vmrc.exe' : 'vmware-vmrc'
+    File.join(local_vmrc_dir(arch), version, 'plugins', basename)
+  else
+    fail "VMRC5 not yet supported on win32" if ON_WINDOWS
+    File.join(local_vmrc_dir(arch), version, 'vmware-vmrc-5.0', 'run.sh')
+  end
   File.exists?(path) && path
 end
 
-def find_vmrc
-  find_local_vmrc || search_path('vmrc')
+def choose_vmrc_version vim_version
+  if vim_version >= '5.1.0'
+    '5.0.0'
+  else
+    '3.0.0'
+  end
 end
+
+fail unless choose_vmrc_version('4.1.0') == '3.0.0'
+fail unless choose_vmrc_version('5.0.1') == '3.0.0'
+fail unless choose_vmrc_version('5.1.0') == '5.0.0'
+fail unless choose_vmrc_version('6.0.0') == '5.0.0'
 
 
 opts :view do
@@ -65,10 +84,13 @@ rvc_alias :view, :vmrc
 rvc_alias :view, :v
 
 def view vms, opts
-  unless vmrc = find_vmrc
+  conn = single_connection vms
+  vim_version = conn.serviceContent.about.version
+  vmrc_version = choose_vmrc_version vim_version
+  unless vmrc = find_vmrc(ARCH, vmrc_version)
     if opts[:install]
       install
-      vmrc = find_vmrc
+      vmrc = find_vmrc(ARCH, vmrc_version)
     else
       err "VMRC not found. You may need to run vmrc.install."
     end
@@ -82,8 +104,7 @@ def view vms, opts
   end
 end
 
-case RbConfig::CONFIG['host_os']
-when /mswin/, /mingw/
+if ON_WINDOWS
   def spawn_vmrc vmrc, moref, host, ticket
     err "Ruby 1.9 required" unless Process.respond_to? :spawn
     Process.spawn vmrc, '-h', host, '-p', ticket, '-M', moref,
@@ -109,10 +130,12 @@ opts :install do
 end
 
 def install
-  zip_filename = File.join(Dir.tmpdir, VMRC_BASENAME)
-  download VMRC_URL, zip_filename
-  verify zip_filename, VMRC_SHA256
-  extract zip_filename, File.join(Dir.tmpdir, VMRC_NAME)
+  err "No VMRC available for architecture #{ARCH}" unless VMRC_CHECKSUMS.member? ARCH
+  zip_filename = "#{local_vmrc_dir(ARCH)}.zip"
+  url = vmrc_url ARCH
+  download url, zip_filename
+  verify zip_filename, VMRC_CHECKSUMS[ARCH]
+  extract zip_filename, local_vmrc_dir(ARCH)
   puts "VMRC was installed successfully."
 end
 
@@ -136,6 +159,7 @@ def download url_str, dest
           io.write segment
         end
       end
+      res.value
     end
   rescue Exception
     err "Error downloading VMRC: #{$!.class}: #{$!.message}"
@@ -143,9 +167,13 @@ def download url_str, dest
 end
 
 def verify filename, expected_hash
-  puts "Checking integrity..."
-  hexdigest = Digest::SHA256.file(filename).hexdigest
-  err "Hash mismatch" if hexdigest != VMRC_SHA256
+  if expected_hash == :nocheck
+    puts "WARNING: skipping hash check"
+  else
+    puts "Checking integrity..."
+    hexdigest = Digest::SHA256.file(filename).hexdigest
+    err "Hash mismatch: expected #{expected_hash}, found #{hexdigest}" if hexdigest != expected_hash
+  end
 end
 
 def extract src, dst

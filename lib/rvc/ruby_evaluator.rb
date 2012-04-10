@@ -18,34 +18,63 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-require 'rvc/vim'
+require 'rvc/util'
 
-opts :quit do
-  summary "Exit RVC"
+module RVC
+
+class RubyEvaluator
+  include RVC::Util
+
+  def initialize shell
+    @binding = toplevel
+    @shell = shell
+  end
+
+  def toplevel
+    binding
+  end
+
+  def do_eval input, file
+    begin
+      eval input, @binding, file
+    rescue Exception => e
+      bt = e.backtrace
+      bt = bt.reverse.drop_while { |x| !(x =~ /toplevel/) }.reverse
+      bt[-1].gsub! ':in `toplevel\'', '' if bt[-1]
+      e.set_backtrace bt
+      raise
+    end
+  end
+
+  def this
+    @shell.fs.cur
+  end
+
+  def dc
+    @shell.fs.lookup("~").first
+  end
+
+  def conn
+    @shell.fs.lookup("~@").first
+  end
+
+  def method_missing sym, *a
+    if a.empty?
+      if @shell.cmds.namespaces.member? sym
+        @shell.cmds.namespaces[sym]
+      elsif sym.to_s =~ /_?([\w\d]+)(!?)/ && objs = @shell.fs.marks[$1]
+        if $2 == '!'
+          objs
+        else
+          objs.first
+        end
+      else
+        super
+      end
+    else
+      super
+    end
+  end
 end
 
-rvc_alias :quit
-rvc_alias :quit, :exit
-rvc_alias :quit, :q
-
-def quit
-  exit
-end
-
-
-opts :reload do
-  summary "Reload RVC command modules and extensions"
-  opt :verbose, "Display filenames loaded", :short => 'v', :default => false
-end
-
-rvc_alias :reload
-
-def reload opts
-  old_verbose = $VERBOSE
-  $VERBOSE = nil unless opts[:verbose]
-
-  shell.reload_modules opts[:verbose]
-  RbVmomi::VIM.reload_extensions
-ensure
-  $VERBOSE = old_verbose
 end

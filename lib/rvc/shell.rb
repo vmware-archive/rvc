@@ -18,19 +18,35 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/namespace'
+require 'rvc/connection'
+require 'rvc/ruby_evaluator'
+require 'shellwords'
+
 module RVC
 
 class Shell
-  attr_reader :fs, :connections, :session
-  attr_accessor :debug
+  attr_reader :fs, :completion
+  attr_reader :connections, :connection
+  attr_accessor :debug, :cmds
 
-  def initialize session
-    @session = session
+  def initialize
     @persist_ruby = false
-    @fs = RVC::FS.new RVC::RootNode.new
-    @ruby_evaluator = RubyEvaluator.new @fs
-    @connections = {}
+    @fs = RVC::FS.new RVC::RootNode.new(self)
+    @ruby_evaluator = RVC::RubyEvaluator.new self
+    @completion = RVC::Completion.new self
+    @connection = NullConnection.new
+    @connections = { '' => @connection }
     @debug = false
+    @cmds = nil
+  end
+
+  def switch_connection name
+    @connection = @connections[name] || fail("no such connection")
+  end
+
+  def inspect
+    "#<RVC::Shell:#{object_id}>"
   end
 
   def eval_input input
@@ -79,34 +95,35 @@ class Shell
   end
 
   def self.parse_input input
-    cmd, *args = Shellwords.shellwords(input)
-    return nil unless cmd
-    if cmd.include? '.'
-      module_name, cmd, = cmd.split '.'
-    elsif ALIASES.member? cmd
-      module_name, cmd, = ALIASES[cmd].split '.'
+    begin
+      cmdpath, *args = Shellwords.shellwords(input)
+    rescue ArgumentError # unmatched double quote
+      cmdpath, *args = Shellwords.shellwords(input + '"')
     end
-    [MODULES[module_name], cmd.to_sym, args]
+    return nil unless cmdpath
+    cmdpath = cmdpath.split('.').map(&:to_sym)
+    [cmdpath, args]
   end
 
   def eval_command input
-    m, cmd, args = Shell.parse_input input
-    RVC::Util.err "invalid command" unless m != nil and
-                                           cmd.is_a? Symbol and
-                                           m.has_command? cmd
-    parser = m.opts_for(cmd)
+    cmdpath, args = Shell.parse_input input
+
+    RVC::Util.err "invalid input" unless cmdpath
+
+    cmd = cmds.lookup cmdpath
+    RVC::Util.err "invalid command" unless cmd
 
     begin
-      args, opts = parser.parse args
+      args, opts = cmd.parser.parse args
     rescue Trollop::HelpNeeded
-      parser.educate
+      cmd.parser.educate
       return
     end
 
-    if parser.has_options?
-      m.send cmd.to_sym, *(args + [opts])
+    if cmd.parser.has_options?
+      cmd.invoke *(args + [opts])
     else
-      m.send cmd.to_sym, *args
+      cmd.invoke *args
     end
   end
 
@@ -154,7 +171,7 @@ class Shell
         introspect_class klasses.map(&:ancestors).inject(&:&)[0]
       end
     else
-      puts obj.class
+      introspect_class obj.class
     end
   end
 
@@ -179,68 +196,36 @@ class Shell
         puts " #{name}(#{params.map { |x| "#{x['name']} : #{q[x['wsdl_type'] || 'void']}#{x['is-array'] ? '[]' : ''}" } * ', '}) : #{q[desc['result']['wsdl_type'] || 'void']}"
       end
     else
-      puts klass
-    end
-  end
-
-  def delete_numeric_marks
-    @session.marks.grep(/^\d+$/).each { |x| @session.set_mark x, nil }
-  end
-end
-
-class RubyEvaluator
-  include RVC::Util
-
-  def initialize fs
-    @binding = toplevel
-    @fs = fs
-  end
-
-  def toplevel
-    binding
-  end
-
-  def do_eval input, file
-    begin
-      eval input, @binding, file
-    rescue Exception => e
-      bt = e.backtrace
-      bt = bt.reverse.drop_while { |x| !(x =~ /toplevel/) }.reverse
-      bt[-1].gsub! ':in `toplevel\'', '' if bt[-1]
-      e.set_backtrace bt
-      raise
-    end
-  end
-
-  def this
-    @fs.cur
-  end
-
-  def dc
-    @fs.lookup("~").first
-  end
-
-  def conn
-    @fs.lookup("~@").first
-  end
-
-  def method_missing sym, *a
-    super unless $shell
-    str = sym.to_s
-    if a.empty?
-      if MODULES.member? str
-        MODULES[str]
-      elsif str =~ /_?([\w\d]+)(!?)/ && objs = $shell.session.get_mark($1)
-        if $2 == '!'
-          objs
+      puts "#{klass} < #{klass.superclass}"
+      puts
+      methods_by_class = klass.instance_methods.map { |x| klass.instance_method(x) }.group_by { |m| m.owner }
+      klass.ancestors.each do |ancestor|
+        break if ancestor == Object
+        if ancestor == klass
+          puts "Methods:"
         else
-          objs.first
+          puts "Methods from #{ancestor}:"
         end
-      else
-        super
+        methods_by_class[ancestor].sort_by { |m| m.name }.each do |m|
+          if m.respond_to? :parameters
+            puts " #{m.name}(#{m.parameters.map { |mode,name| "#{name}#{mode==:opt ? '?' : ''}" } * ', '})"
+          else
+            puts " #{m.name}"
+          end
+        end
       end
-    else
-      super
+    end
+  end
+
+  BULTIN_MODULE_PATH = [File.expand_path(File.join(File.dirname(__FILE__), 'modules')),
+                        File.join(ENV['HOME'], ".rvc")]
+  ENV_MODULE_PATH = (ENV['RVC_MODULE_PATH'] || '').split ':'
+
+  def reload_modules verbose=true
+    @cmds = RVC::Namespace.new 'root', self, nil
+    module_path = (BULTIN_MODULE_PATH+ENV_MODULE_PATH).select { |d| File.directory?(d) }
+    module_path.each do |dir|
+      @cmds.load_module_dir dir, verbose
     end
   end
 end

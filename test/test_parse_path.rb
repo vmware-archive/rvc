@@ -1,5 +1,4 @@
-require 'test/unit'
-require 'rvc/path'
+require 'test_helper'
 
 class ParsePathTest < Test::Unit::TestCase
   def test_empty

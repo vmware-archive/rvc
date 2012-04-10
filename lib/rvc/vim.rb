@@ -18,34 +18,20 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-require 'rvc/vim'
+require 'rvc/connection'
 
-opts :quit do
-  summary "Exit RVC"
-end
+require 'rbvmomi'
+VIM = RbVmomi::VIM
+VIM.add_extension_dir File.join(File.dirname(__FILE__), "extensions")
 
-rvc_alias :quit
-rvc_alias :quit, :exit
-rvc_alias :quit, :q
+class RbVmomi::VIM
+  include RVC::Connection
 
-def quit
-  exit
-end
+  def children
+    rootFolder.children
+  end
 
-
-opts :reload do
-  summary "Reload RVC command modules and extensions"
-  opt :verbose, "Display filenames loaded", :short => 'v', :default => false
-end
-
-rvc_alias :reload
-
-def reload opts
-  old_verbose = $VERBOSE
-  $VERBOSE = nil unless opts[:verbose]
-
-  shell.reload_modules opts[:verbose]
-  RbVmomi::VIM.reload_extensions
-ensure
-  $VERBOSE = old_verbose
+  def display_info
+    puts serviceContent.about.fullName
+  end
 end

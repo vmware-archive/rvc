@@ -40,6 +40,10 @@ module InventoryObject
     def folder?
       false
     end
+
+    def traverse?
+      false
+    end
   end
 
   def self.included m
@@ -135,8 +139,12 @@ end
 class RootNode
   include RVC::InventoryObject
 
+  def initialize shell
+    @shell = shell
+  end
+
   def children
-    $shell.connections
+    @shell.connections
   end
 
   def self.folder?

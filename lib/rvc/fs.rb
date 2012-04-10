@@ -21,7 +21,7 @@
 module RVC
 
 class FS
-  attr_reader :root, :cur
+  attr_reader :root, :cur, :marks
 
   MARK_PATTERN = /^~(?:([\d\w]*|~|@))$/
   REGEX_PATTERN = /^%/
@@ -31,6 +31,7 @@ class FS
     fail unless root.is_a? RVC::InventoryObject
     @root = root
     @cur = root
+    @marks = {}
   end
 
   def display_path
@@ -39,7 +40,7 @@ class FS
 
   def cd dst
     fail unless dst.is_a? RVC::InventoryObject
-    $shell.session.set_mark '~', [@cur]
+    @marks['~'] = [@cur]
     @cur = dst
   end
 
@@ -70,7 +71,7 @@ class FS
       # XXX shouldnt be nil
       [(cur.respond_to?(:parent) && cur.parent) ? cur.parent : (cur.rvc_parent || cur)]
     when MARK_PATTERN
-      if first and objs = $shell.session.get_mark($1)
+      if first and objs = @marks[$1]
         objs
       else
         []
@@ -83,7 +84,7 @@ class FS
       cur.children.select { |k,v| k =~ regex }.map { |k,v| v.rvc_link(cur, k); v }
     else
       # XXX check for ambiguous child
-      if first and arc =~ /^\d+$/ and objs = $shell.session.get_mark(arc)
+      if first and arc =~ /^\d+$/ and objs = @marks[arc]
         objs
       else
         if child = cur.traverse_one(arc)
@@ -94,6 +95,35 @@ class FS
         end
       end
     end
+  end
+
+  def delete_numeric_marks
+    @marks.reject! { |k,v| k =~ /^\d+$/ }
+  end
+
+  # Utility methods
+
+  def lookup_single path
+    objs = lookup path
+    Util.err "Not found: #{path.inspect}" if objs.empty?
+    Util.err "More than one match for #{path.inspect}" if objs.size > 1
+    objs.first
+  end
+
+  def lookup! path, types
+    types = [types] unless types.is_a? Enumerable
+    lookup(path).tap do |objs|
+      objs.each do |obj|
+        Util.err "Expected #{types*'/'} but got #{obj.class} at #{path.inspect}" unless types.any? { |type| obj.is_a? type }
+      end
+    end
+  end
+
+  def lookup_single! path, type
+    objs = lookup!(path, type)
+    Util.err "Not found: #{path.inspect}" if objs.empty?
+    Util.err "More than one match for #{path.inspect}" if objs.size > 1
+    objs.first
   end
 
 private

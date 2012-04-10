@@ -18,34 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-require 'rvc/vim'
-
-opts :quit do
-  summary "Exit RVC"
+module RVC
+  VERSION = File.read(File.join(File.dirname(__FILE__), '..', '..', 'VERSION'))
 end
 
-rvc_alias :quit
-rvc_alias :quit, :exit
-rvc_alias :quit, :q
-
-def quit
-  exit
-end
-
-
-opts :reload do
-  summary "Reload RVC command modules and extensions"
-  opt :verbose, "Display filenames loaded", :short => 'v', :default => false
-end
-
-rvc_alias :reload
-
-def reload opts
-  old_verbose = $VERBOSE
-  $VERBOSE = nil unless opts[:verbose]
-
-  shell.reload_modules opts[:verbose]
-  RbVmomi::VIM.reload_extensions
-ensure
-  $VERBOSE = old_verbose
-end

@@ -19,21 +19,23 @@
 # THE SOFTWARE.
 
 require 'trollop'
+require 'set'
+
+module RVC
 
 begin
   require 'chronic'
-  RVC::HAVE_CHRONIC = true
+  HAVE_CHRONIC = true
 rescue LoadError
-  RVC::HAVE_CHRONIC = false
+  HAVE_CHRONIC = false
 end
-
-module RVC
 
 class OptionParser < Trollop::Parser
   attr_reader :applicable
 
-  def initialize cmd, &b
+  def initialize cmd, fs, &b
     @cmd = cmd
+    @fs = fs
     @summary = nil
     @args = []
     @has_options = false
@@ -41,8 +43,8 @@ class OptionParser < Trollop::Parser
     @seen_multi = false
     @applicable = Set.new
     super() do
-      opt :help, "Show this message", :short => 'h'
       instance_eval &b
+      opt :help, "Show this message", :short => 'h'
     end
   end
 
@@ -97,7 +99,7 @@ class OptionParser < Trollop::Parser
 
     @specs.each do |name,spec|
       next unless klass = spec[:lookup] and path = opts[name]
-      opts[name] = RVC::Util.lookup_single! path, klass
+      opts[name] = @fs.lookup_single! path, klass
     end
 
     argv = leftovers
@@ -136,10 +138,10 @@ class OptionParser < Trollop::Parser
 
   def postprocess_arg x, spec
     if spec[:lookup]
-      RVC::Util.lookup!(x, spec[:lookup]).
+      @fs.lookup!(x, spec[:lookup]).
         tap { |a| RVC::Util.err "no matches for #{x.inspect}" if a.empty? }
     elsif spec[:lookup_parent]
-      RVC::Util.lookup!(File.dirname(x), spec[:lookup_parent]).
+      @fs.lookup!(File.dirname(x), spec[:lookup_parent]).
         map { |y| [y, File.basename(x)] }.
         tap { |a| RVC::Util.err "no matches for #{File.dirname(x).inspect}" if a.empty? }
     else
@@ -163,14 +165,9 @@ end
 class RawOptionParser
   attr_reader :applicable
 
-  def initialize cmd, summary
+  def initialize cmd
     @cmd = cmd
-    @summary = summary
     @applicable = []
-  end
-
-  def summary?
-    @summary
   end
 
   def parse args

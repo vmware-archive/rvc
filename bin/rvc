@@ -18,24 +18,20 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
+require 'rvc'
+require 'rvc/version'
+require 'rvc/uri_parser'
 require 'readline'
 require "highline/import"
 require 'pp'
-require 'trollop'
-require 'rbvmomi'
-require 'rbvmomi/trollop'
 require 'shellwords'
 require 'yaml'
 require 'backports'
-require 'rvc'
 require 'tempfile'
-
-VIM = RbVmomi::VIM
+require 'trollop'
+require 'rbvmomi/trollop'
 
 Thread.abort_on_exception = true
-
-CMD = Module.new
-RVC::VERSION = File.read(File.join(File.dirname(__FILE__), '..', 'VERSION'))
 
 HighLine.use_color = ENV['TERM'] != nil
 
@@ -56,67 +52,42 @@ EOS
   opt :cmd, "command to evaluate", :short => 'c', :multi => true, :type => :string
   opt :script, "file to execute", :short => 's', :type => :string
   opt :cookie, "authentication cookie file", :short => 'k', :type => :string
+  opt :quiet, "silence unnecessary output", :short => 'q', :default => false, :type => :boolean
 end
 
 $interactive = $opts[:script].nil? and $stdin.tty?
 
-RVC.reload_modules false
-
-session = if ENV['RVC_SESSION'] and not ENV['RVC_SESSION'].empty?
-  RVC::FilesystemSession.new ENV['RVC_SESSION']
-else
-  RVC::MemorySession.new
-end
-
-$shell = RVC::Shell.new session
+# TODO remove $shell when all references are gone
+$shell = shell = RVC::Shell.new
+shell.reload_modules false
 
 # Prompt for hostname if none given. Useful on win32.
-if $shell.session.connections.empty? and ARGV.empty? and $interactive
+if ARGV.empty? and $interactive
   ARGV << Readline.readline("Host to connect to (user@host): ")
 end
 
-$shell.session.connections.each do |key|
-  conn = $shell.session.get_connection(key) or fail "no such connection #{key.inspect}"
-  uri = "#{conn['username']}@#{conn['host']}"
+# TODO cookies, cert digests
+ARGV.each do |str|
   begin
-    puts "Connecting to #{conn['host']}..."
-    CMD.vim.connect uri, {}
-  rescue RVC::Util::UserError
-    puts "Failed to connect to #{conn['host']}: #{$!.message}"
+    uri = RVC::URIParser.parse str
+  rescue
+    puts "Failed to parse URI #{str.inspect}: #{$!.message}"
     exit 1
   end
-end
 
-cookies = {}
-certdigests = {}
-if $opts[:cookie]
-  File.readlines($opts[:cookie]).each do |info|
-    host, cookie, certdigest = info.chomp.split('|')
-    cookies[host] = cookie
-    certdigests[host] = certdigest
-  end
-end
-
-ARGV.each do |uri|
-  # get hostname from uri to display in "connecting to..." message
-  hostinfo = uri.split("@")
-  host = if hostinfo.length > 1
-           hostinfo[1].split(":")[0]
-         else
-           hostinfo[0].split(":")[0]
-         end
   begin
-    puts "Connecting to #{host}..." if (ARGV+$shell.session.connections).size > 1
-    CMD.vim.connect uri, {:cookie => cookies[host],
-                          :certdigest => certdigests[host]}
+    puts "Connecting to #{uri.host}..." if ARGV.size > 1
+    scheme = uri.scheme || 'vim'
+    scheme_handler = RVC::SCHEMES[scheme] or RVC::Util.err "invalid scheme #{scheme.inspect}"
+    scheme_handler[uri]
   rescue RVC::Util::UserError
-    puts "Failed to connect to #{host}: #{$!.message}"
+    puts "Failed to connect to #{uri.host}: #{$!.message}"
     exit 1
   end
 end
 
 if $interactive
-  RVC::Completion.install
+  shell.completion.install
   history_fn = "#{ENV['HOME']}/.rvc-history"
   IO.foreach(history_fn) { |l| Readline::HISTORY << l.chomp } rescue puts "Welcome to RVC. Try the 'help' command."
   begin
@@ -128,19 +99,20 @@ end
 
 if $opts[:path]
   begin
-    CMD.basic.cd RVC::Util.lookup_single($opts[:path])
+    shell.cmds.basic.cd shell.fs.lookup_single($opts[:path])
   rescue RVC::Util::UserError
     raise unless $opts[:create_directory]
     parent_path = File.dirname($opts[:path])
-    RVC::Util.lookup_single(parent_path).CreateFolder(:name => File.basename($opts[:path]))
-    CMD.basic.cd RVC::Util.lookup_single($opts[:path])
+    shell.fs.lookup_single(parent_path).CreateFolder(:name => File.basename($opts[:path]))
+    shell.cmds.basic.cd shell.fs.lookup_single($opts[:path])
   end
-elsif $shell.connections.size == 1 and $interactive
-  conn_name, conn = $shell.connections.first
+elsif shell.connections.size == 1 and $interactive and
+      shell.connections.first[1].is_a? RbVmomi::VIM # HACK
+  conn_name, conn = shell.connections.first
   if conn.serviceContent.about.apiType == 'VirtualCenter'
-    CMD.basic.cd RVC::Util.lookup_single(conn_name)
+    shell.cmds.basic.cd shell.fs.lookup_single(conn_name)
   else
-    CMD.basic.cd RVC::Util.lookup_single("#{conn_name}/ha-datacenter/vm")
+    shell.cmds.basic.cd shell.fs.lookup_single("#{conn_name}/ha-datacenter/vm")
   end
 end
 
@@ -151,43 +123,45 @@ if defined? Ocra
 end
 
 if $interactive
-  if ENV['DISPLAY']
-    $stderr.puts "VMRC is not installed. You will be unable to view virtual machine consoles. Use the vmrc.install command to install it." unless CMD.vmrc.find_vmrc
+  if ENV['DISPLAY'] and !$opts[:quiet]
+    $stderr.puts "VMRC is not installed. You will be unable to view virtual machine consoles. Use the vmrc.install command to install it." unless shell.cmds.vmrc.slate.check_installed
   end
-  $stderr.puts "Use the 'connect' command to connect to an ESX or VC server." if $shell.connections.empty?
-  CMD.basic.ls RVC::Util.lookup_single('.')
+  $stderr.puts "Use the 'connect' command to connect to an ESX or VC server." if shell.connections.empty?
+  shell.cmds.basic.ls shell.fs.lookup_single('.') unless $opts[:quiet]
 end
 
-trap "SIGCHLD" do |sig|
-  begin
-    while pid = Process.wait(-1, Process::WNOHANG)
+if Signal.list["CHLD"]
+  trap "SIGCHLD" do |sig|
+    begin
+      while pid = Process.wait(-1, Process::WNOHANG)
+      end
+    rescue Errno::ECHILD
     end
-  rescue Errno::ECHILD
   end
 end
 
 if $opts[:script]
-  $shell.eval_ruby File.read($opts[:script]), $opts[:script]
+  shell.eval_ruby File.read($opts[:script]), $opts[:script]
 else
   while true
     begin
       begin
-        input = $opts[:cmd].shift || Readline.readline($shell.prompt, false) or break
+        input = $opts[:cmd].shift || Readline.readline(shell.prompt, false) or break
       rescue
         puts "\n#{$!.class} during readline: #{$!.message}"
-        $!.backtrace.each { |x| puts x } if $shell.debug
+        $!.backtrace.each { |x| puts x } if shell.debug
         next
       end
       input = input.strip
       next if input.empty?
       (history && history.puts(input); Readline::HISTORY << input) unless input == Readline::HISTORY.to_a[-1]
-      $shell.eval_input input
+      shell.eval_input input
     rescue Interrupt
       puts
     end
   end
 end
 
-$shell.connections.each do |name, conn|
+shell.connections.each do |name, conn|
   conn.close if conn.respond_to? :close rescue puts("failed to close connection #{name.inspect}: #{$!.class}: #{$!.message}")
 end

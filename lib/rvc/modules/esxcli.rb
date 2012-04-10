@@ -18,9 +18,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/vim'
+
+require 'rvc/ttl_cache'
+
 raw_opts :execute, "Execute an esxcli command"
 
-EsxcliCache = TTLCache.new 60
+EsxcliCache = RVC::TTLCache.new 60
 
 def lookup_esxcli host, args
   cur = EsxcliCache[host, :esxcli]
@@ -40,14 +44,14 @@ def lookup_esxcli host, args
   return cur
 end
 
-rvc_completor :execute do |line, args, word, argnum|
-  if argnum == 0
+rvc_completor :execute do |word, args|
+  if args.length == 1
     # HostSystem argument
-    RVC::Completion.fs_candidates word
+    shell.completion.fs_candidates word
   else
     # esxcli namespace/method/arguments
     host = lookup_single! args[0], VIM::HostSystem
-    o = lookup_esxcli host, args[1...argnum]
+    o = lookup_esxcli host, args[1...-1]
 
     case o
     when VIM::EsxcliCommand
