@@ -340,9 +340,9 @@ def stats metrics, objs, opts
   table.add_row ['Object', 'Metric', 'Values', 'Unit']
   table.add_separator
   objs.each do |obj|
-    metrics.each do |metric|
+    res[obj][:metrics].keys.each do |metric|
       stat = res[obj][:metrics][metric]
-      metric_info = pm.perfcounter_hash[metric]
+      metric_info = pm.perfcounter_hash[metric.split('-').first]
       table.add_row([obj.name, metric, stat.join(','), metric_info.unitInfo.label])
     end
   end

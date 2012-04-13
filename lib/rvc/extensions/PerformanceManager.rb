@@ -45,7 +45,6 @@ class RbVmomi::VIM::PerformanceManager
         realtime = true
       end
     end
-      
     metric_ids = metrics.map do |x| 
       RbVmomi::VIM::PerfMetricId(:counterId => perfcounter_hash[x].key, :instance => '*')
     end
@@ -59,18 +58,23 @@ class RbVmomi::VIM::PerformanceManager
       })
     end
     stats = QueryPerf(:querySpec => query_specs)
-    
-    Hash[stats.map do |res|
-      [
-        res.entity, 
-        {
-          :sampleInfo => res.sampleInfo,
-          :metrics => Hash[res.value.map do |metric|
-            [perfcounter_idhash[metric.id.counterId].name, metric.value]
-          end]
-        }
-      ]
-    end]
+    _result = Hash.new
+    stats.map do |res|
+      _metrics = Hash.new
+      res.value.map do |metric|
+        inst_name = metric.id.instance.nil? ? '' : '-'+metric.id.instance
+        if inst_name.size.eql?(1)
+          inst_name = ''
+        end
+        name = perfcounter_idhash[metric.id.counterId].name + inst_name
+        _metrics[name] = metric.value
+      end
+      _res = Hash.new
+      _res[:metrics] = _metrics
+      _res[:sampleInfo] = res.sampleInfo
+      _result[res.entity] = _res
+    end
+    _result
   end
 
   def active_intervals
