@@ -25,6 +25,7 @@ class RbVmomi::VIM::Datastore
     puts "url: #{s.accessible ? s.url : '<inaccessible>'}"
     puts "multipleHostAccess: #{s.multipleHostAccess}"
     puts "capacity: %0.2fGB" % (s.capacity.to_f/10**9)
+    puts "capacity_bytes: %db" % s.capacity.to_s
     puts "free space: %0.2fGB" % (s.freeSpace.to_f/10**9)
     case info
     when VIM::VmfsDatastoreInfo
