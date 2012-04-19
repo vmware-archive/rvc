@@ -50,6 +50,7 @@ EOS
   opt :path, "Initial directory", :short => :none, :default => ENV['RVC_PATH'], :type => :string
   opt :create_directory, "Create the initial directory if it doesn't exist", :short => :none
   opt :cmd, "command to evaluate", :short => 'c', :multi => true, :type => :string
+  opt :cmd_file, "file of command to evaluate", :short => 'f', :type => :string
   opt :script, "file to execute", :short => 's', :type => :string
   opt :cookie, "authentication cookie file", :short => 'k', :type => :string
   opt :quiet, "silence unnecessary output", :short => 'q', :default => false, :type => :boolean
@@ -140,13 +141,30 @@ if Signal.list["CHLD"]
   end
 end
 
+if $opts[:cmd_file] 
+  if File.file?($opts[:cmd_file])
+    cmd_input = File.open($opts[:cmd_file])
+  else
+    $stderr.puts "Unable to open file "+$opts[:cmd_file]
+    exit
+  end
+end
 if $opts[:script]
   shell.eval_ruby File.read($opts[:script]), $opts[:script]
 else
   while true
     begin
       begin
-        input = $opts[:cmd].shift || Readline.readline(shell.prompt, false) or break
+        if cmd_input
+          if cmd_input.eof?
+            cmd = '' 
+            cmd_input.close
+            break
+          else
+            cmd = cmd_input.readline
+          end
+        end
+        input = $opts[:cmd].shift || cmd || Readline.readline(shell.prompt, false) or break
       rescue
         puts "\n#{$!.class} during readline: #{$!.message}"
         $!.backtrace.each { |x| puts x } if shell.debug
