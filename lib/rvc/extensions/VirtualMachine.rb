@@ -123,6 +123,7 @@ class RbVmomi::VIM::VirtualMachine
     RVC::Util.err "Information currently unavailable" unless config and runtime and guest
 
     puts "name: #{config.name}"
+    puts "guestId: #{config.guestId}"
     puts "note: #{config.annotation}" if config.annotation and !config.annotation.empty?
     puts "host: #{runtime.host.path[1..-1].map { |x| x[1] } * '/'}" if runtime.host
     puts "tools: #{guest.toolsRunningStatus}"
@@ -138,6 +139,7 @@ class RbVmomi::VIM::VirtualMachine
     end
     puts "cpus: #{config.hardware.numCPU}"
     puts "memory: #{config.hardware.memoryMB} MB"
+    puts "memory_bytes: " + (config.hardware.memoryMB * 1024**2).to_s + "b"
 
     puts "nics:"
     config.hardware.device.grep RbVmomi::VIM::VirtualEthernetCard do |dev|
@@ -155,7 +157,8 @@ class RbVmomi::VIM::VirtualMachine
 
     puts "storage:"
     storage.perDatastoreUsage.map do |usage|
-      puts " #{usage.datastore.name}: committed=#{usage.committed.metric}B uncommitted=#{usage.uncommitted.metric}B unshared=#{usage.unshared.metric}B"
+      #puts " #{usage.datastore.name}: committed=#{usage.committed.metric}B uncommitted=#{usage.uncommitted.metric}B unshared=#{usage.unshared.metric}B"
+      puts " #{usage.datastore.name}: committed=#{usage.committed}b uncommitted=#{usage.uncommitted}b unshared=#{usage.unshared}b"
     end
   end
 
