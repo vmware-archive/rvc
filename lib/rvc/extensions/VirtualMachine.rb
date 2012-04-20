@@ -157,8 +157,9 @@ class RbVmomi::VIM::VirtualMachine
 
     puts "storage:"
     storage.perDatastoreUsage.map do |usage|
+
       #puts " #{usage.datastore.name}: committed=#{usage.committed.metric}B uncommitted=#{usage.uncommitted.metric}B unshared=#{usage.unshared.metric}B"
-      puts " #{usage.datastore.name}: committed=#{usage.committed}b uncommitted=#{usage.uncommitted}b unshared=#{usage.unshared}b"
+      puts " #{usage.datastore.name}: type=#{usage.datastore.summary[:type]} committed=#{usage.committed}b uncommitted=#{usage.uncommitted}b unshared=#{usage.unshared}b"
     end
   end
 
