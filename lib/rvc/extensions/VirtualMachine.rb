@@ -160,8 +160,6 @@ class RbVmomi::VIM::VirtualMachine
       #puts " #{usage.datastore.name}: committed=#{usage.committed.metric}B uncommitted=#{usage.uncommitted.metric}B unshared=#{usage.unshared.metric}B"
       puts " #{usage.datastore.name}: committed=#{usage.committed}b uncommitted=#{usage.uncommitted}b unshared=#{usage.unshared}b"
     end
-
-    puts "\n\n" + rvc_children_devices.inspect + "\n\n"
   end
 
   def self.ls_properties
