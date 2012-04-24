@@ -152,7 +152,10 @@ class RbVmomi::VIM::VirtualMachine
         dev.backing.class.name
       end
       guest_net = guest.net.find { |x| x.macAddress == dev.macAddress }
-      puts " #{dev.name}: #{backing_info} #{dev.connectable.connected ? :connected : :disconnected} #{dev.macAddress} #{guest_net ? (guest_net.ipAddress * ' ') : ''}"
+      if guest_net != nil
+        deviceConfigId_str = guest_net.deviceConfigId.to_s
+      end
+      puts " #{dev.name}: #{backing_info} #{dev.connectable.connected ? :connected : :disconnected} #{dev.macAddress} (#{deviceConfigId_str}) #{guest_net ? (guest_net.ipAddress * ' ') : ''}"
     end
 
     puts "storage:"
