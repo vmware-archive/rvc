@@ -188,7 +188,7 @@ def check_known_hosts host, peer_public_key
   if result == :not_found
     puts "The authenticity of host '#{host}' can't be established."
     puts "Public key fingerprint is #{arg}."
-    err "Connection failed" unless agree("Are you sure you want to continue connecting (y/n)? ", true)
+    # err "Connection failed" unless agree("Are you sure you want to continue connecting (y/n)? ", true)
     puts "Warning: Permanently added '#{host}' (vim) to the list of known hosts"
     known_hosts.add 'vim', host, peer_public_key.to_s
   elsif result == :mismatch
