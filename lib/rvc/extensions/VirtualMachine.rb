@@ -123,7 +123,9 @@ class RbVmomi::VIM::VirtualMachine
     RVC::Util.err "Information currently unavailable" unless config and runtime and guest
 
     puts "name: #{config.name}"
+    puts "moref: #{self._ref}"
     puts "guestId: #{config.guestId}"
+    puts "guestFullName: #{guest.guestFullName}"
     puts "note: #{config.annotation}" if config.annotation and !config.annotation.empty?
     puts "host: #{runtime.host.path[1..-1].map { |x| x[1] } * '/'}" if runtime.host
     puts "tools: #{guest.toolsRunningStatus}"
