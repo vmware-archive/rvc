@@ -365,11 +365,11 @@ def stats metrics, objs, opts
       table.add_row([obj.name, sample_name, sample_summary.join(','), interval.to_s])
       idx = 0
       report_metric_array = []
-      stat.each do | metric |
-        report_metric_array.push({:sample => metric, :timestamp => sample_summary[idx]})
+      stat.each do | sample |
+        report_metric_array.push({:sample => sample, :timestamp => sample_summary[idx]})
         idx += 1
       end
-      report_metrics[sample_name] = report_metric_array
+      report_metrics[metric] = report_metric_array
     end
     report[obj.name] = report_metrics
   end
