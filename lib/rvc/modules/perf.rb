@@ -19,6 +19,7 @@
 # THE SOFTWARE.
 
 require 'rvc/vim'
+require 'time'
 
 TIMEFMT = '%Y-%m-%dT%H:%M:%SZ'
 
@@ -310,6 +311,7 @@ opts :stats do
   arg :metrics, nil, :type => :string
   arg :obj, nil, :multi => true, :lookup => VIM::ManagedEntity
   opt :samples, "Number of samples to retrieve", :type => :int
+  opt :interval, "Interval in seconds", :type => :int
 end
 
 def stats metrics, objs, opts
@@ -322,16 +324,23 @@ def stats metrics, objs, opts
     err "no such metric #{x}" unless pm.perfcounter_hash.member? x
   end
 
-  interval = pm.provider_summary(objs.first).refreshRate
   start_time = nil
-  if interval == -1
-    # Object does not support real time stats
-    interval = 300
-    start_time = Time.now - 300 * 5
+  samples = 1
+  interval = pm.provider_summary(objs.first).refreshRate
+  samples = opts[:samples] if opts[:samples]
+  if opts[:interval]
+    interval = opts[:interval] 
+    start_time = Time.now - interval * samples 
+  else
+    if interval == -1
+      # Object does not support real time stats
+      interval = 300
+      start_time = Time.now - 300 * 5
+    end
   end
   stat_opts = {
     :interval => interval,
-    :startTime => start_time,
+    :start_time => start_time,
   }
   stat_opts[:max_samples] = opts[:samples] if opts[:samples]
   res = pm.retrieve_stats objs, metrics, stat_opts
@@ -341,9 +350,16 @@ def stats metrics, objs, opts
   table.add_separator
   objs.each do |obj|
     res[obj][:metrics].keys.each do |metric|
+      sample_summary = []
       stat = res[obj][:metrics][metric]
+      sample_info = res[obj][:sampleInfo]
+      sample_info.each do | sample |
+        sample_summary.push sample[:timestamp].iso8601
+      end
       metric_info = pm.perfcounter_hash[metric.split('-').first]
       table.add_row([obj.name, metric, stat.join(','), metric_info.unitInfo.label])
+      sample_name = metric + ".sample_time"
+      table.add_row([obj.name, sample_name, sample_summary.join(','), interval.to_s])
     end
   end
   puts table
