@@ -20,6 +20,7 @@
 
 require 'rvc/vim'
 require 'time'
+require 'json'
 
 TIMEFMT = '%Y-%m-%dT%H:%M:%SZ'
 
@@ -312,6 +313,7 @@ opts :stats do
   arg :obj, nil, :multi => true, :lookup => VIM::ManagedEntity
   opt :samples, "Number of samples to retrieve", :type => :int
   opt :interval, "Interval in seconds", :type => :int
+  opt :json, "Diplay results in JSON format"
 end
 
 def stats metrics, objs, opts
@@ -344,11 +346,12 @@ def stats metrics, objs, opts
   }
   stat_opts[:max_samples] = opts[:samples] if opts[:samples]
   res = pm.retrieve_stats objs, metrics, stat_opts
-
+  report = {}
   table = Terminal::Table.new
   table.add_row ['Object', 'Metric', 'Values', 'Unit']
   table.add_separator
   objs.each do |obj|
+    report_metrics = {}
     res[obj][:metrics].keys.each do |metric|
       sample_summary = []
       stat = res[obj][:metrics][metric]
@@ -360,7 +363,19 @@ def stats metrics, objs, opts
       table.add_row([obj.name, metric, stat.join(','), metric_info.unitInfo.label])
       sample_name = metric + ".sample_time"
       table.add_row([obj.name, sample_name, sample_summary.join(','), interval.to_s])
+      idx = 0
+      report_metric_array = []
+      stat.each do | metric |
+        report_metric_array.push({:sample => metric, :timestamp => sample_summary[idx]})
+        idx += 1
+      end
+      report_metrics[sample_name] = report_metric_array
     end
+    report[obj.name] = report_metrics
   end
-  puts table
+  if opts[:json]
+    puts report.to_json
+  else
+    puts table
+  end
 end
