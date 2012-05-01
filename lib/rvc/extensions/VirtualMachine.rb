@@ -17,6 +17,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
+require 'json'
 
 class RbVmomi::VIM::VirtualMachine
   field 'on' do
@@ -165,6 +166,70 @@ class RbVmomi::VIM::VirtualMachine
       #puts " #{usage.datastore.name}: committed=#{usage.committed.metric}B uncommitted=#{usage.uncommitted.metric}B unshared=#{usage.unshared.metric}B"
       puts " #{usage.datastore.name}: committed=#{usage.committed}b uncommitted=#{usage.uncommitted}b unshared=#{usage.unshared}b"
     end
+  end
+
+  def info_json
+    config, runtime, guest = collect :config, :runtime, :guest
+    info = {
+      :name => config.name,
+      :moref => self._ref,
+      :guest_id => config.guestId,
+      :guest_full_name => config.guestFullName,
+      :tools => guest.toolsRunningStatus,
+      :power => runtime.powerState,
+      :cpus => config.hardware.numCPU,
+      :memory => config.hardware.memoryMB * 1024**2
+    }
+    if config.annotation and !config.annotation.empty?
+      info[:note] = config.annotation
+    end
+    if runtime.host
+      info[:host] = (runtime.host.path[1..-1].map { |x| x[1] } * '/')
+    end
+    info[:hostname] = guest.hostName ? guest.hostName : '' 
+    info[:ip_address] = guest.ipAddress ? guest.ipAddress : '' 
+    if config.instanceUuid and !config.instanceUuid.empty?
+      info[:instance_uuid] = config.instanceUuid
+    end
+    nics = [] 
+    config.hardware.device.grep RbVmomi::VIM::VirtualEthernetCard do |dev|
+      backing_info = case dev.backing
+      when RbVmomi::VIM::VirtualEthernetCardNetworkBackingInfo
+        dev.backing.deviceName.inspect
+      when RbVmomi::VIM::VirtualEthernetCardDistributedVirtualPortBackingInfo
+        dev.backing.port.portgroupKey.inspect
+      else
+        dev.backing.class.name
+      end
+      guest_net = guest.net.find { |x| x.macAddress == dev.macAddress }
+      if guest_net != nil
+        deviceConfigId_str = guest_net.deviceConfigId.to_s
+      end
+      connected = dev.connectable.connected ? :connected : :disconnected
+      ip_address = guest_net ? guest_net.ipAddress : ''
+      nic_hash = {
+        :name => dev.name,
+        :backing_info => backing_info.gsub(/["]/,''),
+        :connected => connected,
+        :mac_address => dev.macAddress,
+        :device_config_id => deviceConfigId_str,
+        :ip_address => ip_address
+      }
+      nics.push nic_hash
+    end
+    info[:nics] = nics
+    storage_list = [] 
+    storage.perDatastoreUsage.map do |usage|
+      storage_hash = {
+        :name => usage.datastore.name,
+        :committed => usage.committed,
+        :uncommitted => usage.uncommitted,
+        :unshared => usage.unshared
+      }
+      storage_list.push storage_hash
+    end
+    info[:storage] = storage_list
+    puts info.to_json
   end
 
   def self.ls_properties

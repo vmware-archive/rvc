@@ -270,6 +270,22 @@ def info obj
   end
 end
 
+opts :json do
+  summary "Display information about an object"
+  arg :path, nil, :lookup => Object
+end
+
+rvc_alias :json
+rvc_alias :json, :i
+
+def json obj
+  puts "path: #{obj.rvc_path_str}"
+  if obj.respond_to? :info_json
+    obj.info_json
+  else
+    puts "class: #{obj.class.name}"
+  end
+end
 
 opts :destroy do
   summary "Destroy managed entities"
