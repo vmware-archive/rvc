@@ -279,11 +279,10 @@ rvc_alias :json
 rvc_alias :json, :i
 
 def json obj
-  puts "path: #{obj.rvc_path_str}"
   if obj.respond_to? :info_json
     obj.info_json
   else
-    puts "class: #{obj.class.name}"
+    puts '{"class":"#{obj.class.name}"'
   end
 end
 
