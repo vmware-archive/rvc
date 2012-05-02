@@ -206,7 +206,7 @@ class RbVmomi::VIM::VirtualMachine
         deviceConfigId_str = guest_net.deviceConfigId.to_s
       end
       connected = dev.connectable.connected ? :connected : :disconnected
-      ip_address = guest_net ? guest_net.ipAddress : ''
+      ip_address = guest_net ? guest_net.ipAddress[0] : ''
       nic_hash = {
         :name => dev.name,
         :backing_info => backing_info.gsub(/["]/,''),
