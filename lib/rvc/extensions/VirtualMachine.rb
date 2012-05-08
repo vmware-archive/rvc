@@ -142,7 +142,6 @@ class RbVmomi::VIM::VirtualMachine
     end
     puts "cpus: #{config.hardware.numCPU}"
     puts "memory: #{config.hardware.memoryMB} MB"
-    puts "memory_bytes: " + (config.hardware.memoryMB * 1024**2).to_s + "b"
 
     puts "nics:"
     config.hardware.device.grep RbVmomi::VIM::VirtualEthernetCard do |dev|
