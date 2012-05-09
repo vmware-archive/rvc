@@ -30,7 +30,7 @@ if not defined? RbReadline
       $stderr.puts "Error loading readline-ffi: #{$!.message}. Tab completion will be limited."
     end
   rescue LoadError
-    # $stderr.puts "Install the \"ffi\" gem for better tab completion."
+    $stderr.puts "Install the \"ffi\" gem for better tab completion."
   end
 end
 
