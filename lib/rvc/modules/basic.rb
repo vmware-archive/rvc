@@ -282,7 +282,7 @@ def json obj
   if obj.respond_to? :info_json
     obj.info_json
   else
-    puts '{"class":"#{obj.class.name}"'
+    return nil
   end
 end
 
