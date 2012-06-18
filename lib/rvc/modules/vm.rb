@@ -88,9 +88,10 @@ def wait_for_shutdown vms, opts
       end
     end
     return if all_off
-    sleep [opts[:delay], finish_time - Time.now].min
+    sleep_time = [opts[:delay], finish_time - Time.now].min
+    sleep sleep_time if sleep_time > 0
   end
-  puts "WARNING: At least one VM did not shut down!"
+  err "At least one VM did not shut down!"
 end
 
 
