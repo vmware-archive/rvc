@@ -58,6 +58,10 @@ class RubyEvaluator
     @shell.fs.lookup("~@").first
   end
 
+  def rvc_exec command
+    @shell.eval_command command
+  end
+
   def method_missing sym, *a
     if a.empty?
       if @shell.cmds.namespaces.member? sym
