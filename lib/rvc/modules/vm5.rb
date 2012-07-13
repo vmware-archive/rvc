@@ -1,3 +1,214 @@
+# File commands
+opts :chmod do
+  summary "Change file attributes"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :group_id, "Group ID of file", :type => :int
+  opt :guest_path, "Path in guest to upload to", :required => true, :type => :string
+  opt :interactive_session, "Allow command to interact with desktop", :default => false, :type => :bool
+  opt :owner_id, "Owner ID of file", :type => :int
+  opt :password, "Password in guest", :type => :string
+  opt :permissions, "Permissions of file", :type => :string
+  opt :username, "Username in guest", :default => "root", :type => :string
+end
+
+rvc_alias :chmod
+
+def chmod vm, opts
+  guestOperationsManager = vm._connection.serviceContent.guestOperationsManager
+  err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :fileManager
+  fileManager = guestOperationsManager.fileManager
+
+  opts[:permissions] = opts[:permissions].to_i(8) if opts[:permissions]
+
+  if opts[:password].nil? or opts[:password].empty?
+    opts[:password] = ask("password: ") { |q| q.echo = false }
+  end
+
+  auth = VIM.NamePasswordAuthentication(
+    :username => opts[:username],
+    :password => opts[:password],
+    :interactiveSession => opts[:interactive_session]
+  )
+
+  fileManager.
+    ChangeFileAttributesInGuest(
+      :vm => vm,
+      :auth => auth,
+      :guestFilePath => opts[:guest_path],
+#      :fileAttributes => {},
+      :fileAttributes => VIM.GuestPosixFileAttributes(
+        :groupId => opts[:group_id],
+        :ownerId => opts[:owner_id],
+        :permissions => opts[:permissions]
+      )
+    )
+end
+
+
+opts :mktmpdir do
+  summary "Create temporary directory in guest"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :guest_path, "Path in guest to download from", :type => :string
+  opt :interactive_session, "Allow command to interact with desktop", :default => false, :type => :bool
+  opt :recursive, "Delete all subdirectories", :default => false, :type => :bool
+  opt :password, "Password in guest", :type => :string
+  opt :prefix, "Prefix of temporary directory", :required => true, :type => :string
+  opt :suffix, "Suffix of temporary directory", :required => true, :type => :string
+  opt :username, "Username in guest", :default => "root", :type => :string
+end
+
+rvc_alias :mktmpdir
+
+def mktmpdir vm, opts
+  guestOperationsManager = vm._connection.serviceContent.guestOperationsManager
+  err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :fileManager
+  fileManager = guestOperationsManager.fileManager
+
+  opts[:permissions] = opts[:permissions].to_i(8) if opts[:permissions]
+
+  if opts[:password].nil? or opts[:password].empty?
+    opts[:password] = ask("password: ") { |q| q.echo = false }
+  end
+
+  auth = VIM.NamePasswordAuthentication(
+    :username => opts[:username],
+    :password => opts[:password],
+    :interactiveSession => opts[:interactive_session]
+  )
+
+  dirname = fileManager.
+    CreateTemporaryDirectoryInGuest(
+      :vm => vm,
+      :auth => auth,
+      :prefix => opts[:prefix],
+      :suffix => opts[:suffix],
+      :directoryPath => opts[:guest_path]
+    )
+  puts dirname
+  return dirname
+end
+
+
+opts :mktmpfile do
+  summary "Create temporary file in guest"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :guest_path, "Path in guest to download from", :type => :string
+  opt :interactive_session, "Allow command to interact with desktop", :default => false, :type => :bool
+  opt :recursive, "Delete all subdirectories", :default => false, :type => :bool
+  opt :password, "Password in guest", :type => :string
+  opt :prefix, "Prefix of temporary directory", :required => true, :type => :string
+  opt :suffix, "Suffix of temporary directory", :required => true, :type => :string
+  opt :username, "Username in guest", :default => "root", :type => :string
+end
+
+rvc_alias :mktmpfile
+
+def mktmpfile vm, opts
+  guestOperationsManager = vm._connection.serviceContent.guestOperationsManager
+  err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :fileManager
+  fileManager = guestOperationsManager.fileManager
+
+  opts[:permissions] = opts[:permissions].to_i(8) if opts[:permissions]
+
+  if opts[:password].nil? or opts[:password].empty?
+    opts[:password] = ask("password: ") { |q| q.echo = false }
+  end
+
+  auth = VIM.NamePasswordAuthentication(
+    :username => opts[:username],
+    :password => opts[:password],
+    :interactiveSession => opts[:interactive_session]
+  )
+
+  dirname = fileManager.
+    CreateTemporaryFileInGuest(
+      :vm => vm,
+      :auth => auth,
+      :prefix => opts[:prefix],
+      :suffix => opts[:suffix],
+      :directoryPath => opts[:guest_path]
+    )
+  puts dirname
+  return dirname
+end
+
+
+opts :rmdir do
+  summary "Delete directory in guest"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :guest_path, "Path in guest to download from", :required => true, :type => :string
+  opt :interactive_session, "Allow command to interact with desktop", :default => false, :type => :bool
+  opt :recursive, "Delete all subdirectories", :default => false, :type => :bool
+  opt :password, "Password in guest", :type => :string
+  opt :username, "Username in guest", :default => "root", :type => :string
+end
+
+rvc_alias :rmdir
+
+def rmdir vm, opts
+  guestOperationsManager = vm._connection.serviceContent.guestOperationsManager
+  err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :fileManager
+  fileManager = guestOperationsManager.fileManager
+
+  opts[:permissions] = opts[:permissions].to_i(8) if opts[:permissions]
+
+  if opts[:password].nil? or opts[:password].empty?
+    opts[:password] = ask("password: ") { |q| q.echo = false }
+  end
+
+  auth = VIM.NamePasswordAuthentication(
+    :username => opts[:username],
+    :password => opts[:password],
+    :interactiveSession => opts[:interactive_session]
+  )
+
+  fileManager.
+    DeleteDirectoryInGuest(
+      :vm => vm,
+      :auth => auth,
+      :directoryPath => opts[:guest_path],
+      :recursive => opts[:recursive]
+    )
+end
+
+
+opts :rmfile do
+  summary "Delete file in guest"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :guest_path, "Path in guest to download from", :required => true, :type => :string
+  opt :interactive_session, "Allow command to interact with desktop", :default => false, :type => :bool
+  opt :password, "Password in guest", :type => :string
+  opt :username, "Username in guest", :default => "root", :type => :string
+end
+
+rvc_alias :rmfile
+
+def rmfile vm, opts
+  guestOperationsManager = vm._connection.serviceContent.guestOperationsManager
+  err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :fileManager
+  fileManager = guestOperationsManager.fileManager
+
+  opts[:permissions] = opts[:permissions].to_i(8) if opts[:permissions]
+
+  if opts[:password].nil? or opts[:password].empty?
+    opts[:password] = ask("password: ") { |q| q.echo = false }
+  end
+
+  auth = VIM.NamePasswordAuthentication(
+    :username => opts[:username],
+    :password => opts[:password],
+    :interactiveSession => opts[:interactive_session]
+  )
+
+  fileManager.
+    DeleteFileInGuest(
+      :vm => vm,
+      :auth => auth,
+      :filePath => opts[:guest_path]
+    )
+end
+
+
 opts :download_file do
   summary "Download file from guest"
   arg :vm, nil, :lookup => VIM::VirtualMachine
@@ -100,6 +311,177 @@ def upload_file vm, opts
 end
 
 
+opts :ls_guest do
+  summary "List files in guest"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :guest_path, "Path in guest to download from", :required => true, :type => :string
+  opt :index, "Which to start the list with", :type => :int, :default => nil
+  opt :interactive_session, "Allow command to interact with desktop", :default => false, :type => :bool
+  opt :match_pattern, "Filename filter (regular expression)", :type => :string
+  opt :max_results, "Maximum number of results", :type => :int, :default => nil
+  opt :password, "Password in guest", :type => :string
+  opt :username, "Username in guest", :default => "root", :type => :string
+end
+
+rvc_alias :ls_guest
+
+def ls_guest vm, opts
+  guestOperationsManager = vm._connection.serviceContent.guestOperationsManager
+  err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :fileManager
+  fileManager = guestOperationsManager.fileManager
+
+  opts[:permissions] = opts[:permissions].to_i(8) if opts[:permissions]
+
+  if opts[:password].nil? or opts[:password].empty?
+    opts[:password] = ask("password: ") { |q| q.echo = false }
+  end
+
+  auth = VIM.NamePasswordAuthentication(
+    :username => opts[:username],
+    :password => opts[:password],
+    :interactiveSession => opts[:interactive_session]
+  )
+
+  files = fileManager.
+    ListFilesInGuest(
+      :vm => vm,
+      :auth => auth,
+      :filePath => opts[:guest_path],
+      :index => opts[:index],
+      :maxResults => opts[:max_results],
+      :matchPattern => opts[:match_pattern],
+    )
+
+  files.files.each do |file|
+    puts file.path
+  end
+
+  puts "Remaining: #{files.remaining}" unless files.remaining.zero?
+
+  return files
+end
+
+
+opts :mkdir do
+  summary "Make directory in guest"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :guest_path, "Path in guest to download from", :required => true, :type => :string
+  opt :interactive_session, "Allow command to interact with desktop", :default => false, :type => :bool
+  opt :create_parent_directories, "Create parent directories", :default => false, :type => :bool
+  opt :password, "Password in guest", :type => :string
+  opt :username, "Username in guest", :default => "root", :type => :string
+end
+
+rvc_alias :mkdir
+
+def mkdir vm, opts
+  guestOperationsManager = vm._connection.serviceContent.guestOperationsManager
+  err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :fileManager
+  fileManager = guestOperationsManager.fileManager
+
+  opts[:permissions] = opts[:permissions].to_i(8) if opts[:permissions]
+
+  if opts[:password].nil? or opts[:password].empty?
+    opts[:password] = ask("password: ") { |q| q.echo = false }
+  end
+
+  auth = VIM.NamePasswordAuthentication(
+    :username => opts[:username],
+    :password => opts[:password],
+    :interactiveSession => opts[:interactive_session]
+  )
+
+  fileManager.
+    MakeDirectoryInGuest(
+      :vm => vm,
+      :auth => auth,
+      :directoryPath => opts[:guest_path],
+      :createParentDirectories => opts[:create_parent_directories]
+    )
+end
+
+
+opts :mvdir do
+  summary "Move directory in guest"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :src_guest_path, "Path in guest to move from", :required => true, :type => :string
+  opt :dst_guest_path, "Path in guest to move to", :required => true, :type => :string
+  opt :interactive_session, "Allow command to interact with desktop", :default => false, :type => :bool
+  opt :password, "Password in guest", :type => :string
+  opt :username, "Username in guest", :default => "root", :type => :string
+end
+
+rvc_alias :mvdir
+
+def mvdir vm, opts
+  guestOperationsManager = vm._connection.serviceContent.guestOperationsManager
+  err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :fileManager
+  fileManager = guestOperationsManager.fileManager
+
+  opts[:permissions] = opts[:permissions].to_i(8) if opts[:permissions]
+
+  if opts[:password].nil? or opts[:password].empty?
+    opts[:password] = ask("password: ") { |q| q.echo = false }
+  end
+
+  auth = VIM.NamePasswordAuthentication(
+    :username => opts[:username],
+    :password => opts[:password],
+    :interactiveSession => opts[:interactive_session]
+  )
+
+  fileManager.
+    MoveDirectoryInGuest(
+      :vm => vm,
+      :auth => auth,
+      :srcDirectoryPath => opts[:src_guest_path],
+      :dstDirectoryPath => opts[:dst_guest_path]
+    )
+end
+
+
+opts :mvfile do
+  summary "Move file in guest"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :dst_guest_path, "Path in guest to move to", :required => true, :type => :string
+  opt :interactive_session, "Allow command to interact with desktop", :default => false, :type => :bool
+  opt :overwrite, "Overwrite file", :default => true, :type => :bool
+  opt :password, "Password in guest", :type => :string
+  opt :src_guest_path, "Path in guest to move from", :required => true, :type => :string
+  opt :username, "Username in guest", :default => "root", :type => :string
+end
+
+rvc_alias :mvfile
+
+def mvfile vm, opts
+  guestOperationsManager = vm._connection.serviceContent.guestOperationsManager
+  err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :fileManager
+  fileManager = guestOperationsManager.fileManager
+
+  opts[:permissions] = opts[:permissions].to_i(8) if opts[:permissions]
+
+  if opts[:password].nil? or opts[:password].empty?
+    opts[:password] = ask("password: ") { |q| q.echo = false }
+  end
+
+  auth = VIM.NamePasswordAuthentication(
+    :username => opts[:username],
+    :password => opts[:password],
+    :interactiveSession => opts[:interactive_session]
+  )
+
+  fileManager.
+    MoveFileInGuest(
+      :vm => vm,
+      :auth => auth,
+      :srcFilePath => opts[:src_guest_path],
+      :dstFilePath => opts[:dst_guest_path],
+      :overwrite => opts[:overwrite]
+    )
+end
+
+
+# Process commands
 opts :start_program do
   summary "Run program in guest"
   arg :vm, nil, :lookup => VIM::VirtualMachine
