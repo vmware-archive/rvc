@@ -41,6 +41,12 @@ class RbVmomi::VIM::HostSystem
     property 'runtime.powerState'
   end
 
+  field 'uptime' do
+    summary "Host's uptime in days"
+    properties %w(runtime.bootTime)
+    block { |t| t ? ((Time.now-t) / (24 * 60 * 60)) : nil }
+  end
+
   def display_info
     super
     summary = self.summary
