@@ -31,6 +31,16 @@ class RbVmomi::VIM::HostSystem
     " (host): cpu #{numCpuPkgs}*#{numCpuCores}*#{"%.2f" % (cpuMhz.to_f/1000)} GHz, memory #{"%.2f" % (memorySize/10**9)} GB"
   end
 
+  field 'state.connection' do
+    summary "State of connection to VC."
+    property 'runtime.connectionState'
+  end
+
+  field 'state.power' do
+    summary "Host power state."
+    property 'runtime.powerState'
+  end
+
   def display_info
     super
     summary = self.summary
