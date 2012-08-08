@@ -28,7 +28,7 @@ class RbVmomi::VIM::VirtualMachine
   
   field 'storagebw' do
     summary "Storage Bandwidth"
-    perfmetrics %w(disk.read.average disk.write.average)
+    perfmetrics %w(disk.read disk.write)
     block do |read, write| 
       if read && write
         io = (read.sum.to_f / read.length) + (write.sum.to_f / write.length)
@@ -42,7 +42,7 @@ class RbVmomi::VIM::VirtualMachine
   [['', 5], ['.realtime', 1], ['.5min', 5 * 3], ['.10min', 10 * 3]].each do |label, max_samples|
     field "storageiops#{label}" do
       summary "Storage IOPS"
-      perfmetrics %w(disk.numberReadAveraged.average disk.numberWriteAveraged.average)
+      perfmetrics %w(disk.numberReadAveraged disk.numberWriteAveraged)
       perfmetric_settings :max_samples => max_samples
       block do |read, write|
         if read && write
@@ -156,6 +156,10 @@ class RbVmomi::VIM::VirtualMachine
     puts "storage:"
     storage.perDatastoreUsage.map do |usage|
       puts " #{usage.datastore.name}: committed=#{usage.committed.metric}B uncommitted=#{usage.uncommitted.metric}B unshared=#{usage.unshared.metric}B"
+    end
+    
+    if runtime.dasVmProtection
+      puts "HA protected: #{runtime.dasVmProtection.dasProtected ? 'yes' : 'no'}"
     end
   end
 

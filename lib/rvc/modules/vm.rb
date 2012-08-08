@@ -288,9 +288,13 @@ def answer str, vms
   vms.each do |vm|
     begin
       if q = vm.runtime.question
-        choice = q.choice.choiceInfo.find { |x| x.label == str }
-        err("invalid answer") unless choice
-        vm.AnswerVM :questionId => q.id, :answerChoice => choice.key
+        choices = q.choice.choiceInfo
+        choice = choices.find { |x| x.label == str }
+        if !choice
+          puts "#{vm.name}: #{choice} invalid, choices: #{choices.map{ |x| x.label }}"
+        else
+          vm.AnswerVM :questionId => q.id, :answerChoice => choice.key
+        end
       end
     rescue
       puts "#{vm.name rescue vm}: #{$!.message}"
