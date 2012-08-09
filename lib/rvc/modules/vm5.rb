@@ -349,7 +349,7 @@ def ls_guest vm, opts
       :filePath => opts[:guest_path],
       :index => opts[:index],
       :maxResults => opts[:max_results],
-      :matchPattern => opts[:match_pattern],
+      :matchPattern => opts[:match_pattern]
     )
 
   files.files.each do |file|
