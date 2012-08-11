@@ -28,7 +28,7 @@ class RbVmomi::VIM::VirtualMachine
   
   field 'storagebw' do
     summary "Storage Bandwidth"
-    perfmetrics %w(disk.read disk.write)
+    perfmetrics %w(virtualDisk.read virtualDisk.write)
     block do |read, write| 
       if read && write
         io = (read.sum.to_f / read.length) + (write.sum.to_f / write.length)
@@ -42,7 +42,7 @@ class RbVmomi::VIM::VirtualMachine
   [['', 5], ['.realtime', 1], ['.5min', 5 * 3], ['.10min', 10 * 3]].each do |label, max_samples|
     field "storageiops#{label}" do
       summary "Storage IOPS"
-      perfmetrics %w(disk.numberReadAveraged disk.numberWriteAveraged)
+      perfmetrics %w(virtualDisk.numberReadAveraged virtualDisk.numberWriteAveraged)
       perfmetric_settings :max_samples => max_samples
       block do |read, write|
         if read && write
@@ -53,6 +53,24 @@ class RbVmomi::VIM::VirtualMachine
         end
       end
     end
+  end
+
+  ['Read', 'Write'].each do |type|
+  [['', 5], ['.realtime', 1], ['.5min', 5 * 3], ['.10min', 10 * 3]].each do |label, max_samples|
+    field "storagelatency.#{type.downcase}#{label}" do
+      summary "Storage Latency #{type}"
+      perfmetrics ["virtualDisk.total#{type}Latency"]
+      perfmetric_settings :max_samples => max_samples
+      block do |latency|
+        if latency
+          io = (latency.sum.to_f / latency.length)
+          MetricNumber.new(io, 'ms')
+        else
+          nil
+        end
+      end
+    end
+  end
   end
 
   field 'ip' do
