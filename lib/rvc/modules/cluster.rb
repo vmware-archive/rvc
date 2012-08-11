@@ -35,36 +35,39 @@ end
 opts :add_host do
   summary "Add a host to a cluster"
   arg :cluster, nil, :lookup => VIM::ClusterComputeResource
-  arg :hostname, nil
+  arg :hostnames, nil, :multi => true
   opt :username, "Username", :short => 'u', :default => 'root'
   opt :password, "Password", :short => 'p', :default => ''
   opt :insecure, "Ignore SSL thumbprint", :short => 'k'
+  opt :force, "Force, e.g when host is already managed by other VC"
 end
 
-def add_host cluster, hostname, opts
+def add_host cluster, hostnames, opts
   sslThumbprint = nil
-  while true
-    spec = {
-      :force => false,
-      :hostName => hostname,
-      :userName => opts[:username],
-      :password => opts[:password],
-      :sslThumbprint => sslThumbprint,
-    }
-    task = cluster.AddHost_Task :spec => spec,
-                                :asConnected => true
-    begin
-      one_progress task
-      break
-    rescue VIM::SSLVerifyFault
-      unless opts[:insecure]
-        puts "SSL thumbprint: #{$!.fault.thumbprint}"
-        $stdout.write "Accept this thumbprint? (y/n) "
-        $stdout.flush
-        answer = $stdin.readline.chomp
-        err "Aborted" unless answer == 'y' or answer == 'yes'
+  hostnames.each do |hostname|
+    while true
+      spec = {
+        :force => opts[:force],
+        :hostName => hostname,
+        :userName => opts[:username],
+        :password => opts[:password],
+        :sslThumbprint => sslThumbprint,
+      }
+      task = cluster.AddHost_Task :spec => spec,
+                                  :asConnected => true
+      begin
+        one_progress task
+        break
+      rescue VIM::SSLVerifyFault
+        unless opts[:insecure]
+          puts "SSL thumbprint: #{$!.fault.thumbprint}"
+          $stdout.write "Accept this thumbprint? (y/n) "
+          $stdout.flush
+          answer = $stdin.readline.chomp
+          err "Aborted" unless answer == 'y' or answer == 'yes'
+        end
+        sslThumbprint = $!.fault.thumbprint
       end
-      sslThumbprint = $!.fault.thumbprint
     end
   end
 end
