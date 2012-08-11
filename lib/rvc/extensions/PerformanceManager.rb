@@ -47,7 +47,12 @@ class RbVmomi::VIM::PerformanceManager
     end
       
     metric_ids = metrics.map do |x| 
-      RbVmomi::VIM::PerfMetricId(:counterId => perfcounter_hash[x].key, :instance => '*')
+      counter = perfcounter_hash[x]
+      if !counter
+        pp perfcounter_hash.keys
+        fail "Counter for #{x} couldn't be found"
+      end
+      RbVmomi::VIM::PerfMetricId(:counterId => counter.key, :instance => '*')
     end
     query_specs = objects.map do |obj|
       RbVmomi::VIM::PerfQuerySpec({
