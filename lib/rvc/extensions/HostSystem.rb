@@ -47,6 +47,38 @@ class RbVmomi::VIM::HostSystem
     block { |t| t ? ((Time.now-t) / (24 * 60 * 60)) : nil }
   end
 
+  [['', 5], ['.realtime', 1], ['.5min', 5 * 3], ['.10min', 10 * 3]].each do |label, max_samples|
+    field "cpuusage#{label}" do
+      summary "CPU Usage in Percent"
+      perfmetrics %w(cpu.usage)
+      perfmetric_settings :max_samples => max_samples
+      block do |value|
+        if value
+          value = value.sum.to_f / value.length / 100
+          MetricNumber.new(value, '%')
+        else
+          nil
+        end
+      end
+    end
+  end
+  
+  [['', 5], ['.realtime', 1], ['.5min', 5 * 3], ['.10min', 10 * 3]].each do |label, max_samples|
+    field "memusage#{label}" do
+      summary "Mem Usage in Percent"
+      perfmetrics %w(mem.usage)
+      perfmetric_settings :max_samples => max_samples
+      block do |value|
+        if value
+          value = value.sum.to_f / value.length / 100
+          MetricNumber.new(value, '%')
+        else
+          nil
+        end
+      end
+    end
+  end
+
   def display_info
     super
     summary = self.summary
