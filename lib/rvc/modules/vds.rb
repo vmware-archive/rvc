@@ -605,3 +605,58 @@ def abbrev_hostnames names
     }
   end
 end
+
+opts :add_hosts do
+  summary "Add hosts to a vDS"
+  arg :vds, nil, :lookup => VIM::DistributedVirtualSwitch
+  arg :hosts, nil, :lookup => VIM::HostSystem, :multi => true
+  opt :vmnic, "Name of vmnic (multiple allowed)", :multi => true, :type => :string
+end
+
+def add_hosts vds, hosts, opts
+  pnicSpec = opts[:vmnic].map do |x| 
+    VIM::DistributedVirtualSwitchHostMemberPnicSpec({:pnicDevice => x})
+  end
+  dvsConfig = VIM::DVSConfigSpec({
+    :configVersion => vds.config.configVersion, 
+    :host => hosts.map do |host|
+      {
+        :operation => :add, 
+        :host => host, 
+        :backing => VIM::DistributedVirtualSwitchHostMemberPnicBacking({
+          :pnicSpec => pnicSpec
+        })
+      }
+    end
+  })
+  task = dvs.ReconfigureDvs_Task(:spec => dvsConfig)
+  progress(task)
+end
+
+opts :create_vmknic do
+  summary "Create a vmknic on vDS on one or more hosts. Always uses DHCP"
+  arg :portgroup, nil, :lookup => VIM::Network
+  arg :host, nil, :lookup => VIM::HostSystem, :multi => true
+end
+
+def create_vmknic portgroup, hosts, opts
+  if !portgroup.is_a?(VIM::DistributedVirtualPortgroup)
+    err "Legacy switches not supported yet"
+  end
+  hosts.each do |host|
+    ns = host.configManager.networkSystem 
+    vmknic_name = ns.AddVirtualNic(
+      :portgroup => "", 
+      :nic => {
+        :ip => {
+          :dhcp => true
+        },
+        :distributedVirtualPort => VIM::DistributedVirtualSwitchPortConnection(
+          :portgroupKey => portgroup.key, 
+          :switchUuid => portgroup.config.distributedVirtualSwitch.uuid,
+        )
+      }
+    )
+    puts "Host #{host.name}: Added vmknic #{vmknic_name}"
+  end
+end
