@@ -79,19 +79,18 @@ opts :wait_for_shutdown do
 end
 
 def wait_for_shutdown vms, opts
-  Timeout.timeout opts[:timeout] do
-    while true
-      all_off = true
-      vms.each do |vm|
-        if vm.summary.runtime.powerState == 'poweredOn'
-          all_off = false
-        end
+  finish_time = Time.now + opts[:timeout]
+  while Time.now < finish_time
+    all_off = true
+    vms.each do |vm|
+      if vm.summary.runtime.powerState == 'poweredOn'
+        all_off = false
       end
-      return if all_off
-      sleep opts[:delay]
     end
+    return if all_off
+    sleep_time = [opts[:delay], finish_time - Time.now].min
+    sleep sleep_time if sleep_time > 0
   end
-rescue Timeout::Error
   err "At least one VM did not shut down!"
 end
 
