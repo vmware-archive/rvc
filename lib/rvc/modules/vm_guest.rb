@@ -62,8 +62,6 @@ def mktmpdir vm, opts
   err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :fileManager
   fileManager = guestOperationsManager.fileManager
 
-  opts[:permissions] = opts[:permissions].to_i(8) if opts[:permissions]
-
   auth = authenticate opts
 
   dirname = fileManager.
@@ -95,8 +93,6 @@ def mktmpfile vm, opts
   err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :fileManager
   fileManager = guestOperationsManager.fileManager
 
-  opts[:permissions] = opts[:permissions].to_i(8) if opts[:permissions]
-
   auth = authenticate opts
 
   filename = fileManager.
@@ -127,8 +123,6 @@ def rmdir vm, opts
   err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :fileManager
   fileManager = guestOperationsManager.fileManager
 
-  opts[:permissions] = opts[:permissions].to_i(8) if opts[:permissions]
-
   auth = authenticate opts
 
   fileManager.
@@ -155,8 +149,6 @@ def rmfile vm, opts
   err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :fileManager
   fileManager = guestOperationsManager.fileManager
 
-  opts[:permissions] = opts[:permissions].to_i(8) if opts[:permissions]
-
   auth = authenticate opts
 
   fileManager.
@@ -182,8 +174,6 @@ def download_file vm, opts
   guestOperationsManager = vm._connection.serviceContent.guestOperationsManager
   err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :fileManager
   fileManager = guestOperationsManager.fileManager
-
-  opts[:permissions] = opts[:permissions].to_i(8) if opts[:permissions]
 
   auth = authenticate opts
 
@@ -264,8 +254,6 @@ def ls_guest vm, opts
   err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :fileManager
   fileManager = guestOperationsManager.fileManager
 
-  opts[:permissions] = opts[:permissions].to_i(8) if opts[:permissions]
-
   auth = authenticate opts
 
   files = fileManager.
@@ -303,8 +291,6 @@ def mkdir vm, opts
   err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :fileManager
   fileManager = guestOperationsManager.fileManager
 
-  opts[:permissions] = opts[:permissions].to_i(8) if opts[:permissions]
-
   auth = authenticate opts
 
   fileManager.
@@ -331,8 +317,6 @@ def mvdir vm, opts
   guestOperationsManager = vm._connection.serviceContent.guestOperationsManager
   err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :fileManager
   fileManager = guestOperationsManager.fileManager
-
-  opts[:permissions] = opts[:permissions].to_i(8) if opts[:permissions]
 
   auth = authenticate opts
 
@@ -361,8 +345,6 @@ def mvfile vm, opts
   guestOperationsManager = vm._connection.serviceContent.guestOperationsManager
   err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :fileManager
   fileManager = guestOperationsManager.fileManager
-
-  opts[:permissions] = opts[:permissions].to_i(8) if opts[:permissions]
 
   auth = authenticate opts
 
