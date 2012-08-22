@@ -51,6 +51,7 @@ EOS
   opt :create_directory, "Create the initial directory if it doesn't exist", :short => :none
   opt :cmd, "command to evaluate", :short => 'c', :multi => true, :type => :string
   opt :script, "file to execute", :short => 's', :type => :string
+  opt :script_args, "arguments to script", :short => :none, :type => :string
   opt :cookie, "authentication cookie file", :short => 'k', :type => :string
   opt :quiet, "silence unnecessary output", :short => 'q', :default => false, :type => :boolean
 end
@@ -141,6 +142,7 @@ if Signal.list["CHLD"]
 end
 
 if $opts[:script]
+  ARGV.replace(Shellwords.shellwords($opts[:script_args]))
   shell.eval_ruby File.read($opts[:script]), $opts[:script]
 else
   while true
