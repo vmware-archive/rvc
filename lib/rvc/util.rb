@@ -187,9 +187,26 @@ module Util
   end
 
   def retrieve_fields objs, fields
+    pc = nil
+    if objs.length == 0
+      return {}
+    end
+    pc = objs.first._connection.propertyCollector
+    objs_props = Hash[objs.map{|o| [o, o.field_properties(fields)]}]
+    buckets = {}
+    objs_props.each{|o,p| buckets[p] ||= []; buckets[p] << o}
+    props_values = {}
+    buckets.each do |props, o|
+      begin
+        props_values.merge!(pc.collectMultiple(o, *props))
+      rescue VIM::ManagedObjectNotFound => ex
+        o -= [ex.obj]
+        retry
+      end
+    end
     Hash[objs.map do |o|
       begin
-        [o, Hash[fields.map { |f| [f, o.field(f)] }]]
+        [o, Hash[fields.map { |f| [f, o.field(f, props_values[o])] }]]
       rescue VIM::ManagedObjectNotFound
         next
       end

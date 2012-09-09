@@ -41,14 +41,33 @@ module ObjectWithFields
       @fields[name] = RVC::Field.new(name).tap { |f| f.instance_eval &b }
     end
   end
+  
+  def field_properties names
+    out = []
+    names.each do |name|
+      name = name.to_s
+      field = self.class.fields[name]
+      if field == nil
+        nil
+      elsif self.class < VIM::ManagedObject
+        out += field.properties
+      end
+    end
+    out.uniq
+  end
 
-  def field name
+  def field name, props_values = {}
     name = name.to_s
     field = self.class.fields[name]
     if field == nil
       return nil
     elsif self.class < VIM::ManagedObject
-      *props = collect *field.properties
+      properties = field.properties
+      if properties.all?{|x| props_values.has_key?(x)}
+        props = properties.map{|x| props_values[x]}
+      else
+        *props = collect *field.properties
+      end
       if field.perfmetrics.length > 0
         perfmgr = self._connection.serviceContent.perfManager
         perfopts = field.perfmetric_settings.dup
