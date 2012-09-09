@@ -47,6 +47,12 @@ class RbVmomi::VIM::HostSystem
     block { |t| t ? ((Time.now-t) / (24 * 60 * 60)) : nil }
   end
 
+  field 'num.vms' do
+    summary "Number of VMs on the host"
+    properties %w(vm)
+    block { |t| t ? t.length : nil }
+  end
+
   [['', 5], ['.realtime', 1], ['.5min', 5 * 3], ['.10min', 10 * 3]].each do |label, max_samples|
     field "cpuusage#{label}" do
       summary "CPU Usage in Percent"
