@@ -53,7 +53,42 @@ class RbVmomi::VIM::HostSystem
     block { |t| t ? t.length : nil }
   end
 
-  [['', 5], ['.realtime', 1], ['.5min', 5 * 3], ['.10min', 10 * 3]].each do |label, max_samples|
+  field 'num.poweredonvms' do
+    summary "Number of VMs on the host"
+    properties %w(vm)
+    block do |vms|
+      if vms && vms.length > 0
+        conn = vms.first._connection
+        pc = conn.propertyCollector
+        vmsProps = pc.collectMultiple(vms, 'runtime.powerState')
+        vmsProps.select{|vm, p| p['runtime.powerState'] == 'poweredOn'}.length 
+      end 
+    end
+  end
+
+  field 'cpuusage' do
+    summary "Realtime CPU usage in percent"
+    properties %w(summary.hardware.numCpuCores summary.hardware.cpuMhz summary.quickStats)
+    block do |cores, mhz, stats|
+      if cores && mhz && stats
+        value = stats.overallCpuUsage.to_f * 100 / (cores * mhz)
+        MetricNumber.new(value, '%')
+      end 
+    end
+  end
+
+  field 'memusage' do
+    summary "Realtime Mem usage in percent"
+    properties %w(summary.hardware.memorySize summary.quickStats)
+    block do |mem, stats|
+      if mem && stats
+        value = stats.overallMemoryUsage.to_f * 100 / (mem / 1024.0 / 1024.0)
+        MetricNumber.new(value, '%')
+      end 
+    end
+  end
+
+  [['.realtime', 1], ['.5min', 5 * 3], ['.10min', 10 * 3]].each do |label, max_samples|
     field "cpuusage#{label}" do
       summary "CPU Usage in Percent"
       perfmetrics %w(cpu.usage)
@@ -69,7 +104,7 @@ class RbVmomi::VIM::HostSystem
     end
   end
   
-  [['', 5], ['.realtime', 1], ['.5min', 5 * 3], ['.10min', 10 * 3]].each do |label, max_samples|
+  [['.realtime', 1], ['.5min', 5 * 3], ['.10min', 10 * 3]].each do |label, max_samples|
     field "memusage#{label}" do
       summary "Mem Usage in Percent"
       perfmetrics %w(mem.usage)
