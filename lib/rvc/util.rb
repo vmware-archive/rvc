@@ -191,7 +191,9 @@ module Util
     if objs.length == 0
       return {}
     end
-    pc = objs.first._connection.propertyCollector
+    conn = objs.first._connection
+    pc = conn.propertyCollector
+    perfmgr = conn.serviceContent.perfManager
     objs_props = Hash[objs.map{|o| [o, o.field_properties(fields)]}]
     buckets = {}
     objs_props.each{|o,p| buckets[p] ||= []; buckets[p] << o}
@@ -204,9 +206,41 @@ module Util
         retry
       end
     end
+    
+    buckets = {}
+    objs.each do |o|
+      metrics = o.perfmetrics(fields)
+      if metrics.length > 0
+        buckets[metrics] ||= []
+        buckets[metrics] << o
+      end
+    end
+    perf_values = {}
+    buckets.each do |metrics, os|
+      # XXX: Would be great if we could collapse metrics into a single call
+      metrics.each do |metric|
+        begin
+          stats = perfmgr.retrieve_stats os, metric[:metrics], metric[:opts]
+          os.each do |o|
+            perf_values[o] = {}
+            metric[:metrics].map do |x| 
+              if stats[o] 
+                perf_values[o][x] = stats[o][:metrics][x]
+              end
+            end
+          end
+        rescue VIM::ManagedObjectNotFound => ex
+          o -= [ex.obj]
+          retry
+        end
+      end
+    end
+    
     Hash[objs.map do |o|
       begin
-        [o, Hash[fields.map { |f| [f, o.field(f, props_values[o])] }]]
+        [o, Hash[fields.map do |f| 
+          [f, o.field(f, props_values[o], perf_values[o])] 
+        end]]
       rescue VIM::ManagedObjectNotFound
         next
       end

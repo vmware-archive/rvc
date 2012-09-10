@@ -55,8 +55,27 @@ module ObjectWithFields
     end
     out.uniq
   end
+  
+  def perfmetrics names
+    out = []
+    names.each do |name|
+      name = name.to_s
+      field = self.class.fields[name]
+      if field == nil
+        nil
+      else
+        perfmetrics = field.perfmetrics 
+        if perfmetrics.length > 0
+          perfopts = field.perfmetric_settings.dup
+          perfopts[:max_samples] ||= 5
+          out << {:metrics => perfmetrics, :opts => perfopts}
+        end
+      end
+    end
+    out.uniq
+  end
 
-  def field name, props_values = {}
+  def field name, props_values = {}, perf_values = {}
     name = name.to_s
     field = self.class.fields[name]
     if field == nil
@@ -68,16 +87,23 @@ module ObjectWithFields
       else
         *props = collect *field.properties
       end
-      if field.perfmetrics.length > 0
-        perfmgr = self._connection.serviceContent.perfManager
-        perfopts = field.perfmetric_settings.dup
-        perfopts[:max_samples] ||= 5
-        stats = perfmgr.retrieve_stats [self], field.perfmetrics, perfopts
-        props += field.perfmetrics.map do |x| 
-          if stats[self] 
-            stats[self][:metrics][x]
-          else
-            nil
+      perfmetrics = field.perfmetrics
+      if perfmetrics.length > 0
+        if perfmetrics.all?{|x| perf_values.has_key?(x)}
+          props += perfmetrics.map do |x| 
+            perf_values[x]
+          end
+        else
+          perfmgr = self._connection.serviceContent.perfManager
+          perfopts = field.perfmetric_settings.dup
+          perfopts[:max_samples] ||= 5
+          stats = perfmgr.retrieve_stats [self], field.perfmetrics, perfopts
+          props += field.perfmetrics.map do |x| 
+            if stats[self] 
+              stats[self][:metrics][x]
+            else
+              nil
+            end
           end
         end
       end
