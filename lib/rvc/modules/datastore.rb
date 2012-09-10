@@ -30,34 +30,9 @@ opts :download do
 end
 
 def download file, local_path
-  main_http = file.datastore._connection.http
-  http = Net::HTTP.new(main_http.address, main_http.port)
-  http.use_ssl = true
-  http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-  #http.set_debug_output $stderr
-  http.start
-  err "certificate mismatch" unless main_http.peer_cert.to_der == http.peer_cert.to_der
+  download_path = http_path file.datastore.send(:datacenter).name, file.datastore.name, file.path
 
-  headers = { 'cookie' => file.datastore._connection.cookie }
-  path = http_path file.datastore.send(:datacenter).name, file.datastore.name, file.path
-  http.request_get(path, headers) do |res|
-    case res
-    when Net::HTTPOK
-      len = res.content_length
-      count = 0
-      File.open(local_path, 'wb') do |io|
-        res.read_body do |segment|
-          count += segment.length
-          io.write segment
-          $stdout.write "\e[0G\e[Kdownloading #{count}/#{len} bytes (#{(count*100)/len}%)"
-          $stdout.flush
-        end
-      end
-      $stdout.puts
-    else
-      err "download failed: #{res.message}"
-    end
-  end
+  http_download file.datastore._connection, download_path, local_path
 end
 
 
@@ -72,54 +47,9 @@ def upload local_path, dest
   err "local file does not exist" unless File.exists? local_path
   real_datastore_path = "#{dir.path}/#{datastore_filename}"
 
-  main_http = dir.datastore._connection.http
-  http = Net::HTTP.new(main_http.address, main_http.port)
-  http.use_ssl = true
-  http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-  #http.set_debug_output $stderr
-  http.start
-  err "certificate mismatch" unless main_http.peer_cert.to_der == http.peer_cert.to_der
+  upload_path = http_path dir.datastore.send(:datacenter).name, dir.datastore.name, real_datastore_path
 
-  File.open(local_path, 'rb') do |io|
-    stream = ProgressStream.new(io, io.stat.size) do |s|
-      $stdout.write "\e[0G\e[Kuploading #{s.count}/#{s.len} bytes (#{(s.count*100)/s.len}%)"
-      $stdout.flush
-    end
-
-    headers = {
-      'cookie' => dir.datastore._connection.cookie,
-      'content-length' => io.stat.size.to_s,
-      'Content-Type' => 'application/octet-stream',
-    }
-    path = http_path dir.datastore.send(:datacenter).name, dir.datastore.name, real_datastore_path
-    request = Net::HTTP::Put.new path, headers
-    request.body_stream = stream
-    res = http.request(request)
-    $stdout.puts
-    case res
-    when Net::HTTPOK
-    else
-      err "upload failed: #{res.message}"
-    end
-  end
-end
-
-class ProgressStream
-  attr_reader :io, :len, :count
-
-  def initialize io, len, &b
-    @io = io
-    @len = len
-    @count = 0
-    @cb = b
-  end
-
-  def read n
-    io.read(n).tap do |c|
-      @count += c.length if c
-      @cb[self]
-    end
-  end
+  http_upload dir.datastore._connection, local_path, upload_path
 end
 
 
