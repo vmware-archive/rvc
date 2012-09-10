@@ -23,7 +23,7 @@ def authenticate vm, opts
   begin
     check_auth vm, opts
   rescue
-    @auths[vm][opts[:username]] = nil
+    clear_auth vm, opts
     err "Could not authenticate: #{$!}"
   end
 end
@@ -61,6 +61,9 @@ def list_auth vm
 
   if vm.nil?
     auth_list = @auths
+  elsif !@auths.member? vm
+    puts "No credentials available."
+    return
   else
     auth_list = { vm => @auths[vm] }
   end
@@ -81,17 +84,18 @@ opts :clear_auth do
 end
 
 def clear_auth vm, opts
-  if @auths.nil?
-  elsif vm.nil?
-    @auths = {}
-  else
-    @auths[vm].delete opts[:username]
+  unless @auths.nil? or vm.nil?
+    if @auths.member? vm
+      @auths[vm].delete opts[:username]
+      @auths.delete vm if @auths[vm].empty?
+      @auths = nil if @auths.empty?
+    end
   end
 end
 
 
 def get_auth vm, opts
-  auth = @auths[vm][opts[:username]]
+  auth = @auths.fetch(vm).fetch(opts[:username])
 ensure
   err "No credentials found. You must authenticate before executing this command." if auth.nil?
 end
