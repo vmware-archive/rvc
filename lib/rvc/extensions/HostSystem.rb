@@ -44,7 +44,7 @@ class RbVmomi::VIM::HostSystem
   field 'uptime' do
     summary "Host's uptime in days"
     properties %w(runtime.bootTime)
-    block { |t| t ? ((Time.now-t) / (24 * 60 * 60)) : nil }
+    block { |t| t ? MetricNumber.new(((Time.now-t) / (24 * 60 * 60)), 'd') : nil }
   end
 
   field 'num.vms' do
