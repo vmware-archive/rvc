@@ -31,23 +31,31 @@ class RbVmomi::VIM::VirtualMachine
     perfmetrics %w(virtualDisk.read virtualDisk.write)
     block do |read, write| 
       if read && write
-        io = (read.sum.to_f / read.length) + (write.sum.to_f / write.length)
-        MetricNumber.new(io * 1024, 'B/s')
+        read = read.select{|x| x != -1}
+        write = write.select{|x| x != -1}
+        if read.length > 0 && write.length > 0
+          io = (read.sum.to_f / read.length) + (write.sum.to_f / write.length)
+          MetricNumber.new(io * 1024, 'B/s')
+        end
       else
         nil
       end
     end
   end
   
-  [['', 5], ['.realtime', 1], ['.5min', 5 * 3], ['.10min', 10 * 3]].each do |label, max_samples|
+  [['', 5], ['.realtime', 3], ['.5min', 5 * 3], ['.10min', 10 * 3]].each do |label, max_samples|
     field "storageiops#{label}" do
       summary "Storage IOPS"
       perfmetrics %w(virtualDisk.numberReadAveraged virtualDisk.numberWriteAveraged)
       perfmetric_settings :max_samples => max_samples
       block do |read, write|
         if read && write
-          io = (read.sum.to_f / read.length) + (write.sum.to_f / write.length)
-          MetricNumber.new(io, 'IOPS')
+          read = read.select{|x| x != -1}
+          write = write.select{|x| x != -1}
+          if read.length > 0 && write.length > 0
+            io = (read.sum.to_f / read.length) + (write.sum.to_f / write.length)
+            MetricNumber.new(io, 'IOPS')
+          end
         else
           nil
         end
