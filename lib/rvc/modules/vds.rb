@@ -629,8 +629,8 @@ def add_hosts vds, hosts, opts
       }
     end
   })
-  task = dvs.ReconfigureDvs_Task(:spec => dvsConfig)
-  progress(task)
+  task = vds.ReconfigureDvs_Task(:spec => dvsConfig)
+  progress([task])
 end
 
 opts :create_vmknic do
