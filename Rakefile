@@ -5,8 +5,8 @@ begin
     gem.summary = "vSphere console UI"
     #gem.description = ""
     gem.email = "rlane@vmware.com"
-    #gem.homepage = ""
-    gem.authors = ["Rich Lane"]
+    gem.homepage = "https://github.com/vmware/rvc"
+    gem.authors = ["Rich Lane", "Christian Dickmann"]
     gem.add_dependency 'rbvmomi', '>= 1.6.0'
     gem.add_dependency 'trollop', '>= 1.16.2'
     gem.add_dependency 'backports', '>= 1.18.2'
