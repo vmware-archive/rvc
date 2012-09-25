@@ -282,7 +282,10 @@ def logbundles servers, opts
   puts "#{Time.now}: Generating log bundles..."
   bundles =
     begin
-      diagMgr.GenerateLogBundles_Task(:includeDefault => include_default, :host => hosts).wait_for_completion
+      diagMgr.GenerateLogBundles_Task(
+        :includeDefault => include_default, 
+        :host => hosts
+      ).wait_for_completion
     rescue VIM::TaskInProgress
       $!.task.wait_for_completion
     end
