@@ -636,3 +636,16 @@ def vm_ip vm
     err "no IP known for this VM"
   end
 end
+
+
+opts :screenshot do
+  summary "Take a screenshot of a VM"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  arg 'local-path', "Filename on the local machine"
+end
+
+rvc_alias :screenshot
+
+def screenshot vm, local_path
+  http_download vm._connection, "/screen?id=#{vm._ref}", local_path
+end
