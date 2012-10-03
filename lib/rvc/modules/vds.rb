@@ -653,7 +653,7 @@ def create_vmknic portgroup, hosts, opts
         },
         :distributedVirtualPort => VIM::DistributedVirtualSwitchPortConnection(
           :portgroupKey => portgroup.key, 
-          :switchUuid => portgroup.config.distributedVirtualSwitch.uuid,
+          :switchUuid => portgroup.config.distributedVirtualSwitch.uuid
         )
       }
     )

@@ -34,7 +34,7 @@ rvc_alias :connect
 def connect uri, opts
   uri = RVC::URIParser.parse uri unless uri.is_a? URI
 
-  username = uri.user || ENV['RBVMOMI_USER']
+  username = URI.decode(uri.user) || ENV['RBVMOMI_USER']
   password = uri.password || ENV['RBVMOMI_PASSWORD']
   host = uri.host
   port = uri.port || 443
