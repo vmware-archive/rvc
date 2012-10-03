@@ -78,10 +78,10 @@ class FS
       end
     when REGEX_PATTERN
       regex = Regexp.new($')
-      cur.children.select { |k,v| k =~ regex }.map { |k,v| v.rvc_link(cur, k); v }
+      cur.rvc_children.select { |k,v| k =~ regex }.map { |k,v| v.rvc_link(cur, k); v }
     when GLOB_PATTERN
       regex = glob_to_regex arc
-      cur.children.select { |k,v| k =~ regex }.map { |k,v| v.rvc_link(cur, k); v }
+      cur.rvc_children.select { |k,v| k =~ regex }.map { |k,v| v.rvc_link(cur, k); v }
     else
       # XXX check for ambiguous child
       if first and arc =~ /^\d+$/ and objs = @marks[arc]

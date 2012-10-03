@@ -65,11 +65,19 @@ module InventoryObject
   end
 
   def traverse_one arc
-    children[arc]
+    rvc_children[arc]
   end
 
   def children
     {}
+  end
+  
+  def rvc_children
+    out = self.children
+    methods.grep(/rvc_list_children_/).each do |method|
+      out.merge!(self.send(method))
+    end
+    out
   end
 
   def rvc_path

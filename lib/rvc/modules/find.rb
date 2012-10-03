@@ -72,7 +72,7 @@ def leaves roots, types = []
     nodes.each do |node|
       if (node.class.traverse? or roots.member? node) and
           (types & (node.field('type') || [])).empty?
-        node.children.each { |k,v| v.rvc_link(node, k); new_nodes << v }
+        node.rvc_children.each { |k,v| v.rvc_link(node, k); new_nodes << v }
       else
         leaves << node
       end

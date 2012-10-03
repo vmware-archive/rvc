@@ -36,7 +36,7 @@ class RbVmomi::VIM::Datacenter
 
   # For compatibility with previous RVC versions
   def traverse_one arc
-    children = self.children
+    children = self.rvc_children
     return children[arc] if children.member? arc
     if arc == 'vm' then return vmFolder
     elsif arc == 'datastore' then return datastoreFolder

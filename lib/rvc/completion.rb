@@ -164,7 +164,7 @@ class Completion
     base = absolute ? @shell.fs.root : @shell.fs.cur
     cur = @shell.fs.traverse(base, arcs).first or return []
     arcs.unshift '' if absolute
-    children = @cache[cur, :children] rescue []
+    children = @cache[cur, :rvc_children] rescue []
     children.
       select { |k,v| k.gsub(' ', '\\ ') =~ /^#{Regexp.escape(last)}/ }.
       map { |k,v| (arcs+[k])*'/' }.

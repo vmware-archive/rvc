@@ -146,7 +146,7 @@ def ls obj
     return obj.rvc_ls
   end
 
-  children = obj.children
+  children = obj.rvc_children
   name_map = children.invert
   children, fake_children = children.partition { |k,v| v.is_a? VIM::ManagedEntity }
   i = 0
@@ -265,6 +265,9 @@ def info obj
   puts "path: #{obj.rvc_path_str}"
   if obj.respond_to? :display_info
     obj.display_info
+    obj.methods.grep(/rvc_display_info_/).sort.each do |method|
+      obj.send(method)
+    end
   else
     puts "class: #{obj.class.name}"
   end
