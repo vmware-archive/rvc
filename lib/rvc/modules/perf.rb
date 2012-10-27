@@ -331,6 +331,9 @@ def stats metrics, objs, opts
     start_time = Time.now - 300 * 5
   end
   instances = opts[:instance] || ['*']
+  if instances.length == 0
+    instances << '*'
+  end
   stat_opts = {
     :interval => interval,
     :startTime => start_time,
@@ -344,9 +347,13 @@ def stats metrics, objs, opts
   table.add_row ['Object', 'Instance', 'Metric', 'Values', 'Unit']
   table.add_separator
   objs.each do |obj|
+    if !res[obj]
+      next
+    end
     metrics.each do |metric|
-      instances.each do |instance|
-        key, stat = res[obj][:metrics].find{|k, v| k[0] == metric && k[1] == instance}
+      matches = res[obj][:metrics].select{|k, v| k[0] == metric}
+      matches.each do |key, stat|
+        key, instance = key
         metric_info = pm.perfcounter_hash[metric]
         table.add_row([obj.name, instance, metric, stat.join(','), metric_info.unitInfo.label])
       end
