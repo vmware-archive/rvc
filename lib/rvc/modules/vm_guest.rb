@@ -1,30 +1,32 @@
 opts :authenticate do
   summary "Authenticate within guest"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
+  arg :vm, nil, :lookup => VIM::VirtualMachine, :multi => true
   opt :interactive_session, "Allow command to interact with desktop", :default => false, :type => :bool
   opt :password, "Password in guest", :type => :string
   opt :username, "Username in guest", :default => "root", :type => :string
 end
 
-def authenticate vm, opts
-  auth = ((@auths ||= {})[vm] ||= {})[opts[:username]]
-
-  if opts[:password].nil? or opts[:password].empty?
-    opts[:password] = ask("password: ") { |q| q.echo = false }
-  end
-
-  auth = VIM.NamePasswordAuthentication(
-    :username => opts[:username],
-    :password => opts[:password],
-    :interactiveSession => opts[:interactive_session]
-  )
-
-  @auths[vm][opts[:username]] = auth
-  begin
-    check_auth vm, opts
-  rescue
-    clear_auth vm, opts
-    err "Could not authenticate: #{$!}"
+def authenticate vms, opts
+  vms.each do |vm|
+    auth = ((@auths ||= {})[vm] ||= {})[opts[:username]]
+  
+    if opts[:password].nil? or opts[:password].empty?
+      opts[:password] = ask("password: ") { |q| q.echo = false }
+    end
+  
+    auth = VIM.NamePasswordAuthentication(
+      :username => opts[:username],
+      :password => opts[:password],
+      :interactiveSession => opts[:interactive_session]
+    )
+  
+    @auths[vm][opts[:username]] = auth
+    begin
+      check_auth vm, opts
+    rescue
+      clear_auth vm, opts
+      err "Could not authenticate: #{$!}"
+    end
   end
 end
 
@@ -270,9 +272,7 @@ def generic_http_download uri, local_path
   end
 end
   
-def generic_http_upload local_path, uri
-  err "local file does not exist" unless File.exists? local_path
-
+def generic_http_upload local_path, uri, size = nil
   http = Net::HTTP.new(uri.host, uri.port)
   http.use_ssl = true
   http.verify_mode = OpenSSL::SSL::VERIFY_NONE
@@ -281,13 +281,13 @@ def generic_http_upload local_path, uri
 
 
   open(local_path, 'rb') do |io|
-    stream = ProgressStream.new(io, io.stat.size) do |s|
+    stream = ProgressStream.new(io, size || io.stat.size) do |s|
       $stdout.write "\e[0G\e[Kuploading #{s.count}/#{s.len} bytes (#{(s.count*100)/s.len}%)"
       $stdout.flush
     end
 
     headers = {
-      'content-length' => io.stat.size.to_s,
+      'content-length' => (size || io.stat.size).to_s,
       'Content-Type' => 'application/octet-stream',
     }
     http_path = "#{uri.path}?#{uri.query}"
@@ -335,7 +335,7 @@ end
 
 opts :upload_file do
   summary "Upload file to guest"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
+  arg :vm, nil, :lookup => VIM::VirtualMachine, :multi => true
   opt :group_id, "Group ID of file", :type => :int
   opt :guest_path, "Path in guest to upload to", :required => true, :type => :string
   opt :local_path, "Local file to upload", :required => true, :type => :string
@@ -345,35 +345,45 @@ opts :upload_file do
   opt :username, "Username in guest", :default => "root", :type => :string
 end
 
-def upload_file vm, opts
-  guestOperationsManager = vm._connection.serviceContent.guestOperationsManager
-  err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :fileManager
-  fileManager = guestOperationsManager.fileManager
-
-  opts[:permissions] = opts[:permissions].to_i(8) if opts[:permissions]
-
-  auth = get_auth vm, opts
-
-  file = File.new(opts[:local_path], 'rb')
-
-  upload_url = fileManager.
-    InitiateFileTransferToGuest(
-      :vm => vm,
-      :auth => auth,
-      :guestFilePath => opts[:guest_path],
-      :fileAttributes => VIM.GuestPosixFileAttributes(
-        :groupId => opts[:group_id],
-        :ownerId => opts[:owner_id],
-        :permissions => opts[:permissions]
-      ),
-      :fileSize => file.size,
-      :overwrite => opts[:overwrite]
-    )
-
-  upload_uri = URI.parse(upload_url.gsub /http(s?):\/\/\*:[0-9]*/, "")
-  upload_path = "#{upload_uri.path}?#{upload_uri.query}"
-
-  generic_http_upload opts[:local_path], upload_uri
+def upload_file vms, opts
+  vms.each do |vm|
+    guestOperationsManager = vm._connection.serviceContent.guestOperationsManager
+    err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :fileManager
+    fileManager = guestOperationsManager.fileManager
+  
+    opts[:permissions] = opts[:permissions].to_i(8) if opts[:permissions]
+  
+    auth = get_auth vm, opts
+  
+    file_size = nil
+    if opts[:local_path] =~ /^http:/
+      # XXX: Not acceptable for big files
+      file_size = open(opts[:local_path], 'rb').read.length
+    else
+      err "local file does not exist" unless File.exists? local_path
+      file = File.new(opts[:local_path], 'rb')
+      file_size = file.size
+    end  
+  
+    upload_url = fileManager.
+      InitiateFileTransferToGuest(
+        :vm => vm,
+        :auth => auth,
+        :guestFilePath => opts[:guest_path],
+        :fileAttributes => VIM.GuestPosixFileAttributes(
+          :groupId => opts[:group_id],
+          :ownerId => opts[:owner_id],
+          :permissions => opts[:permissions]
+        ),
+        :fileSize => file_size,
+        :overwrite => opts[:overwrite]
+      )
+  
+    upload_uri = URI.parse(upload_url.gsub /http(s?):\/\/\*:[0-9]*/, "")
+    upload_path = "#{upload_uri.path}?#{upload_uri.query}"
+  
+    generic_http_upload opts[:local_path], upload_uri, file_size
+  end
 end
 
 
@@ -494,7 +504,7 @@ end
 # Process commands
 opts :start_program do
   summary "Run program in guest"
-  arg :vm, nil, :lookup => VIM::VirtualMachine
+  arg :vm, nil, :lookup => VIM::VirtualMachine, :multi => true
   opt :arguments, "Arguments of command", :default => "", :type => :string
   opt :background, "Don't wait for process to finish", :default => false, :type => :bool
   opt :delay, "Interval in seconds", :type => :float, :default => 5.0
@@ -507,47 +517,51 @@ opts :start_program do
   conflicts :background, :delay
 end
 
-def start_program vm, opts
-  guestOperationsManager = vm._connection.serviceContent.guestOperationsManager
-  err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :processManager
-  processManager = guestOperationsManager.processManager
-
-  auth = get_auth vm, opts
-
-  pid = processManager.
-    StartProgramInGuest(
-      :vm => vm,
-      :auth => auth,
-      :spec => VIM.GuestProgramSpec(
-        :arguments => opts[:arguments],
-        :programPath => opts[:program_path],
-        :envVariables => opts[:env],
-        :workingDirectory => opts[:working_directory]
-      )
-    )
-
-  Timeout.timeout opts[:timeout] do
-    while true
-      processes = processManager.
-        ListProcessesInGuest(
-          :vm => vm,
-          :auth => auth,
-          :pids => [pid]
+def start_program vms, opts
+  vms.each do |vm|
+    guestOperationsManager = vm._connection.serviceContent.guestOperationsManager
+    err "This command requires vSphere 5 or greater" unless guestOperationsManager.respond_to? :processManager
+    processManager = guestOperationsManager.processManager
+  
+    auth = get_auth vm, opts
+  
+    pid = processManager.
+      StartProgramInGuest(
+        :vm => vm,
+        :auth => auth,
+        :spec => VIM.GuestProgramSpec(
+          :arguments => opts[:arguments],
+          :programPath => opts[:program_path],
+          :envVariables => opts[:env],
+          :workingDirectory => opts[:working_directory]
         )
-      process = processes.first
-
-      if !process.endTime.nil?
-        if process.exitCode != 0
-          err "Process failed with exit code #{process.exitCode}"
+      )
+  
+    begin
+      Timeout.timeout opts[:timeout] do
+        while true
+          processes = processManager.
+            ListProcessesInGuest(
+              :vm => vm,
+              :auth => auth,
+              :pids => [pid]
+            )
+          process = processes.first
+    
+          if !process.endTime.nil?
+            if process.exitCode != 0
+              err "Process failed with exit code #{process.exitCode}"
+            end
+            break
+          elsif opts[:background]
+            break
+          end
+    
+          sleep opts[:delay]
         end
-        break
-      elsif opts[:background]
-        break
       end
-
-      sleep opts[:delay]
+    rescue Timeout::Error
+      err "Timed out waiting for process to finish."
     end
   end
-rescue Timeout::Error
-  err "Timed out waiting for process to finish."
 end
