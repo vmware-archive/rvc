@@ -110,6 +110,7 @@ opts :add_disk do
   opt :size, 'Size', :default => '10G'
   opt :controller, 'Virtual controller', :type => :string, :lookup => VIM::VirtualController
   opt :file_op, 'File operation (create|reuse|replace)', :default => 'create'
+  opt :thick, "Use thick provisioning", :type => :boolean
 end
 
 def add_disk vm, path, opts
@@ -130,7 +131,7 @@ def add_disk vm, path, opts
     :backing => VIM.VirtualDiskFlatVer2BackingInfo(
       :fileName => filename,
       :diskMode => :persistent,
-      :thinProvisioned => true
+      :thinProvisioned => !(opts[:thick] == true),
     ),
     :capacityInKB => MetricNumber.parse(opts[:size]).to_i/1000,
     :controllerKey => controller.key,
