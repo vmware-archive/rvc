@@ -310,6 +310,7 @@ opts :stats do
   arg :metrics, nil, :type => :string
   arg :obj, nil, :multi => true, :lookup => VIM::ManagedEntity
   opt :samples, "Number of samples to retrieve", :type => :int
+  opt :instance, "Specify a particular insance instead of *", :type => :string, :multi => true
 end
 
 def stats metrics, objs, opts
@@ -329,21 +330,26 @@ def stats metrics, objs, opts
     interval = 300
     start_time = Time.now - 300 * 5
   end
+  instances = opts[:instance] || ['*']
   stat_opts = {
     :interval => interval,
     :startTime => start_time,
+    :instance => instances,
+    :multi_instance => true,
   }
   stat_opts[:max_samples] = opts[:samples] if opts[:samples]
   res = pm.retrieve_stats objs, metrics, stat_opts
 
   table = Terminal::Table.new
-  table.add_row ['Object', 'Metric', 'Values', 'Unit']
+  table.add_row ['Object', 'Instance', 'Metric', 'Values', 'Unit']
   table.add_separator
   objs.each do |obj|
     metrics.each do |metric|
-      stat = res[obj][:metrics][metric]
-      metric_info = pm.perfcounter_hash[metric]
-      table.add_row([obj.name, metric, stat.join(','), metric_info.unitInfo.label])
+      instances.each do |instance|
+        key, stat = res[obj][:metrics].find{|k, v| k[0] == metric && k[1] == instance}
+        metric_info = pm.perfcounter_hash[metric]
+        table.add_row([obj.name, instance, metric, stat.join(','), metric_info.unitInfo.label])
+      end
     end
   end
   puts table
