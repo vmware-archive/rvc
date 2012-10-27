@@ -240,6 +240,69 @@ def rmfile vm, opts
     )
 end
 
+def generic_http_download uri, local_path
+  http = Net::HTTP.new(uri.host, uri.port)
+  http.use_ssl = true
+  http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+  #http.set_debug_output $stderr
+  http.start
+
+#  headers = { 'cookie' => connection.cookie }
+  headers = {}
+  http_path = "#{uri.path}?#{uri.query}"
+  http.request_get(http_path, headers) do |res|
+    case res
+    when Net::HTTPOK
+      len = res.content_length
+      count = 0
+      File.open(local_path, 'wb') do |io|
+        res.read_body do |segment|
+          count += segment.length
+          io.write segment
+          $stdout.write "\e[0G\e[Kdownloading #{count}/#{len} bytes (#{(count*100)/len}%)"
+          $stdout.flush
+        end
+      end
+      $stdout.puts
+    else
+      err "download failed: #{res.message}"
+    end
+  end
+end
+  
+def generic_http_upload local_path, uri
+  err "local file does not exist" unless File.exists? local_path
+
+  http = Net::HTTP.new(uri.host, uri.port)
+  http.use_ssl = true
+  http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+  #http.set_debug_output $stderr
+  http.start
+
+
+  open(local_path, 'rb') do |io|
+    stream = ProgressStream.new(io, io.stat.size) do |s|
+      $stdout.write "\e[0G\e[Kuploading #{s.count}/#{s.len} bytes (#{(s.count*100)/s.len}%)"
+      $stdout.flush
+    end
+
+    headers = {
+      'content-length' => io.stat.size.to_s,
+      'Content-Type' => 'application/octet-stream',
+    }
+    http_path = "#{uri.path}?#{uri.query}"
+
+    request = Net::HTTP::Put.new http_path, headers
+    request.body_stream = stream
+    res = http.request(request)
+    $stdout.puts
+    case res
+    when Net::HTTPOK
+    else
+      err "upload failed: #{res.message}"
+    end
+  end
+end
 
 opts :download_file do
   summary "Download file from guest"
@@ -265,8 +328,8 @@ def download_file vm, opts
 
   download_uri = URI.parse(download_url.gsub /http(s?):\/\/\*:[0-9]*/, "")
   download_path = "#{download_uri.path}?#{download_uri.query}"
-
-  http_download vm._connection, download_path, opts[:local_path]
+  
+  generic_http_download download_uri, opts[:local_path]
 end
 
 
@@ -310,7 +373,7 @@ def upload_file vm, opts
   upload_uri = URI.parse(upload_url.gsub /http(s?):\/\/\*:[0-9]*/, "")
   upload_path = "#{upload_uri.path}?#{upload_uri.query}"
 
-  http_upload vm._connection, opts[:local_path], upload_path
+  generic_http_upload opts[:local_path], upload_uri
 end
 
 
