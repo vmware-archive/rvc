@@ -574,15 +574,26 @@ def annotate vm, str
   vm.ReconfigVM_Task(:spec => { :annotation => str }).wait_for_completion
 end
 
-
 opts :modify_cpu do
   summary "Change CPU configuration"
   arg :vm, nil, :lookup => VIM::VirtualMachine
   opt :num, "New number of CPUs", :type => :int, :required => true
+  opt :reservation, "Reservation in Mhz", :type => :int
+  opt :limit, "Limit in Mhz. -1 means no limit", :type => :int
 end
 
 def modify_cpu vm, opts
-  spec = { :numCPUs => opts[:num] }
+  alloc, = vm.collect 'config.cpuAllocation'
+  if opts[:reservation]
+    alloc.reservation = opts[:reservation]
+  end
+  if opts[:limit]
+    alloc.limit = opts[:limit]
+  end
+  spec = { 
+    :numCPUs => opts[:num],
+    :cpuAllocation => alloc, 
+  }
   tasks [vm], :ReconfigVM, :spec => spec
 end
 
@@ -591,12 +602,26 @@ opts :modify_memory do
   summary "Change memory configuration"
   arg :vm, nil, :lookup => VIM::VirtualMachine
   opt :size, "New memory size in MB", :type => :int, :required => true
+  opt :reservation, "Reservation in MB", :type => :int
+  opt :limit, "Limit in MB. -1 means no limit", :type => :int
 end
 
 def modify_memory vm, opts
   err "VM needs to be off" unless vm.summary.runtime.powerState == 'poweredOff'
   err "memory must be a multiple of 4MB" unless ( opts[:size]  % 4 ) == 0
-  spec = { :memoryMB => opts[:size] }
+
+  alloc, = vm.collect 'config.memoryAllocation'
+  if opts[:reservation]
+    alloc.reservation = opts[:reservation]
+  end
+  if opts[:limit]
+    alloc.limit = opts[:limit]
+  end
+
+  spec = { 
+    :memoryMB => opts[:size], 
+    :memoryAllocation => alloc, 
+  }
   tasks [vm], :ReconfigVM, :spec => spec
 end
 
