@@ -318,6 +318,7 @@ def stats metrics, objs, opts
 
   vim = single_connection objs
   pm = vim.serviceContent.perfManager
+  pc = vim.propertyCollector
 
   metrics.each do |x|
     err "no such metric #{x}" unless pm.perfcounter_hash.member? x
@@ -346,7 +347,8 @@ def stats metrics, objs, opts
   table = Terminal::Table.new
   table.add_row ['Object', 'Instance', 'Metric', 'Values', 'Unit']
   table.add_separator
-  objs.each do |obj|
+  objs_props = pc.collectMultiple(objs, 'name')
+  objs.sort_by{|obj| objs_props[obj]['name']}.each do |obj|
     if !res[obj]
       next
     end
@@ -355,7 +357,7 @@ def stats metrics, objs, opts
       matches.each do |key, stat|
         key, instance = key
         metric_info = pm.perfcounter_hash[metric]
-        table.add_row([obj.name, instance, metric, stat.join(','), metric_info.unitInfo.label])
+        table.add_row([objs_props[obj]['name'], instance, metric, stat.join(','), metric_info.unitInfo.label])
       end
     end
   end
