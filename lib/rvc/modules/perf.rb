@@ -244,14 +244,16 @@ def counters obj
   groups = available_counters.group_by { |counter| counter.groupInfo }
 
   table = Terminal::Table.new
-  table.add_row ["Name", "Description", "Unit", "Level", "Active Intervals"]
+  table.add_row ["Name", "Description", "Unit", "Level", "Per-Dev", "Active Intervals"]
   groups.sort_by { |group,counters| group.key }.each do |group,counters|
     table.add_separator
     table.add_row [{ :value => group.label, :colspan => 5}]
     table.add_separator
     counters.sort_by(&:name).each do |counter|
+      pp counter
       table.add_row [counter.name, counter.nameInfo.label, counter.unitInfo.label,
-                     counter.level, active_intervals_text[counter.level]]
+                     counter.level, counter.perDeviceLevel, 
+                     active_intervals_text[counter.level]]
     end
   end
   puts(table)
@@ -303,6 +305,35 @@ def counter counter_name, obj
       end
     end
   end
+end
+
+
+opts :modify_counters do
+  summary "Modify perf counter settings"
+  arg :metrics, nil, :type => :string, :multi => true
+  opt :aggregate_level, nil, :type => :int
+  opt :per_device_level, nil, :type => :int
+end
+
+def modify_counters counter_names, opts
+  vim = lookup_single('~@')
+  pm = vim.serviceContent.perfManager
+  pm.UpdateCounterLevelMapping(
+    :counterLevelMap => counter_names.map do |counter_name|
+      counter = pm.perfcounter_hash[counter_name]
+      if !counter 
+        err "no such counter #{counter_name.inspect}"
+      end
+    
+      aggregateLevel = opts[:aggregate_level] || counter.level
+      perDeviceLevel = opts[:per_device_level] || counter.perDeviceLevel
+      {
+        :counterId => counter.key, 
+        :aggregateLevel => aggregateLevel,
+        :perDeviceLevel => perDeviceLevel,
+      }
+    end
+  )
 end
 
 opts :stats do
