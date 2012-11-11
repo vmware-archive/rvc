@@ -607,10 +607,10 @@ opts :modify_memory do
 end
 
 def modify_memory vm, opts
-  err "VM needs to be off" unless vm.summary.runtime.powerState == 'poweredOff'
   err "memory must be a multiple of 4MB" unless ( opts[:size]  % 4 ) == 0
 
-  alloc, = vm.collect 'config.memoryAllocation'
+  #alloc, = vm.collect 'config.memoryAllocation'
+  alloc = VIM::ResourceAllocationInfo()
   if opts[:reservation]
     alloc.reservation = opts[:reservation]
   end
