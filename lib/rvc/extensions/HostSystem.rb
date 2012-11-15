@@ -41,6 +41,21 @@ class RbVmomi::VIM::HostSystem
     property 'runtime.powerState'
   end
 
+  field 'state.maintenancemode' do
+    summary "Host maintenance mode."
+    property 'runtime.inMaintenanceMode'
+  end
+
+  field 'build' do
+    summary "ESX build number."
+    property 'summary.config.product.build'
+  end
+
+  field 'productname' do
+    summary "ESX product name."
+    property 'summary.config.product.fullName'
+  end
+
   field 'uptime' do
     summary "Host's uptime in days"
     properties %w(runtime.bootTime)
