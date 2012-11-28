@@ -270,7 +270,11 @@ module Util
           res.read_body do |segment|
             count += segment.length
             io.write segment
-            $stdout.write "\e[0G\e[Kdownloading #{count}/#{len} bytes (#{(count*100)/len}%)"
+            if len == 0
+              $stdout.write "\e[0G\e[Kdownloading 0/0 bytes (100%)"
+            else
+              $stdout.write "\e[0G\e[Kdownloading #{count}/#{len} bytes (#{(count*100)/len}%)"
+            end
             $stdout.flush
           end
         end
@@ -279,6 +283,7 @@ module Util
         err "download failed: #{res.message}"
       end
     end
+    http.finish
   end
 
 
@@ -289,7 +294,11 @@ module Util
 
     File.open(local_path, 'rb') do |io|
       stream = ProgressStream.new(io, io.stat.size) do |s|
-        $stdout.write "\e[0G\e[Kuploading #{s.count}/#{s.len} bytes (#{(s.count*100)/s.len}%)"
+        if s.len == 0
+          $stdout.write "\e[0G\e[Kuploading 0/0 bytes (100%)"
+        else
+          $stdout.write "\e[0G\e[Kuploading #{s.count}/#{s.len} bytes (#{(s.count*100)/s.len}%)"
+        end
         $stdout.flush
       end
 
@@ -309,6 +318,7 @@ module Util
         err "upload failed: #{res.message}"
       end
     end
+    http.finish
   end
 end
 end

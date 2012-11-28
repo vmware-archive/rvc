@@ -1,3 +1,5 @@
+require 'find'
+
 opts :authenticate do
   summary "Authenticate within guest"
   arg :vm, nil, :lookup => VIM::VirtualMachine
@@ -311,6 +313,67 @@ def upload_file vm, opts
   upload_path = "#{upload_uri.path}?#{upload_uri.query}"
 
   http_upload vm._connection, opts[:local_path], upload_path
+end
+
+
+opts :upload_directory do
+  summary "Upload directory to guest"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :create_parent_directories, "Create parent directories", :default => false, :type => :bool
+  opt :exclude, "Exclude files/directories by regex", :default => "^\\.svn$|^\\.git$", :type => :string
+  opt :group_id, "Group ID of files", :type => :int
+  opt :guest_path, "Path in guest to upload to", :required => true, :type => :string
+  opt :local_path, "Local directory to upload", :required => true, :type => :string
+  opt :overwrite, "Overwrite files/directories", :default => false, :type => :bool
+  opt :owner_id, "Owner ID of files", :type => :int
+  opt :permissions, "Permissions of files", :type => :string
+  opt :username, "Username in guest", :default => "root", :type => :string
+end
+
+def upload_directory vm, opts
+  err "Directory #{opts[:local_path]} does not exist or is not a directory." unless File.directory? opts[:local_path]
+
+  opts[:local_path] << "/" unless opts[:local_path].end_with? "/"
+  opts[:guest_path] << "/" unless opts[:guest_path].end_with? "/"
+  Find.find "#{opts[:local_path]}" do |find_path|
+    new_guest_path = "#{opts[:guest_path]}#{find_path[opts[:local_path].length .. -1]}"
+
+    Find.prune if File.basename(find_path) =~ Regexp.new(opts[:exclude])
+
+    if File.directory? find_path
+      create_directory = false
+      if opts[:overwrite]
+        begin
+          opts_dup = opts.dup
+          opts_dup[:guest_path] = new_guest_path
+          # We're just using ls_guest to test for the existence of a directory,
+          # so use a dummy match_pattern.
+          opts_dup[:match_pattern] = "junkJUNKjunk"
+          ls_guest vm, opts_dup
+        rescue RbVmomi::Fault => e
+          if e.message.start_with? "FileNotFound"
+            create_directory = true
+          else
+            raise
+          end
+        end
+      else
+        create_directory = true
+      end
+
+      if create_directory
+        opts_dup = opts.dup
+        opts_dup[:guest_path] = new_guest_path
+        mkdir vm, opts_dup
+      end
+    else
+      puts "Uploading #{new_guest_path}"
+      opts_dup = opts.dup
+      opts_dup[:local_path] = find_path
+      opts_dup[:guest_path] = new_guest_path
+      upload_file vm, opts_dup
+    end
+  end
 end
 
 
