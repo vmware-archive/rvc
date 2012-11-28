@@ -320,7 +320,7 @@ opts :upload_directory do
   summary "Upload directory to guest"
   arg :vm, nil, :lookup => VIM::VirtualMachine
   opt :create_parent_directories, "Create parent directories", :default => false, :type => :bool
-  opt :exclude, "Exclude files/directories by regex", :default => "^\\.svn|\\.git$", :type => :string
+  opt :exclude, "Exclude files/directories by regex", :default => "^\\.svn$|^\\.git$", :type => :string
   opt :group_id, "Group ID of files", :type => :int
   opt :guest_path, "Path in guest to upload to", :required => true, :type => :string
   opt :local_path, "Local directory to upload", :required => true, :type => :string
