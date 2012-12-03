@@ -31,6 +31,18 @@ rvc_alias :view, :vnc
 rvc_alias :view, :V
 
 def view vm
+  vnc_hash = on vm
+  vnc_client vnc_hash[:ip], vnc_hash[:port], vnc_hash[:password]
+end
+
+
+opts :on do
+  summary "Enable VNC server"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :print_password, false
+end
+
+def on vm, opts
   ip = reachable_ip vm.collect('runtime.host')[0]
   extraConfig, = vm.collect('config.extraConfig')
   already_enabled = extraConfig.find { |x| x.key == 'RemoteDisplay.vnc.enabled' && x.value.downcase == 'true' }
@@ -49,7 +61,8 @@ def view vm
       ]
     }).wait_for_completion
   end
-  vnc_client ip, port, password
+  puts "#{ip}:#{port} password: #{password}" if opts[:print_password]
+  {:ip => ip, :port => port, :password => password}
 end
 
 
