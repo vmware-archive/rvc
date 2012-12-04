@@ -31,7 +31,7 @@ rvc_alias :view, :vnc
 rvc_alias :view, :V
 
 def view vm
-  vnc_hash = on vm
+  vnc_hash = on vm, {}
   vnc_client vnc_hash[:ip], vnc_hash[:port], vnc_hash[:password]
 end
 
