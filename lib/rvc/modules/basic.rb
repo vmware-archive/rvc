@@ -99,6 +99,17 @@ def help_summary cmd
 end
 
 
+opts :clear do
+  summary "Clear the terminal screen"
+end
+
+rvc_alias :clear
+
+def clear
+  system("clear")
+end
+
+
 opts :debug do
   summary "Toggle VMOMI logging to stderr"
 end
