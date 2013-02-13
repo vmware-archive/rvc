@@ -48,6 +48,39 @@ def wait_for_multiple_tasks tasks, timeout
   results
 end
 
+opts :restart_services do
+  summary "Restart all services in hosts"
+  opt :host, "Host name (multi ok)", type: :string, short: 'n', :multi => true
+  opt :password, "Host password (multi ok)", type: :string, short: 'p', :multi => true
+end
+
+def restart_services clusters, opts
+
+  hosts = opts[:host]
+  pwds = opts[:password]
+  puts "Need to specify password(s) for fixing" if pwds == []
+
+  hosts.each do |host|
+    pwd_i = 0
+    pwds.each do |pwd|
+      pwd_i += 1
+      puts "\nTrying restart #{host} with pwd \##{pwd_i}"
+      Net::SSH.start(host, "root", :password => pwd, :paranoid => false) do |ssh|
+        # HZ 1258412 discusses the commands to fix a node with hostd problems
+        cmd = "/sbin/chkconfig usbarbitrator off; /sbin/services.sh restart"
+        puts "Running: #{cmd}"
+        out = ssh_exec!(ssh,cmd)
+        if out[2] != 0
+          puts "Failed to restart all services on host #{host}"
+          puts out[1]
+        else
+          puts "Host #{host.name} restarted all services"
+          break
+        end
+      end
+    end
+  end
+end
 
 opts :vm_create do
   summary "Check that VMs can be created on all hosts in a cluster"
@@ -55,6 +88,8 @@ opts :vm_create do
   opt :datastore, "Datastore to put (temporary) VMs on", :lookup => VIM::Datastore
   opt :vm_folder, "VM Folder to place (temporary) VMs in", :lookup => VIM::Folder
   opt :timeout, "Time to wait for VM creation to finish", :type => :int, :default => 3 * 60
+  opt :fix, "Fix the failing ESX hosts", :type => :boolean , :default => false
+  opt :password, "Passwords for fixing hosts", :type => :string, short: 'p', :multi => true
 end
 
 def vm_create clusters, opts
@@ -67,11 +102,17 @@ def vm_create clusters, opts
   result = _vm_create clusters, datastore, vm_folder, opts
 
   errors = result.select{|h, x| x['status'] != 'green'}
+  failed_hosts = []
   errors.each do |host, info|
     puts "Failed to create VM on host #{host} (in cluster #{info['cluster']}): #{info['error']}"
+    failed_hosts << host
   end
   if errors.length == 0
     puts "Success"
+  end
+  if opts[:fix] && failed_hosts != []
+    opts[:host] = failed_hosts
+    restart_services(clusters, opts)
   end
 end
 
