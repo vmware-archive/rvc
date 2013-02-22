@@ -48,8 +48,38 @@ def wait_for_multiple_tasks tasks, timeout
   results
 end
 
+# http://stackoverflow.com/questions/3386233/how-to-get-exit-status-with-rubys-netssh-library
+def ssh_exec!(ssh, command)
+  stdout_data = ""
+  stderr_data = ""
+  exit_code = nil
+  exit_signal = nil
+  ssh.open_channel do |channel|
+    channel.exec(command) do |ch, success|
+      unless success
+        abort "FAILED: couldn't execute command (ssh.channel.exec)"
+      end
+      channel.on_data do |ch,data|
+        stdout_data+=data
+      end
+
+      channel.on_extended_data do |ch,type,data|
+        stderr_data+=data
+      end
+
+      channel.on_request("exit-status") do |ch,data|
+        exit_code = data.read_long
+      end
+
+    end
+  end
+  ssh.loop
+  [stdout_data, stderr_data, exit_code]
+end
+
 opts :restart_services do
   summary "Restart all services in hosts"
+  arg :cluster, nil, :lookup => VIM::ComputeResource, :multi => true
   opt :host, "Host name (multi ok)", type: :string, short: 'n', :multi => true
   opt :password, "Host password (multi ok)", type: :string, short: 'p', :multi => true
 end
@@ -61,22 +91,34 @@ def restart_services clusters, opts
   puts "Need to specify password(s) for fixing" if pwds == []
 
   hosts.each do |host|
-    pwd_i = 0
+    finished = false
     pwds.each do |pwd|
-      pwd_i += 1
-      puts "\nTrying restart #{host} with pwd \##{pwd_i}"
-      Net::SSH.start(host, "root", :password => pwd, :paranoid => false) do |ssh|
-        # HZ 1258412 discusses the commands to fix a node with hostd problems
-        cmd = "/sbin/chkconfig usbarbitrator off; /sbin/services.sh restart"
-        puts "Running: #{cmd}"
-        out = ssh_exec!(ssh,cmd)
-        if out[2] != 0
-          puts "Failed to restart all services on host #{host}"
-          puts out[1]
-        else
-          puts "Host #{host.name} restarted all services"
-          break
+      break if finished
+      puts "\nTrying restart #{host} with pwd #{pwd}"
+      begin
+        Net::SSH.start(host, "root", :password => pwd, :paranoid => false) do |ssh|
+          # HZ 1258412 discusses the commands to fix a node with hostd problems
+          cmd = "/sbin/chkconfig usbarbitrator off"
+          puts "Running #{cmd}"
+          out = ssh_exec!(ssh,cmd)
+          if out[2] != 0
+            puts "Failed to execute #{cmd} on host #{host}"
+            puts out[1]
+          end
+
+          cmd = "/sbin/services.sh restart > /tmp/restart_services.log 2>&1"
+          puts "Running #{cmd}"
+          out = ssh_exec!(ssh,cmd)
+          if out[2] != 0
+            puts "Failed to restart all services on host #{host}"
+            puts out[1]
+          else
+            puts "Host #{host} restarted all services"
+            finished = true
+          end
         end
+      rescue Net::SSH::AuthenticationFailed
+        puts "Failed to authenticate on host #{host}"
       end
     end
   end
