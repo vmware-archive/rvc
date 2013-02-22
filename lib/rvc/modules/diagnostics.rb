@@ -147,7 +147,9 @@ def vm_create clusters, opts
   failed_hosts = []
   errors.each do |host, info|
     puts "Failed to create VM on host #{host} (in cluster #{info['cluster']}): #{info['error']}"
-    failed_hosts << host
+    if info['error'] == "Timed out"
+      failed_hosts << host
+    end
   end
   if errors.length == 0
     puts "Success"
