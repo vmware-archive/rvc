@@ -636,10 +636,10 @@ end
 opts :create_vmknic do
   summary "Create a vmknic on vDS on one or more hosts. Always uses DHCP"
   arg :portgroup, nil, :lookup => VIM::Network
-  arg :host, nil, :lookup => VIM::HostSystem, :multi => true
+  arg :hosts, nil, :lookup => VIM::HostSystem, :multi => true
 end
 
-def create_vmknic portgroup, hosts, opts
+def create_vmknic portgroup, hosts
   if !portgroup.is_a?(VIM::DistributedVirtualPortgroup)
     err "Legacy switches not supported yet"
   end
