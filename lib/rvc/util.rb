@@ -1,15 +1,15 @@
 # Copyright (c) 2011 VMware, Inc.  All Rights Reserved.
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in
 # all copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -90,6 +90,7 @@ module Util
             text = "#{name} #{entityName}: #{state} "
             progress = props['info.progress']
             barlen = terminal_columns - text.size - 2
+            barlen = 0 if barlen < 0 # we can't draw -ive bars, simple fix TODO: draw on next line
             progresslen = ((progress||0)*barlen)/100
             progress_bar = "#{PROGRESS_BAR_LEFT}#{PROGRESS_BAR_MIDDLE * progresslen}#{' ' * (barlen-progresslen)}#{PROGRESS_BAR_RIGHT}"
             $stdout.write "\e[K#{text}#{progress_bar}\n"
@@ -206,7 +207,7 @@ module Util
         retry
       end
     end
-    
+
     buckets = {}
     objs.each do |o|
       metrics = o.perfmetrics(fields)
@@ -223,8 +224,8 @@ module Util
           stats = perfmgr.retrieve_stats os, metric[:metrics], metric[:opts]
           os.each do |o|
             perf_values[o] = {}
-            metric[:metrics].map do |x| 
-              if stats[o] 
+            metric[:metrics].map do |x|
+              if stats[o]
                 perf_values[o][x] = stats[o][:metrics][x]
               end
             end
@@ -235,11 +236,11 @@ module Util
         end
       end
     end
-    
+
     Hash[objs.map do |o|
       begin
-        [o, Hash[fields.map do |f| 
-          [f, o.field(f, props_values[o], perf_values[o])] 
+        [o, Hash[fields.map do |f|
+          [f, o.field(f, props_values[o], perf_values[o])]
         end]]
       rescue VIM::ManagedObjectNotFound
         next
