@@ -141,15 +141,22 @@ def vm_create clusters, opts
   err "vm_folder is a required parameter" unless vm_folder
 
   puts "Creating one VM per host ... (timeout = #{opts[:timeout]} sec)"
-  result = _vm_create clusters, datastore, vm_folder, opts
-
-  errors = result.select{|h, x| x['status'] != 'green'}
+  errors = []
   failed_hosts = []
-  errors.each do |host, info|
-    puts "Failed to create VM on host #{host} (in cluster #{info['cluster']}): #{info['error']}"
-    if info['error'] == "Timed out"
-      failed_hosts << host
+  begin
+    result = _vm_create clusters, datastore, vm_folder, opts
+    errors = result.select{|h, x| x['status'] != 'green'}
+    errors.each do |host, info|
+      puts "Failed to create VM on host #{host} (in cluster #{info['cluster']}): #{info['error']}"
+      if info['error'] == "Timed out"
+        failed_hosts << host
+      end
     end
+  rescue Exception => e
+    puts "An error occurred:\n"
+    puts "e.message:", e.message
+    puts "e.backtrace:", e.backtrace.join("\n")
+    errors = [e]
   end
   if errors.length == 0
     puts "Success"
@@ -184,6 +191,7 @@ def _vm_create clusters, datastore, vm_folder, opts = {}
         :files => { :vmPathName => datastore_path },
         :numCPUs => 1,
         :memoryMB => 16,
+        :annotation => YAML.dump({'lease' => Time.now + 2 * opts[:timeout] + 60}),
         :deviceChange => [
           {
             :operation => :add,
@@ -203,11 +211,15 @@ def _vm_create clusters, datastore, vm_folder, opts = {}
           }
         ],
       }
-      task = vm_folder.CreateVM_Task(:config => config,
-                                     :pool => rp,
-                                     :host => host)
-      tasks_map[task] = host
-      hosts_infos[host][:create_task] = task
+      begin
+        task = vm_folder.CreateVM_Task(:config => config,
+                                       :pool => rp,
+                                       :host => host)
+        tasks_map[task] = host
+        hosts_infos[host][:create_task] = task
+      rescue
+        puts "Failed to create task for host #{host.name}"
+      end
     end
   end
   
