@@ -85,7 +85,6 @@ opts :restart_services do
 end
 
 def restart_services clusters, opts
-
   hosts = opts[:host]
   pwds = opts[:password]
   puts "Need to specify password(s) for fixing" if pwds == []
@@ -148,7 +147,7 @@ def vm_create clusters, opts
     errors = result.select{|h, x| x['status'] != 'green'}
     errors.each do |host, info|
       puts "Failed to create VM on host #{host} (in cluster #{info['cluster']}): #{info['error']}"
-      if info['error'] == "Timed out"
+      if (info['error'] == "Timed out") || (info['error'].include? "InvalidState") || (info['error'].include? "InvalidHostState")
         failed_hosts << host
       end
     end
