@@ -147,8 +147,12 @@ def vm_create clusters, opts
     errors = result.select{|h, x| x['status'] != 'green'}
     errors.each do |host, info|
       puts "Failed to create VM on host #{host} (in cluster #{info['cluster']}): #{info['error']}"
-      if (info['error'] == "Timed out") || (info['error'].include? "InvalidState") || (info['error'].include? "InvalidHostState")
-        failed_hosts << host
+      err_msgs = ["Timed out", "InvalidState", "InvalidHostState", "InvalidHostConnectionState", "HostCommunication"]
+      err_msgs.each do |msg|
+        if info['error'].include? msg
+          failed_hosts << host
+          break
+        end
       end
     end
   rescue Exception => e
