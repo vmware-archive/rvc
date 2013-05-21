@@ -666,7 +666,7 @@ def vm_ip vm
 
   ip = if summary.guest.ipAddress and summary.guest.ipAddress != '127.0.0.1'
     summary.guest.ipAddress
-  elsif note = YAML.load(summary.config.annotation) and note.is_a? Hash and note.member? 'ip' and note['ip']
+  elsif note = YAML.load(summary.config.annotation) and note.is_a? Hash and note['ip']
     note['ip']
   else
     err "no IP known for this VM"
