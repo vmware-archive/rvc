@@ -36,8 +36,12 @@ def view vm
   already_enabled = extraConfig.find { |x| x.key == 'RemoteDisplay.vnc.enabled' && x.value.downcase == 'true' }
   if already_enabled
     puts "VNC already enabled"
-    port = extraConfig.find { |x| x.key == 'RemoteDisplay.vnc.port' }.value
-    password = extraConfig.find { |x| x.key == 'RemoteDisplay.vnc.password' }.value
+    port = extraConfig.find { |x| x.key == 'RemoteDisplay.vnc.port' }
+    if !port
+      err "VNC enabled but no port assigned. Use vnc.off to reset config"
+    end
+    password = extraConfig.find { |x| x.key == 'RemoteDisplay.vnc.password' }
+    password = password ? password.value : ""
   else
     port = unused_vnc_port ip
     password = vnc_password
