@@ -203,3 +203,33 @@ def rescan_storage hosts
     storageSystem.RescanVmfs
   end
 end
+
+
+opts :select_vmknic_for_service do
+  summary "Selects a vmknic for a particular service"
+  arg :vmknic, "Name of vmknic", :type => :string
+  arg :service, "e.g.: vmotion", :type => :string
+  arg :host, nil, :lookup => VIM::HostSystem, :multi => true
+end
+
+def select_vmknic_for_service vmknic, service, hosts
+  hosts.each do |host|
+    vnicSys = host.configManager.virtualNicManager
+    vnicSys.SelectVnicForNicType(:nicType => service, :device => vmknic)
+  end
+end
+
+
+opts :deselect_vmknic_for_service do
+  summary "Selects a vmknic for a particular service"
+  arg :vmknic, "Name of vmknic", :type => :string
+  arg :service, "e.g.: vmotion", :type => :string
+  arg :host, nil, :lookup => VIM::HostSystem, :multi => true
+end
+
+def deselect_vmknic_for_service vmknic, service, hosts
+  hosts.each do |host|
+    vnicSys = host.configManager.virtualNicManager
+    vnicSys.DeselectVnicForNicType(:nicType => service, :device => vmknic)
+  end
+end
