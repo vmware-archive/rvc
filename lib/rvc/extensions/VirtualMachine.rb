@@ -155,6 +155,7 @@ class RbVmomi::VIM::VirtualMachine
     puts "hostname: #{guest.hostName} (#{guest.ipAddress})" if guest.hostName and guest.ipAddress
     puts "VC UUID: #{config.instanceUuid}" if config.instanceUuid and !config.instanceUuid.empty?
     puts "power: #{runtime.powerState}"
+    puts "connectionState: #{runtime.connectionState}"
     if runtime.question
       puts "question: #{runtime.question.text.lines.to_a.join("> ")}"
       puts "choices: #{runtime.question.choice.choiceInfo.map(&:label) * ', '}"
