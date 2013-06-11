@@ -109,30 +109,41 @@ def recommendations cluster
   name_map = pc.collectMultiple(targets, 'name')
 
   # Compose the output (tries to avoid making any API calls)
-  out = Terminal::Table.new(['Key', 'Reason', 'Target', 'Actions']) do
-    recommendation.each do |r|
-      target_name = r.target ? name_map[r.target]['name'] : ""
-      actions = r.action.map do |a|
-        action = "#{a.class.wsdl_name}: #{name_map[a.target]['name']}"
-        dst = nil
-        if a.is_a?(RbVmomi::VIM::ClusterMigrationAction)
-          dst = a.drsMigration.destination
-        end
-        if a.is_a?(RbVmomi::VIM::StorageMigrationAction)
-          dst = a.destination
-        end
-        if dst
-          if !name_map[dst]
-            name_map[dst] = {'name' => dst.name}
-          end
-          action += " (to #{name_map[dst]['name']})"
-        end
-        action
+  t = Terminal::Table.new()
+  t << ['Key', 'Reason', 'Target', 'Actions']
+  recommendation.each do |r|
+    target_name = r.target ? name_map[r.target]['name'] : ""
+    actions = r.action.map do |a|
+      action = "#{a.class.wsdl_name}: #{name_map[a.target]['name']}"
+      dst = nil
+      if a.is_a?(RbVmomi::VIM::ClusterMigrationAction)
+        dst = a.drsMigration.destination
       end
-      add_row [r.key, r.reasonText, target_name, actions.join("\n")]
+      if a.is_a?(RbVmomi::VIM::StorageMigrationAction)
+        dst = a.destination
+      end
+      if dst
+        if !name_map[dst]
+          name_map[dst] = {'name' => dst.name}
+        end
+        action += " (to #{name_map[dst]['name']})"
+      end
+      action
     end
+    t << [r.key, r.reasonText, target_name, actions.join("\n")]
   end
-  puts out
+  puts t
+end
+
+def _filtered_cluster_recommendations cluster, key, type
+  recommendation = cluster.recommendation
+  if key && key.length > 0
+    recommendation.select! { |x| key.member?(x.key) }
+  end
+  if type && type.length > 0
+    recommendation.select! { |x| (type & x.action.map { |y| y.class.wsdl_name }).length > 0 }
+  end
+  recommendation
 end
 
 opts :apply_recommendations do
@@ -144,13 +155,9 @@ end
 
 def apply_recommendations cluster, opts
   pc = cluster._connection.serviceContent.propertyCollector
-  recommendation = cluster.recommendation
-  if opts[:key] && opts[:key].length > 0
-    recommendation.select! { |x| opts[:key].member?(x.key) }
-  end
-  if opts[:type] && opts[:type].length > 0
-    recommendation.select! { |x| (opts[:type] & x.action.map { |y| y.class.wsdl_name }).length > 0 }
-  end
+  recommendation = _filtered_cluster_recommendations(
+    cluster, opts[:key], opts[:type]
+  )
   all_tasks = []
 
   # We do recommendations in chunks, because VC can't process more than a
@@ -160,16 +167,26 @@ def apply_recommendations cluster, opts
   # exceed the screensize with queued tasks
   while recommendation.length > 0
     recommendation.pop(20).each do |r|
-      targets = r.action.map { |y| y.target }
-      recent_tasks = pc.collectMultiple(targets, 'recentTask')
-      prev_tasks = targets.map { |x| recent_tasks[x]['recentTask'] }
-      cluster.ApplyRecommendation(:key => r.key)
-      recent_tasks = pc.collectMultiple(targets, 'recentTask')
-      tasks = targets.map { |x| recent_tasks[x]['recentTask'] }
-      all_tasks += (tasks.flatten - prev_tasks.flatten)
+      begin 
+        targets = r.action.map { |y| y.target }
+        recent_tasks = pc.collectMultiple(targets, 'recentTask')
+        prev_tasks = targets.map { |x| recent_tasks[x]['recentTask'] }
+        cluster.ApplyRecommendation(:key => r.key)
+        recent_tasks = pc.collectMultiple(targets, 'recentTask')
+        tasks = targets.map { |x| recent_tasks[x]['recentTask'] }
+        all_tasks += (tasks.flatten - prev_tasks.flatten)
+      rescue VIM::InvalidArgument
+      end
     end
 
-    progress all_tasks
+    if all_tasks.length > 0
+      progress all_tasks
+      all_tasks = []
+    end
+
+    recommendation = _filtered_cluster_recommendations(
+      cluster, opts[:key], opts[:type]
+    )
   end
 end
 
