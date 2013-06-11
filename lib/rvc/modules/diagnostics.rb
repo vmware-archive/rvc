@@ -48,6 +48,80 @@ def wait_for_multiple_tasks tasks, timeout
   results
 end
 
+# http://stackoverflow.com/questions/3386233/how-to-get-exit-status-with-rubys-netssh-library
+def ssh_exec!(ssh, command)
+  stdout_data = ""
+  stderr_data = ""
+  exit_code = nil
+  exit_signal = nil
+  ssh.open_channel do |channel|
+    channel.exec(command) do |ch, success|
+      unless success
+        abort "FAILED: couldn't execute command (ssh.channel.exec)"
+      end
+      channel.on_data do |ch,data|
+        stdout_data+=data
+      end
+
+      channel.on_extended_data do |ch,type,data|
+        stderr_data+=data
+      end
+
+      channel.on_request("exit-status") do |ch,data|
+        exit_code = data.read_long
+      end
+
+    end
+  end
+  ssh.loop
+  [stdout_data, stderr_data, exit_code]
+end
+
+opts :restart_services do
+  summary "Restart all services in hosts"
+  arg :cluster, nil, :lookup => VIM::ComputeResource, :multi => true
+  opt :host, "Host name (multi ok)", type: :string, short: 'n', :multi => true
+  opt :password, "Host password (multi ok)", type: :string, short: 'p', :multi => true
+end
+
+def restart_services clusters, opts
+  hosts = opts[:host]
+  pwds = opts[:password]
+  puts "Need to specify password(s) for fixing" if pwds == []
+
+  hosts.each do |host|
+    finished = false
+    pwds.each do |pwd|
+      break if finished
+      puts "\nTrying restart #{host} with pwd #{pwd}"
+      begin
+        Net::SSH.start(host, "root", :password => pwd, :paranoid => false) do |ssh|
+          # HZ 1258412 discusses the commands to fix a node with hostd problems
+          cmd = "/sbin/chkconfig usbarbitrator off"
+          puts "Running #{cmd}"
+          out = ssh_exec!(ssh,cmd)
+          if out[2] != 0
+            puts "Failed to execute #{cmd} on host #{host}"
+            puts out[1]
+          end
+
+          cmd = "/sbin/services.sh restart > /tmp/restart_services.log 2>&1"
+          puts "Running #{cmd}"
+          out = ssh_exec!(ssh,cmd)
+          if out[2] != 0
+            puts "Failed to restart all services on host #{host}"
+            puts out[1]
+          else
+            puts "Host #{host} restarted all services"
+            finished = true
+          end
+        end
+      rescue Net::SSH::AuthenticationFailed
+        puts "Failed to authenticate on host #{host}"
+      end
+    end
+  end
+end
 
 opts :vm_create do
   summary "Check that VMs can be created on all hosts in a cluster"
@@ -55,6 +129,8 @@ opts :vm_create do
   opt :datastore, "Datastore to put (temporary) VMs on", :lookup => VIM::Datastore
   opt :vm_folder, "VM Folder to place (temporary) VMs in", :lookup => VIM::Folder
   opt :timeout, "Time to wait for VM creation to finish", :type => :int, :default => 3 * 60
+  opt :fix, "Fix the failing ESX hosts", :type => :boolean , :default => false
+  opt :password, "Passwords for fixing hosts", :type => :string, short: 'p', :multi => true
 end
 
 def vm_create clusters, opts
@@ -64,14 +140,33 @@ def vm_create clusters, opts
   err "vm_folder is a required parameter" unless vm_folder
 
   puts "Creating one VM per host ... (timeout = #{opts[:timeout]} sec)"
-  result = _vm_create clusters, datastore, vm_folder, opts
-
-  errors = result.select{|h, x| x['status'] != 'green'}
-  errors.each do |host, info|
-    puts "Failed to create VM on host #{host} (in cluster #{info['cluster']}): #{info['error']}"
+  errors = []
+  failed_hosts = []
+  begin
+    result = _vm_create clusters, datastore, vm_folder, opts
+    errors = result.select{|h, x| x['status'] != 'green'}
+    errors.each do |host, info|
+      puts "Failed to create VM on host #{host} (in cluster #{info['cluster']}): #{info['error']}"
+      err_msgs = ["Timed out", "InvalidState", "InvalidHostState", "InvalidHostConnectionState", "HostCommunication"]
+      err_msgs.each do |msg|
+        if info['error'].include? msg
+          failed_hosts << host
+          break
+        end
+      end
+    end
+  rescue Exception => e
+    puts "An error occurred:\n"
+    puts "e.message:", e.message
+    puts "e.backtrace:", e.backtrace.join("\n")
+    errors = [e]
   end
   if errors.length == 0
     puts "Success"
+  end
+  if opts[:fix] && failed_hosts != []
+    opts[:host] = failed_hosts
+    restart_services(clusters, opts)
   end
 end
 
@@ -99,6 +194,7 @@ def _vm_create clusters, datastore, vm_folder, opts = {}
         :files => { :vmPathName => datastore_path },
         :numCPUs => 1,
         :memoryMB => 16,
+        :annotation => YAML.dump({'lease' => Time.now + 2 * opts[:timeout] + 60}),
         :deviceChange => [
           {
             :operation => :add,
@@ -118,11 +214,15 @@ def _vm_create clusters, datastore, vm_folder, opts = {}
           }
         ],
       }
-      task = vm_folder.CreateVM_Task(:config => config,
-                                     :pool => rp,
-                                     :host => host)
-      tasks_map[task] = host
-      hosts_infos[host][:create_task] = task
+      begin
+        task = vm_folder.CreateVM_Task(:config => config,
+                                       :pool => rp,
+                                       :host => host)
+        tasks_map[task] = host
+        hosts_infos[host][:create_task] = task
+      rescue
+        puts "Failed to create task for host #{host.name}"
+      end
     end
   end
   

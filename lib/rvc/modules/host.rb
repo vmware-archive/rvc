@@ -19,6 +19,7 @@
 # THE SOFTWARE.
 
 require 'rvc/vim'
+require 'net/ssh'
 
 opts :reboot do
   summary "Reboot hosts"
@@ -45,6 +46,37 @@ def reboot hosts, opts
         sleep 10
       end
       puts "Host #{host.name} is back up"
+    end
+  end
+end
+
+opts :restart_services do
+  summary "Restart all services in hosts"
+  arg :host, nil, :lookup => VIM::HostSystem, :multi => true
+  opt :password, "Host Password", :default => ''
+end
+
+def restart_services hosts, opts
+
+  hosts.each do |host|
+    Net::SSH.start(host.name, "root", :password => opts[:password], :paranoid => false) do |ssh|
+      cmd = "/sbin/chkconfig usbarbitrator off"
+      puts "Running #{cmd}"
+      out = ssh_exec!(ssh,cmd)
+      if out[2] != 0
+        puts "Failed to execute #{cmd} on host #{host.name}"
+        puts out[1]
+      end
+
+      cmd = "/sbin/services.sh restart > /tmp/restart_services.log 2>&1"
+      puts "Running #{cmd}"
+      out = ssh_exec!(ssh,cmd)
+      if out[2] != 0
+        puts "Failed to restart all services on host #{host.name}" 
+        puts out[1]
+      else
+        puts "Host #{host.name} restarted all services"
+      end 
     end
   end
 end
@@ -232,4 +264,33 @@ def deselect_vmknic_for_service vmknic, service, hosts
     vnicSys = host.configManager.virtualNicManager
     vnicSys.DeselectVnicForNicType(:nicType => service, :device => vmknic)
   end
+end
+
+# http://stackoverflow.com/questions/3386233/how-to-get-exit-status-with-rubys-netssh-library
+def ssh_exec!(ssh, command)
+  stdout_data = ""
+  stderr_data = ""
+  exit_code = nil
+  exit_signal = nil
+  ssh.open_channel do |channel|
+    channel.exec(command) do |ch, success|
+      unless success
+        abort "FAILED: couldn't execute command (ssh.channel.exec)"
+      end
+      channel.on_data do |ch,data|
+        stdout_data+=data
+      end
+
+      channel.on_extended_data do |ch,type,data|
+        stderr_data+=data
+      end
+
+      channel.on_request("exit-status") do |ch,data|
+        exit_code = data.read_long
+      end
+
+    end
+  end
+  ssh.loop
+  [stdout_data, stderr_data, exit_code]
 end

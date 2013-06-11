@@ -516,6 +516,7 @@ opts :clone do
   opt :host, "Host", :short => 'o', :type => :string, :lookup => VIM::HostSystem
   opt :template, "Create a template", :short => 't'
   opt :linked, "Create a linked clone", :short => 'l'
+  opt :customizationspecname, "Customization spec", :type => :string, :short => 's'
   opt :power_on, "Power on VM after clone"
 end
 
@@ -528,9 +529,19 @@ def clone src, dst, opts
     diskMoveType = :moveChildMostDiskBacking
   end
 
+  if opts[:customizationspecname]
+     begin
+        spec = src._connection.serviceContent.customizationSpecManager.GetCustomizationSpec(:name => opts[:customizationspecname]).spec
+     rescue
+        print "Customization Spec '#{opts[:customizationspecname]}'  not found\n"
+        return
+     end
+  end
+
   task = src.CloneVM_Task(:folder => folder,
                           :name => name,
                           :spec => {
+                            :customization => spec,
                             :location => {
                               :diskMoveType => diskMoveType,
                               :host => opts[:host],
@@ -655,7 +666,7 @@ def vm_ip vm
 
   ip = if summary.guest.ipAddress and summary.guest.ipAddress != '127.0.0.1'
     summary.guest.ipAddress
-  elsif note = YAML.load(summary.config.annotation) and note.is_a? Hash and note.member? 'ip'
+  elsif note = YAML.load(summary.config.annotation) and note.is_a? Hash and note['ip']
     note['ip']
   else
     err "no IP known for this VM"
