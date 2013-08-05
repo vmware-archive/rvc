@@ -304,4 +304,18 @@ class RVC::SnapshotFolder
     puts "state: #{tree.state}"
     puts "creation time: #{tree.createTime}"
   end
+
+  def self.traverse?
+    true
+  end
+
+  field 'type' do
+    summary "The type of object"
+    property 'find_tree.class.to_s'
+  end
+
+  field 'name' do
+    summary "The snapshot name."
+    property 'find_tree.name'
+  end
 end
