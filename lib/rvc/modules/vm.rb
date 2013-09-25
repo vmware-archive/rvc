@@ -623,16 +623,30 @@ def find_vmx_files ds
   files
 end
 
+def esxcli host, cmd, args={}
+  shell.cmds.esxcli.slate.lookup_esxcli(host, cmd).call(args)
+end
+
 def vm_ip vm
   summary = vm.summary
 
   err "VM is not powered on" unless summary.runtime.powerState == 'poweredOn'
 
-  ip = if summary.guest.ipAddress and summary.guest.ipAddress != '127.0.0.1'
+  if summary.guest.ipAddress and summary.guest.ipAddress != '127.0.0.1'
     summary.guest.ipAddress
   elsif note = YAML.load(summary.config.annotation) and note.is_a? Hash and note.member? 'ip'
     note['ip']
   else
+    # Requires the following configuration:
+    # esxcli system settings advanced set -o /Net/GuestIPHack -i 1
+    host = summary.runtime.host
+    vm_list = esxcli(host, ["network", "vm", "list"])
+    if vm_net = vm_list.find { |x| x.Name == vm.name }
+      vm_port = esxcli(host, ["network", "vm", "port", "list"], {:worldid => vm_net.WorldID}).first
+      if vm_port and vm_port.IPAddress != '0.0.0.0'
+        return vm_port.IPAddress
+      end
+    end
     err "no IP known for this VM"
   end
 end
