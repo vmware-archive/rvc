@@ -25,15 +25,30 @@ VNC = ENV['VNC'] || search_path('tightvnc') || search_path('vncviewer') || searc
 opts :view do
   summary "Spawn a VNC client"
   arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :ws, "Enable VNC websocket proxy"
 end
 
 rvc_alias :view, :vnc
 rvc_alias :view, :V
 
-def view vm
+def view vm, opts
   ip = reachable_ip vm.collect('runtime.host')[0]
   extraConfig, = vm.collect('config.extraConfig')
   already_enabled = extraConfig.find { |x| x.key == 'RemoteDisplay.vnc.enabled' && x.value.downcase == 'true' }
+
+  if opts[:ws]
+    opt = extraConfig.find { |x| x.key == 'RemoteDisplay.vnc.webSocket.port' }
+    if opt.nil?
+      ws_port = unused_vnc_port ip
+      vm.ReconfigVM_Task(:spec => {
+        :extraConfig => [
+          { :key => 'RemoteDisplay.vnc.webSocket.port', :value => ws_port.to_s }
+        ]
+      }).wait_for_completion
+    else
+      ws_port = opt.value
+    end
+  end
   if already_enabled
     puts "VNC already enabled"
     port = extraConfig.find { |x| x.key == 'RemoteDisplay.vnc.port' }.value
@@ -49,7 +64,11 @@ def view vm
       ]
     }).wait_for_completion
   end
-  vnc_client ip, port, password
+  if opts[:ws]
+    puts "open http://novnc.com?host=#{ip}&port=#{ws_port}&password=#{password}"
+  else
+    vnc_client ip, port, password
+  end
 end
 
 
@@ -63,7 +82,8 @@ def off vm
     :extraConfig => [
       { :key => 'RemoteDisplay.vnc.enabled', :value => 'false' },
       { :key => 'RemoteDisplay.vnc.password', :value => '' },
-      { :key => 'RemoteDisplay.vnc.port', :value => '' }
+      { :key => 'RemoteDisplay.vnc.port', :value => '' },
+      { :key => 'RemoteDisplay.vnc.webSocket.port', :value => '' }
     ]
   }).wait_for_completion
 end
