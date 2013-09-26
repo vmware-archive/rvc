@@ -623,8 +623,9 @@ def find_vmx_files ds
   files
 end
 
-def esxcli host, cmd, args={}
-  shell.cmds.esxcli.slate.lookup_esxcli(host, cmd).call(args)
+# esxcli and vim have different uuid formats
+def uuid(s)
+  s.gsub(/[ -]/, '')
 end
 
 def vm_ip vm
@@ -637,15 +638,21 @@ def vm_ip vm
   elsif note = YAML.load(summary.config.annotation) and note.is_a? Hash and note.member? 'ip'
     note['ip']
   else
-    # Requires the following configuration:
-    # esxcli system settings advanced set -o /Net/GuestIPHack -i 1
     host = summary.runtime.host
-    vm_list = esxcli(host, ["network", "vm", "list"])
-    if vm_net = vm_list.find { |x| x.Name == vm.name }
-      vm_port = esxcli(host, ["network", "vm", "port", "list"], {:worldid => vm_net.WorldID}).first
+    vm_uuid = uuid(vm.config.uuid)
+    vm_list = host.esxcli.vm.process.list()
+    if vmx = vm_list.find { |x| uuid(x.UUID) == vm_uuid }
+      vm_port = host.esxcli.network.vm.port.list(:worldid => vmx.WorldID).first
       if vm_port and vm_port.IPAddress != '0.0.0.0'
         return vm_port.IPAddress
       end
+    end
+    setting = host.esxcli.system.settings.advanced.list(:option => '/Net/GuestIPHack').first
+    if setting['IntValue'] != '1'
+      puts <<-EOS
+VM IP address detection can be enabled on host #{host.name} with:
+esxcli system settings advanced set -o /Net/GuestIPHack -i 1
+      EOS
     end
     err "no IP known for this VM"
   end
