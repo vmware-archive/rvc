@@ -431,8 +431,9 @@ def rdp vms, h
   if !resolution
     resolution = $rdpResolution ? $rdpResolution : '1024x768'  
   end
+  ip_finder = VmIpFinder.new
   vms.each do |vm|
-    ip = vm_ip vm
+    ip = ip_finder.lookup vm
 
     begin
       timeout(1) { TCPSocket.new ip, 3389; up = true }
@@ -464,6 +465,7 @@ opts :ip do
 end
 
 def ip vms
+  ip_finder = VmIpFinder.new
   props = %w(summary.runtime.powerState summary.guest.ipAddress summary.config.annotation)
   connection = single_connection vms
 
@@ -481,7 +483,7 @@ def ip vms
 
     vms.reject! do |vm|
       begin
-        ip = vm_ip(vm)
+        ip = ip_finder.lookup vm
         puts "#{vm.name}: #{ip}"
         true
       rescue UserError
@@ -623,38 +625,53 @@ def find_vmx_files ds
   files
 end
 
-# esxcli and vim have different uuid formats
-def uuid(s)
-  s.gsub(/[ -]/, '')
+def vm_ip vm
+  VmIpFinder.new.lookup vm
 end
 
-def vm_ip vm
-  summary = vm.summary
+class VmIpFinder
+  def initialize
+    @wids = {}
+  end
 
-  err "VM is not powered on" unless summary.runtime.powerState == 'poweredOn'
+  # esxcli and vim have different uuid formats
+  def uuid s
+    s.gsub(/[ -]/, '')
+  end
 
-  if summary.guest.ipAddress and summary.guest.ipAddress != '127.0.0.1'
-    summary.guest.ipAddress
-  elsif note = YAML.load(summary.config.annotation) and note.is_a? Hash and note.member? 'ip'
-    note['ip']
-  else
-    host = summary.runtime.host
-    vm_uuid = uuid(vm.config.uuid)
-    vm_list = host.esxcli.vm.process.list()
-    if vmx = vm_list.find { |x| uuid(x.UUID) == vm_uuid }
-      vm_port = host.esxcli.network.vm.port.list(:worldid => vmx.WorldID).first
-      if vm_port and vm_port.IPAddress != '0.0.0.0'
-        return vm_port.IPAddress
-      end
-    end
-    setting = host.esxcli.system.settings.advanced.list(:option => '/Net/GuestIPHack').first
-    if setting['IntValue'] != '1'
-      puts <<-EOS
+  def lookup vm
+    summary = vm.summary
+
+    err "VM is not powered on" unless summary.runtime.powerState == 'poweredOn'
+
+    if summary.guest.ipAddress and summary.guest.ipAddress != '127.0.0.1'
+      summary.guest.ipAddress
+    elsif note = YAML.load(summary.config.annotation) and note.is_a? Hash and note.member? 'ip'
+      note['ip']
+    else
+      host = summary.runtime.host
+      host_key = host.name # name is cheaper than host.summary.hardware.uuid, but is it unique?
+
+      unless @wids.has_key?(host_key)
+        @wids[host_key] = Hash[host.esxcli.vm.process.list().map { |p| [uuid(p.UUID), p.WorldID] }]
+
+        setting = host.esxcli.system.settings.advanced.list(:option => '/Net/GuestIPHack').first
+        if setting.IntValue != 1
+          puts <<-EOS
 VM IP address detection can be enabled on host #{host.name} with:
 esxcli system settings advanced set -o /Net/GuestIPHack -i 1
-      EOS
+          EOS
+        end
+      end
+
+      if wid = @wids[host_key][uuid(vm.config.uuid)]
+        vm_port = host.esxcli.network.vm.port.list(:worldid => wid).first
+        if vm_port and vm_port.IPAddress != '0.0.0.0'
+          return vm_port.IPAddress
+        end
+      end
+      err "no IP known for this VM"
     end
-    err "no IP known for this VM"
   end
 end
 
