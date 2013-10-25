@@ -64,8 +64,21 @@ module Util
   end
 
   def tasks objs, sym, args={}
-    progress(objs.map { |obj| obj._call :"#{sym}_Task", args })
+    # Stores valid objs to send to progress method
+    taskobjs = []
+
+    objs.each do |obj|
+      begin
+        taskobjs.push (obj._call :"#{sym}_Task", args)
+      rescue Exception => ex
+        puts "util.rb:tasks: Skipping current object #{obj} due to Exception: #{ex.message}"
+      end
+    end
+
+    #Process only those objects which haven't raised any exception
+    progress (taskobjs)
   end
+
 
   if ENV['LANG'] =~ /UTF/ and RUBY_VERSION >= '1.9.1'
     PROGRESS_BAR_LEFT = "\u2772"

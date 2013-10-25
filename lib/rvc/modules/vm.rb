@@ -292,7 +292,16 @@ rvc_alias :kill
 rvc_alias :kill, :k
 
 def kill vms
-  on_vms = vms.select { |x| x.summary.runtime.powerState == 'poweredOn' }
+  on_vms = []
+  vms.each do |vm|
+    begin
+      if vm.summary.runtime.powerState == 'poweredOn'
+        on_vms.push(vm)
+      end
+    rescue Exception => ex
+      puts "vm.rb:kill: Skipping current object #{vm} due to Exception: #{ex.message}"
+    end
+  end
   off on_vms unless on_vms.empty?
   shell.cmds.basic.destroy vms unless vms.empty?
 end

@@ -186,6 +186,7 @@ opts :add_iscsi_target do
   arg :host, nil, :lookup => VIM::HostSystem, :multi => true
   opt :address, "Address of iSCSI server", :short => 'a', :type => :string, :required => true
   opt :iqn, "IQN of iSCSI target", :short => 'i', :type => :string, :required => true
+  opt :dynamic_target, "Use Dynamic target Discovery", :short => 'd', :type => :boolean
 end
 
 def add_iscsi_target hosts, opts
@@ -194,10 +195,27 @@ def add_iscsi_target hosts, opts
     storage = host.configManager.storageSystem
     storage.UpdateSoftwareInternetScsiEnabled(:enabled => true)
     adapter = storage.storageDeviceInfo.hostBusAdapter.grep(VIM::HostInternetScsiHba)[0]
-    storage.AddInternetScsiStaticTargets(
-      :iScsiHbaDevice => adapter.device,
-      :targets => [ VIM::HostInternetScsiHbaStaticTarget(:address => opts[:address], :iScsiName => opts[:iqn]) ]
-    )
+    if opts[:dynamic_target]
+      storage.UpdateInternetScsiName(
+        :iScsiHbaDevice => adapter.device,
+        :iScsiName => opts[:iqn]
+      )
+      storage.AddInternetScsiSendTargets(
+        :iScsiHbaDevice => adapter.device,
+        :targets => [
+          VIM::HostInternetScsiHbaSendTarget(:address => opts[:address])
+        ]
+      )
+    else
+      storage.AddInternetScsiStaticTargets(
+        :iScsiHbaDevice => adapter.device,
+        :targets => [
+          VIM::HostInternetScsiHbaStaticTarget(
+            :address => opts[:address],
+            :iScsiName => opts[:iqn])
+        ]
+      )
+    end
     storage.RescanAllHba
   end
 end
