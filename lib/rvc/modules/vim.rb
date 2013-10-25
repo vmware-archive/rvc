@@ -81,7 +81,7 @@ def connect uri, opts
     if env_rev && env_rev.to_f == 0
       vim.rev = env_rev
     else
-      vim.rev = [rev, env_rev || '5.1'].min
+      vim.rev = [rev, env_rev || '5.5'].min
     end
   end
 
