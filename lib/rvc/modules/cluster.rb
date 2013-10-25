@@ -85,7 +85,14 @@ def configure_ha cluster, opts
       :enabled => !opts[:disabled],
     }
   )
-  one_progress(cluster.ReconfigureComputeResource_Task :spec => spec, :modify => true)
+  task = cluster.ReconfigureComputeResource_Task(
+    :spec => spec, :modify => true
+  )
+  progress([task])
+  childtasks = task.child_tasks
+  if childtasks && childtasks.length > 0
+    progress(childtasks)
+  end
 end
 
 opts :recommendations do
