@@ -103,7 +103,25 @@ opts :shutdown_guest do
 end
 
 def shutdown_guest vms, opts
-  vms.each(&:ShutdownGuest)
+  conn = vms.first._connection
+  pc = conn.propertyCollector
+  vmsProps = pc.collectMultiple(vms, 'runtime.powerState', 
+                                'guest.toolsRunningStatus', 'name')
+  vms.each do |vm|
+    if vmsProps[vm]['runtime.powerState'] != 'poweredOn'
+      puts "VM #{vmsProps[vm]['name']} not powered on, skipping"
+      next
+    end
+    if vmsProps[vm]['guest.toolsRunningStatus'] != 'guestToolsRunning'
+      puts "VM #{vmsProps[vm]['name']} doesn't have tools running, skipping"
+      next
+    end
+    begin
+      vm.ShutdownGuest
+    rescue Exception => ex
+      puts "VM #{vmsProps[vm]['name']}: #{ex.class}: #{ex.message}"
+    end
+  end
   wait_for_shutdown vms, opts unless opts[:timeout].nil?
 end
 
