@@ -248,6 +248,7 @@ def _vm_create clusters, datastore, vm_folder, opts = {}
 
     result = host_info[:create_result]
     result = host_info[:destroy_result] if result.is_a?(VIM::VirtualMachine)
+    error_detail = nil
     if result == nil
       error_str = nil
       status = 'green'
@@ -257,12 +258,17 @@ def _vm_create clusters, datastore, vm_folder, opts = {}
     else
       error_str = "#{result.fault.class.wsdl_name}: #{result.localizedMessage}"
       status = 'red'
+      begin
+        error_detail = result.fault.faultMessage
+      rescue
+      end
     end
 
     out[host_props['name']] = {
       'cluster' => cluster_props['name'],
       'status' => status,
-      'error' => error_str
+      'error' => error_str,
+      'error_detail' => error_detail,
     }    
   end
   out
