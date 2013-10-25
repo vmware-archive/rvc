@@ -103,6 +103,40 @@ def add_net vm, network, opts
 end
 
 
+opts :reconfig_net do
+  summary "Attach a network adapter to a different network"
+  arg :device, nil, :lookup => VIM::VirtualDevice, :multi => true
+  opt :network, "Network to attach to", :lookup => VIM::Network, :required => true
+end
+
+def reconfig_net devs, opts
+  network = opts[:network]
+  case network
+  when VIM::DistributedVirtualPortgroup
+    switch, pg_key = network.collect 'config.distributedVirtualSwitch', 'key'
+    port = VIM.DistributedVirtualSwitchPortConnection(
+      :switchUuid => switch.uuid,
+      :portgroupKey => pg_key)
+    summary = network.name
+    backing = VIM.VirtualEthernetCardDistributedVirtualPortBackingInfo(:port => port)
+  when VIM::Network
+    summary = network.name
+    backing = VIM.VirtualEthernetCardNetworkBackingInfo(:deviceName => network.name)
+  else fail
+  end
+
+  vm_devs = devs.group_by(&:rvc_vm)
+  tasks = vm_devs.map do |vm,my_devs|
+    device_changes = my_devs.map do |dev|
+      dev = dev.dup
+      dev.backing = backing
+    end
+    spec = { :deviceChange => device_changes }
+    vm.ReconfigVM_Task(:spec => spec)
+  end
+  progress(tasks)
+end
+
 opts :add_disk do
   summary "Add a hard drive to a virtual machine"
   arg :vm, nil, :lookup => VIM::VirtualMachine
