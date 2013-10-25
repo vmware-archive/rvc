@@ -19,7 +19,10 @@
 # THE SOFTWARE.
 
 require 'rvc/vim'
-require 'net/ssh'
+begin
+  require 'net/ssh'
+rescue LoadError
+end
 
 opts :reboot do
   summary "Reboot hosts"
