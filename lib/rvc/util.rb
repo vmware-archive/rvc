@@ -24,6 +24,12 @@ module RVC
 module Util
   extend self
 
+  if RbConfig::CONFIG['host_os'] =~ /^darwin/
+    TCSETPGRP = 0x80047476
+  else
+    TCSETPGRP = 0x5410
+  end
+
   def menu items
     items.each_with_index { |x, i| puts "#{i} #{x}" }
     input = Readline.readline("? ", false)
@@ -146,7 +152,7 @@ module Util
   def tcsetpgrp pgrp=Process.getpgrp
     return unless $stdin.tty?
     trap('TTOU', 'SIG_IGN')
-    $stdin.ioctl 0x5410, [pgrp].pack('I')
+    $stdin.ioctl TCSETPGRP, [pgrp].pack('I')
     trap('TTOU', 'SIG_DFL')
   end
 

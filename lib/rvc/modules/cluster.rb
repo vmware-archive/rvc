@@ -75,7 +75,7 @@ end
 
 opts :configure_ha do
   summary "Configure HA on a cluster"
-  arg :cluster, nil, :lookup => VIM::ClusterComputeResource
+  arg :cluster, nil, :lookup => VIM::ClusterComputeResource, :multi => true
   opt :disabled, "Disable HA", :default => false
 end
 
@@ -85,14 +85,51 @@ def configure_ha cluster, opts
       :enabled => !opts[:disabled],
     }
   )
-  task = cluster.ReconfigureComputeResource_Task(
-    :spec => spec, :modify => true
-  )
-  progress([task])
-  childtasks = task.child_tasks
+  tasks = clusters.map do |cluster|
+    cluster.ReconfigureComputeResource_Task(:spec => spec, :modify => true)
+  end
+  progress(tasks)
+  childtasks = tasks.map{|t| t.child_tasks}.flatten.compact
   if childtasks && childtasks.length > 0
     progress(childtasks)
   end
+  
+end
+
+opts :configure_drs do
+  summary "Configure DRS on a cluster"
+  opt :disabled, "Disable HA", :default => false
+  opt :mode, "DRS mode (manual, partiallyAutomated, fullyAutomated)", :type => :string
+  arg :cluster, "Path to a Cluster", :lookup => VIM::ClusterComputeResource, :multi => true
+end
+
+def configure_drs clusters, opts
+  clusterSpec = VIM::ClusterConfigSpecEx(
+    :drsConfig => {
+      :defaultVmBehavior => opts[:mode] ? opts[:mode].to_sym : nil, 
+      :enabled => !opts[:disabled]
+    }
+  )
+  tasks = clusters.map do |cluster|
+    cluster.ReconfigureComputeResource_Task(:modify => true, :spec => clusterSpec)
+  end
+  progress(tasks)
+end
+
+opts :configure_swap do
+  summary "Configure VM Swap Placement on a cluster"
+  opt :mode, "Swap mode (hostLocal, vmDirectory)", :type => :string
+  arg :cluster, "Path to a Cluster", :lookup => VIM::ClusterComputeResource, :multi => true
+end
+
+def configure_swap clusters, opts
+  clusterSpec = VIM::ClusterConfigSpecEx(
+    :vmSwapPlacement => opts[:mode]
+  )
+  tasks = clusters.map do |cluster|
+    cluster.ReconfigureComputeResource_Task(:modify => true, :spec => clusterSpec)
+  end
+  progress(tasks)
 end
 
 opts :recommendations do

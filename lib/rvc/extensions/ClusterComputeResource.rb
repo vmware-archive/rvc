@@ -39,4 +39,15 @@ class RbVmomi::VIM::ClusterComputeResource
   def rvc_host_children
     RVC::Util.collect_children self, :host
   end
+
+  def display_info
+    super
+    pc = _connection.serviceContent.propertyCollector
+    cfg, = collect 'configurationEx'
+    drs = cfg.drsConfig
+    ha = cfg.dasConfig
+    puts "DRS: #{drs.enabled ? drs.defaultVmBehavior : 'disabled'}"
+    puts "HA: #{ha.enabled ? 'enabled' : 'disabled'}"
+    puts "VM Swap Placement: #{cfg.vmSwapPlacement}"
+  end
 end

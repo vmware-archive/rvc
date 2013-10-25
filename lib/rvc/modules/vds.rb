@@ -636,10 +636,10 @@ end
 opts :create_vmknic do
   summary "Create a vmknic on vDS on one or more hosts. Always uses DHCP"
   arg :portgroup, nil, :lookup => VIM::Network
-  arg :host, nil, :lookup => VIM::HostSystem, :multi => true
+  arg :hosts, nil, :lookup => VIM::HostSystem, :multi => true
 end
 
-def create_vmknic portgroup, hosts, opts
+def create_vmknic portgroup, hosts
   if !portgroup.is_a?(VIM::DistributedVirtualPortgroup)
     err "Legacy switches not supported yet"
   end
@@ -659,4 +659,61 @@ def create_vmknic portgroup, hosts, opts
     )
     puts "Host #{host.name}: Added vmknic #{vmknic_name}"
   end
+end
+
+opts :migrate_vmknic do
+  summary "Migrate a vmknic from a standard vSwitch to a vDS."
+  arg :host, nil, :lookup => VIM::HostSystem
+  arg :vmknic, nil
+  arg :portgroup, nil, :lookup => VIM::Network
+end
+
+def migrate_vmknic host, vmknic, portgroup
+  if !portgroup.is_a?(VIM::DistributedVirtualPortgroup)
+    err "Only migration from standard to a distributed vSwitch is supported for now."
+  end
+  ns = host.configManager.networkSystem
+
+  # Find the VMkernel interface.
+  vmk_dev = nil
+  ns.networkInfo.vnic.each do |vnic|
+    if vnic.device == vmknic
+      vmk_dev = vnic
+      break
+    end
+  end
+
+  # Find the source portgroup.
+  src_pg = nil
+  ns.networkInfo.portgroup.each do |pg|
+    if pg.spec.name == vmk_dev.portgroup
+      src_pg = pg
+      break
+    end
+  end
+
+  ns.UpdateNetworkConfig(
+    changeMode: 'modify',
+    config: VIM::HostNetworkConfig(
+      portgroup: [
+        VIM::HostPortGroupConfig(
+          changeOperation: 'remove',
+          spec: src_pg.spec
+        )
+      ],
+      vnic: [
+        VIM::HostVirtualNicConfig(
+          changeOperation: 'edit',
+          device: vmknic,
+          portgroup: src_pg.spec.name,
+          spec: VIM::HostVirtualNicSpec(
+            distributedVirtualPort: VIM::DistributedVirtualSwitchPortConnection(
+              portgroupKey: portgroup.key,
+              switchUuid: portgroup.config.distributedVirtualSwitch.uuid
+            )
+          )
+        )
+      ]
+    )
+  )
 end
