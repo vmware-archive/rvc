@@ -27,7 +27,7 @@ opts :config_syslog do
   summary "Configure Syslog"
   arg :entity, nil, :lookup => [VIM, VIM::HostSystem, VIM::ComputeResource, VIM::ClusterComputeResource]
   arg :ip, nil, :type => :string
-  opt :vcRootPwd, "VC root password for SSH access", :default => "vmware"
+  opt :vc_root_pwd, "VC root password for SSH access", :default => "vmware"
 end
 
 def config_syslog entity, ip, opts
@@ -87,7 +87,7 @@ def config_syslog entity, ip, opts
     osType = conn.serviceContent.about.osType
     if File.exists?(local) && osType == "linux-x64"
       puts "#{Time.now}: Configuring VCVA ..."
-      Net::SSH.start(conn.host, "root", :password => opts[:vcRootPwd], 
+      Net::SSH.start(conn.host, "root", :password => opts[:vc_root_pwd], 
                      :paranoid => false) do |ssh|
         ssh.scp.upload!(local, "/tmp/configurevCloudSuiteSyslog.sh")
         cmd = "sh /tmp/configurevCloudSuiteSyslog.sh vcsa #{ip}"
