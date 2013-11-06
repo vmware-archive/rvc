@@ -79,7 +79,7 @@ opts :configure_ha do
   opt :disabled, "Disable HA", :default => false
 end
 
-def configure_ha cluster, opts
+def configure_ha clusters, opts
   spec = VIM::ClusterConfigSpecEx(
     :dasConfig => {
       :enabled => !opts[:disabled],
