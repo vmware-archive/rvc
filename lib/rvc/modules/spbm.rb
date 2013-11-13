@@ -20,6 +20,7 @@
 
 require 'rbvmomi/vim'
 require 'rbvmomi/pbm'
+require 'rvc/vim'
 
 PBM = RbVmomi::PBM
 
