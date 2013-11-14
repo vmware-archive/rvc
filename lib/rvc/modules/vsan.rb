@@ -1022,6 +1022,55 @@ def fix_inconsistent_vms vms
   end
 end
 
+# This command can be used to rename some VMs which get renamed by our
+# management stack in case of storage APD. During APD, it is possible
+# for some VMs to get renamed to vmx file path.
+# eg. # "/vmfs/volumes/vsanDatastore/foo/foo.vmx". This command will rename
+# this VM to "foo". Please note that this is the best we can do. This VM may
+# have been named something else but we have no way of knowing that. In this
+# best effort command, we simply rename it to the name of its config file
+# (without the full path and .vmx extension ofcourse!).
+opts :fix_renamed_vms do
+  summary "Rename vms to config file names"
+  arg :vms, nil, :lookup => VIM::VirtualMachine, :multi => true
+end
+
+def fix_renamed_vms vms
+   begin
+      rename = {}
+      puts "Continuing this command will rename the foll. VMs:"
+      vms.each do |vm|
+         m = /.+\/(.+)\.vmx/.match(vm.summary.config.vmPathName)
+         if vm.name != m[1]
+            # Save it in a hash so we don't have to do it again if
+            # user choses Y.
+            rename[vm] = m[1]
+            puts "#{vm.name} -> #{m[1]}"
+         end
+      end
+
+      if rename.length == 0
+         puts "Nothing to do"
+         return
+      end
+
+      puts "Do you want to continue [y/N]?"
+      opt = $stdin.gets.chomp
+      if opt == 'y' || opt == 'Y'
+         puts "Renaming..."
+         tasks = []
+         rename.keys.each do |vm|
+            tasks << vm.Rename_Task(:newName => rename[vm])
+         end
+         progress(tasks)
+      end
+      
+   rescue Exception => ex
+      # Swallow the exception. No need to stop other renames.
+      puts "Skipping VM due to exception: #{ex.class}: #{ex.message}"
+   end
+end
+
 opts :vm_object_info do
   summary "Fetch VSAN object information about a VM"
   arg :vms, nil, :lookup => VIM::VirtualMachine, :multi => true
