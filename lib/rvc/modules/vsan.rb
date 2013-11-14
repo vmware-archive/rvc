@@ -1037,19 +1037,29 @@ end
 
 def fix_renamed_vms vms
    begin
+      conn = vms.first._connection
+      pc = conn.propertyCollector
+      vmProps = pc.collectMultiple(vms, 'name', 'summary.config.vmPathName')
+
       rename = {}
       puts "Continuing this command will rename the following VMs:"
-      vms.each do |vm|
-         name = vm.name
-         if /.*vmfs.*volumes.*/.match(name)
-            m = /.+\/(.+)\.vmx/.match(vm.summary.config.vmPathName)
-            if name != m[1]
-               # Save it in a hash so we don't have to do it again if
-               # user choses Y.
-               rename[vm] = m[1]
-               puts "#{name} -> #{m[1]}"
+      begin
+         vmProps.each do |k,v|
+            name = v['name']
+            cfgPath = v['summary.config.vmPathName']
+            if /.*vmfs.*volumes.*/.match(name)
+               m = /.+\/(.+)\.vmx/.match(cfgPath)
+               if name != m[1]
+                  # Save it in a hash so we don't have to do it again if
+                  # user choses Y.
+                  rename[k] = m[1]
+                  puts "#{name} -> #{m[1]}"
+               end
             end
          end
+      rescue Exception => ex
+         # Swallow the exception. No need to stop other vms.
+         puts "Skipping VM due to exception: #{ex.class}: #{ex.message}"
       end
 
       if rename.length == 0
@@ -1061,16 +1071,11 @@ def fix_renamed_vms vms
       opt = $stdin.gets.chomp
       if opt == 'y' || opt == 'Y'
          puts "Renaming..."
-         tasks = []
-         rename.keys.each do |vm|
-            tasks << vm.Rename_Task(:newName => rename[vm])
+         tasks = rename.keys.map do |vm|
+            vm.Rename_Task(:newName => rename[vm])
          end
          progress(tasks)
       end
-      
-   rescue Exception => ex
-      # Swallow the exception. No need to stop other renames.
-      puts "Skipping VM due to exception: #{ex.class}: #{ex.message}"
    end
 end
 
