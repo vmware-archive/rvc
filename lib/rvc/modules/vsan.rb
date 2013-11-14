@@ -40,6 +40,8 @@ db['HostVsanInternalSystem']['methods']["QuerySyncingVsanObjects"] =
      "wsdl_type"=>"xsd:string"}}
 db = nil
 
+$vsanUseGzipApis = false
+
 def is_uuid str
   str =~ /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/
 end
@@ -614,26 +616,45 @@ def _print_dom_config_tree dom_obj_uuid, obj_infos, indent = 0, opts = {}
   _print_dom_config_tree_int dom_obj['content'], dom_components_str, indent
 end
 
-def _vsan_host_disks_info host, hostname = nil
-  hostname = host.name
-  vsanDiskUuids = {}
-  $disksCache ||= {}
-  if !$disksCache[host]
-    $disksCache[host] = []
-    puts "#{Time.now}: Fetching VSAN disk info from #{hostname} (may take a moment) ..."
-    begin
-      timeout(45) do 
-        list = host.esxcli.vsan.storage.list
-        list.each{|x| x._set_property :host, host}
-        $disksCache[host] = list
-      end
-    rescue Exception => ex
-      puts "#{Time.now}: Failed to gather from #{hostname}: #{ex.class}: #{ex.message}"
+# hosts is a hash: host => hostname
+def _vsan_host_disks_info hosts
+  hosts.each do |k,v| 
+    if !v
+      hosts[k] = k.name
     end
   end
-  disks = $disksCache[host] 
-  disks.each do |disk|
-    vsanDiskUuids[disk.VSANUUID] = disk
+  
+  conn = hosts.keys.first._connection
+  vsanDiskUuids = {}
+  $disksCache ||= {}
+  if !hosts.keys.all?{|x| $disksCache[x]}
+    hosts.map do |host, hostname|
+      Thread.new do 
+        if !$disksCache[host]
+          c1 = conn.spawn_additional_connection
+          host2 = host.dup_on_conn(c1)
+          $disksCache[host] = []
+          puts "#{Time.now}: Fetching VSAN disk info from #{hostname} (may take a moment) ..."
+          begin
+            timeout(45) do 
+              list = host2.esxcli.vsan.storage.list
+              list.each{|x| x._set_property :host, host}
+              $disksCache[host] = list
+            end
+          rescue Exception => ex
+            puts "#{Time.now}: Failed to gather from #{hostname}: #{ex.class}: #{ex.message}"
+          end
+        end
+      end
+    end.each{|t| t.join}
+    puts "#{Time.now}: Done fetching VSAN disk infos"
+  end
+
+  hosts.map do |host, hostname|
+    disks = $disksCache[host] 
+    disks.each do |disk|
+      vsanDiskUuids[disk.VSANUUID] = disk
+    end
   end
   
   vsanDiskUuids
@@ -667,9 +688,9 @@ def _vsan_cluster_disks_info cluster, opts = {}
     [vsan_info.nodeUuid, host]
   end]
   vsan_disk_uuids = {}
-  hosts_props.map do |host, props|
-    vsan_disk_uuids.merge!(_vsan_host_disks_info(host, props['name'])) 
-  end  
+  vsan_disk_uuids.merge!(
+    _vsan_host_disks_info(Hash[hosts_props.map{|h, p| [h, p['name']]}]) 
+  )  
   
   [host_vsan_uuids, hosts_props, vsan_disk_uuids]
 end
@@ -680,7 +701,7 @@ opts :object_info do
   arg :obj_uuid, nil, :type => :string, :multi => true
 end
 
-def object_info cluster, obj_uuids, opts
+def object_info cluster, obj_uuids, opts = {}
   opts[:cluster] = cluster
   objs = _object_info obj_uuids, opts
   indent = 0
@@ -694,7 +715,6 @@ opts :disk_object_info do
   summary "Fetch information about all VSAN objects on a given physical disk"
   arg :cluster_or_host, "Cluster or host on which to fetch the object info", :lookup => VIM::ClusterComputeResource
   arg :disk_uuid, nil, :type => :string, :multi => true
-  opt :password, "ESX Password", :type => :string
 end
 
 def disk_object_info cluster_or_host, disk_uuids, opts
@@ -1026,7 +1046,6 @@ opts :vm_object_info do
   summary "Fetch VSAN object information about a VM"
   arg :vms, nil, :lookup => VIM::VirtualMachine, :multi => true
   opt :cluster, "Cluster on which to fetch the object info", :lookup => VIM::ClusterComputeResource
-  opt :password, "ESX Password", :type => :string
   opt :perspective_from_host, "Host to query object info from", :lookup => VIM::HostSystem
 end
 
@@ -1343,13 +1362,13 @@ def disks_stats hosts_and_clusters, opts = {}
     begin
       disks = JSON.load(disks)
     rescue
-      err "Server didn't provide VSAN disk info: #{objs}"
+      err "Server didn't provide VSAN disk info: #{disks}"
     end
 
     vsan_disks_info = {}
-    hosts.each do |host|
-      vsan_disks_info.merge!(_vsan_host_disks_info(host, hosts_props[host]['name']))
-    end
+    vsan_disks_info.merge!(
+      _vsan_host_disks_info(Hash[hosts.map{|h| [h, hosts_props[h]['name']]}]) 
+    )  
     disks.each do |k, v| 
       v['esxcli'] = vsan_disks_info[v['uuid']]
       if v['esxcli']
@@ -2256,7 +2275,7 @@ end
 opts :resync_dashboard do
   summary "Resyncing dashboard"
   arg :cluster_or_host, nil, :lookup => [VIM::ClusterComputeResource, VIM::HostSystem]
-  opt :password, "ESX Password", :type => :string
+  opt :refresh_rate, "Refresh interval (in sec). Default is no refresh", :type => :boolean
 end
 
 def resync_dashboard cluster_or_host, opts
@@ -2308,90 +2327,94 @@ def resync_dashboard cluster_or_host, opts
       'config.hardware.device', 'summary.config'
     )
     
-    puts "#{Time.now}: Querying all objects in the system ..."
-    
-    objects = vsanIntSys.query_cmmds([
-      {:type => 'DOM_OBJECT'}
-    ])
-    if !objects
-      err "Server failed to gather DOM_OBJECT entries"
-    end
-    
-    puts "#{Time.now}: Got all the info, computing table ..."
-    objects = objects.select do |obj|
-      comps = _components_in_dom_config(obj['content'])
-      bytesToSyncTotal = 0
-      recoveryETATotal = 0
-      comps = comps.select do |comp|
-        state = comp['attributes']['componentState']
-        bytesToSync = comp['attributes']['bytesToSync'] || 0
-        recoveryETA = comp['attributes']['recoveryETA'] || 0
-        resync = [10, 6].member?(state) && bytesToSync != 0
-        if resync
-          bytesToSyncTotal += bytesToSync
-          recoveryETATotal = [recoveryETA, recoveryETATotal].max
+    iter = 0
+    while (iter == 0) || opts[:refresh_rate]
+      puts "#{Time.now}: Querying all objects in the system ..."
+      
+      objects = vsanIntSys.query_cmmds([
+        {:type => 'DOM_OBJECT'}
+      ], :gzip => true)
+      if !objects
+        err "Server failed to gather DOM_OBJECT entries"
+      end
+      
+      puts "#{Time.now}: Got all the info, computing table ..."
+      objects = objects.select do |obj|
+        comps = _components_in_dom_config(obj['content'])
+        bytesToSyncTotal = 0
+        recoveryETATotal = 0
+        comps = comps.select do |comp|
+          state = comp['attributes']['componentState']
+          bytesToSync = comp['attributes']['bytesToSync'] || 0
+          recoveryETA = comp['attributes']['recoveryETA'] || 0
+          resync = [10, 6].member?(state) && bytesToSync != 0
+          if resync
+            bytesToSyncTotal += bytesToSync
+            recoveryETATotal = [recoveryETA, recoveryETATotal].max
+          end
+          resync
         end
-        resync
+        obj['bytesToSync'] = bytesToSyncTotal
+        obj['recoveryETA'] = recoveryETATotal
+        comps.length > 0
       end
-      obj['bytesToSync'] = bytesToSyncTotal
-      obj['recoveryETA'] = recoveryETATotal
-      comps.length > 0
-    end
-    obj_uuids = objects.map{|x| x['uuid']}
-    objects = Hash[objects.map{|x| [x['uuid'], x]}]
-    
-    all_obj_uuids = []
-    vmToObjMap = {}
-    vms.each do |vm|
-      vm_obj_uuids = _get_vm_obj_uuids(vm, vmsProps)
-      vm_obj_uuids = vm_obj_uuids.select{|x, v| obj_uuids.member?(x)}
-      vm_obj_uuids = vm_obj_uuids.reject{|x, v| all_obj_uuids.member?(x)}
-      all_obj_uuids += vm_obj_uuids.keys
-      if vm_obj_uuids.length > 0
-        vmToObjMap[vm] = vm_obj_uuids
+      obj_uuids = objects.map{|x| x['uuid']}
+      objects = Hash[objects.map{|x| [x['uuid'], x]}]
+      
+      all_obj_uuids = []
+      vmToObjMap = {}
+      vms.each do |vm|
+        vm_obj_uuids = _get_vm_obj_uuids(vm, vmsProps)
+        vm_obj_uuids = vm_obj_uuids.select{|x, v| obj_uuids.member?(x)}
+        vm_obj_uuids = vm_obj_uuids.reject{|x, v| all_obj_uuids.member?(x)}
+        all_obj_uuids += vm_obj_uuids.keys
+        if vm_obj_uuids.length > 0
+          vmToObjMap[vm] = vm_obj_uuids
+        end
       end
-    end
-    
-    t = Terminal::Table.new()
-    t << [
-      'VM/Object', 
-      'Syncing objects', 
-      'Bytes to sync', 
-      #'ETA',
-    ]
-    t.add_separator
-    bytesToSyncGrandTotal = 0
-    objGrandTotal = 0
-    vmToObjMap.each do |vm, vm_obj_uuids|
-      vmProps = vmsProps[vm]
-      objs = vm_obj_uuids.keys.map{|x| objects[x]}
-      bytesToSyncTotal = objs.map{|obj| obj['bytesToSync']}.sum
-      recoveryETATotal = objs.map{|obj| obj['recoveryETA']}.max
+      
+      t = Terminal::Table.new()
       t << [
-        vmProps['name'], 
-        objs.length,
-        "", #"%.2f GB" % (bytesToSyncTotal.to_f / 1024**3),
+        'VM/Object', 
+        'Syncing objects', 
+        'Bytes to sync', 
+        #'ETA',
+      ]
+      t.add_separator
+      bytesToSyncGrandTotal = 0
+      objGrandTotal = 0
+      vmToObjMap.each do |vm, vm_obj_uuids|
+        vmProps = vmsProps[vm]
+        objs = vm_obj_uuids.keys.map{|x| objects[x]}
+        bytesToSyncTotal = objs.map{|obj| obj['bytesToSync']}.sum
+        recoveryETATotal = objs.map{|obj| obj['recoveryETA']}.max
+        t << [
+          vmProps['name'], 
+          objs.length,
+          "", #"%.2f GB" % (bytesToSyncTotal.to_f / 1024**3),
+          #"%.2f min" % (recoveryETATotal.to_f / 60),
+        ]
+        objs.each do |obj|
+          t << [
+            "   %s" % (vm_obj_uuids[obj['uuid']] || obj['uuid']), 
+            '',
+            "%.2f GB" % (obj['bytesToSync'].to_f / 1024**3),
+            #"%.2f min" % (obj['recoveryETA'].to_f / 60),
+          ]
+        end
+        bytesToSyncGrandTotal += bytesToSyncTotal
+        objGrandTotal += objs.length
+      end
+      t.add_separator
+      t << [
+        'Total', 
+        objGrandTotal,
+        "%.2f GB" % (bytesToSyncGrandTotal.to_f / 1024**3),
         #"%.2f min" % (recoveryETATotal.to_f / 60),
       ]
-      objs.each do |obj|
-        t << [
-          "   %s" % (vm_obj_uuids[obj['uuid']] || obj['uuid']), 
-          '',
-          "%.2f GB" % (obj['bytesToSync'].to_f / 1024**3),
-          #"%.2f min" % (obj['recoveryETA'].to_f / 60),
-        ]
-      end
-      bytesToSyncGrandTotal += bytesToSyncTotal
-      objGrandTotal += objs.length
+      puts t
+      iter += 1
     end
-    t.add_separator
-    t << [
-      'Total', 
-      objGrandTotal,
-      "%.2f GB" % (bytesToSyncGrandTotal.to_f / 1024**3),
-      #"%.2f min" % (recoveryETATotal.to_f / 60),
-    ]
-    puts t
   end
 end
 
@@ -2692,11 +2715,21 @@ class RbVmomi::VIM::HostVsanInternalSystem
     end
   end  
   
-  def query_cmmds queries
+  def query_cmmds queries, opts = {}
+    useGzip = (opts[:gzip]) && $vsanUseGzipApis
+    if useGzip
+      queries = queries + [{:type => "GZIP"}]
+    end
     json = self.QueryCmmds(:queries => queries)
+    if useGzip
+      gzip = Base64.decode64(json)
+      gz = Zlib::GzipReader.new(StringIO.new(gzip))
+      json = gz.read
+    end
     objects = _parseJson json
     if !objects
       raise "Server failed to gather CMMDS entries: JSON = '#{json}'"
+#      raise "Server failed to gather CMMDS entries: JSON = #{json.length}"
     end
     objects = objects['result']
     objects    
@@ -2845,13 +2878,17 @@ def check_limits hosts_and_clusters, opts = {}
       if props['runtime.connectionState'] != 'connected'
         next
       end
+      hosts_props[host]['profiling'] = {}
       Thread.new do 
         vsanIntSys = props['configManager.vsanInternalSystem']
         c1 = conn.spawn_additional_connection
-        vsanIntSys  = vsanIntSys.dup_on_conn(c1)
+        vsanIntSys2  = vsanIntSys.dup_on_conn(c1)
         begin
-          timeout(45) do 
-            res = vsanIntSys.QueryVsanStatistics(:labels => ['rdtglobal'])
+          timeout(45) do
+            t1 = Time.now 
+            res = vsanIntSys2.QueryVsanStatistics(:labels => ['rdtglobal'])
+            t2 = Time.now
+            hosts_props[host]['profiling']['rdtglobal'] = t2 - t1
             hosts_props[host]['rdtglobal'] = JSON.parse(res)['rdt.globalinfo']
           end
         rescue Exception => ex
@@ -2860,11 +2897,30 @@ def check_limits hosts_and_clusters, opts = {}
 
         begin
           timeout(60) do 
-            res = vsanIntSys.QueryVsanStatistics(:labels => ['dom', 'dom-objects'])
+            t1 = Time.now
+            res = vsanIntSys2.QueryVsanStatistics(
+              :labels => ['dom', 'dom-objects-counts']
+            )
             res = JSON.parse(res)
+            if res && !res['dom.owners.count']
+              # XXX: Remove me later
+              # This code is a fall back path in case we are dealing
+              # with an old ESX host (before Nov13 2013). As we only 
+              # need to be compatible with VSAN GA, we can remove this
+              # code once everyone is upgraded. 
+              res = vsanIntSys2.QueryVsanStatistics(
+                :labels => ['dom', 'dom-objects']
+              )
+              res = JSON.parse(res)
+              numOwners = res['dom.owners.stats'].keys.length
+            else
+              numOwners = res['dom.owners.count'].keys.length
+            end
+            t2 = Time.now
+            hosts_props[host]['profiling']['domstats'] = t2 - t1
             hosts_props[host]['dom'] = {
               'numClients'=> res['dom.clients'].keys.length, 
-              'numOwners'=> res['dom.owners.stats'].keys.length,
+              'numOwners'=> numOwners,
             }
           end
         rescue Exception => ex
@@ -2873,13 +2929,16 @@ def check_limits hosts_and_clusters, opts = {}
           
         begin
           timeout(45) do 
-            disks = vsanIntSys.QueryPhysicalVsanDisks(:props => [
+            t1 = Time.now
+            disks = vsanIntSys2.QueryPhysicalVsanDisks(:props => [
               'lsom_objects_count',
               'uuid',
               'isSsd',
               'capacity',
               'capacityUsed',
             ])
+            t2 = Time.now
+            hosts_props[host]['profiling']['physdisk'] = t2 - t1
             disks = JSON.load(disks)
   
             # Getting the data from all hosts is kind of overkill, but
@@ -2895,12 +2954,16 @@ def check_limits hosts_and_clusters, opts = {}
       end
     end.compact.each{|t| t.join}
     
+    # hosts_props.each do |host, props|
+      # puts "#{Time.now}: Host #{props['name']}: #{props['profiling']}"
+    # end
+    
     puts "#{Time.now}: Gathering disks info ..."
     disks = all_disks
     vsan_disks_info = {}
-    hosts.each do |host|
-      vsan_disks_info.merge!(_vsan_host_disks_info(host, hosts_props[host]['name']))
-    end
+    vsan_disks_info.merge!(
+      _vsan_host_disks_info(Hash[hosts.map{|h| [h, hosts_props[h]['name']]}]) 
+    )  
     disks.each do |k, v| 
       v['esxcli'] = vsan_disks_info[v['uuid']]
       if v['esxcli']
@@ -3051,11 +3114,12 @@ def obj_status_report cluster_or_host, opts
       'config.hardware.device', 'summary.config'
     )
     
-    puts "#{Time.now}: Querying all objects in the system ..."
+    hostname = hosts_props[host]['name']
+    puts "#{Time.now}: Querying all objects in the system from #{hostname} ..."
     
     objects = vsanIntSys.query_cmmds([
       {:type => 'DOM_OBJECT'}
-    ])
+    ], :gzip => true)
     if !objects
       err "Server failed to gather DOM_OBJECT entries"
     end
@@ -3071,7 +3135,10 @@ def obj_status_report cluster_or_host, opts
 
     puts "#{Time.now}: Querying all components in the system ..."
     # Need a list of live comp uuids to see if components are orphaned.
-    liveComps = vsanIntSys.query_cmmds([{:type => 'LSOM_OBJECT'}])
+    liveComps = vsanIntSys.query_cmmds(
+      [{:type => 'LSOM_OBJECT'}], 
+      :gzip => true
+    )
     liveComps = liveComps.select do |comp|
       comp['health'] == "Healthy"
     end
@@ -3466,5 +3533,62 @@ def check_state cluster_or_host, opts
     end
     puts ""
 
+  end
+end
+
+
+opts :reapply_vsan_vmknic_config do
+  summary "Unbinds and rebinds VSAN to its vmknics"
+  arg :host, nil, :lookup => [VIM::HostSystem], :multi => true
+  opt :vmknic, "Refresh a specific vmknic. default is all vmknics", :type => :string
+  opt :dry_run, "Do a dry run: Show what changes would be made", :type => :boolean
+end
+
+def reapply_vsan_vmknic_config hosts, opts
+  hosts.each do |host|
+    hostname = host.name
+    net = host.esxcli.vsan.network
+    nics = net.list()
+    if opts[:vmknic]
+      nics = nics.select{|x| x.VmkNicName == opts[:vmknic]}
+    end
+    keys = {
+      :AgentGroupMulticastAddress => :agentmcaddr,
+      :AgentGroupMulticastPort => :agentmcport,
+      :IPProtocol => nil,
+      :InterfaceUUID => nil,
+      :MasterGroupMulticastAddress => :mastermcaddr,
+      :MasterGroupMulticastPort => :mastermcport,
+      :MulticastTTL => :multicastttl,
+    }
+    puts "Host: #{hostname}"
+    if opts[:dry_run]
+      nics.each do |nic|
+        puts "  Would reapply config of vmknic #{nic.VmkNicName}:"
+        keys.keys.each do |key|
+          puts "    #{key.to_s}: #{nic.send(key)}"
+        end
+      end
+    else
+      nics.each do |nic|
+        puts "  Reapplying config of #{nic.VmkNicName}:"
+        keys.keys.each do |key|
+          puts "    #{key.to_s}: #{nic.send(key)}"
+        end
+        puts "  Unbinding VSAN from vmknic #{nic.VmkNicName} ..."
+        net.ipv4.remove(:interfacename => nic.VmkNicName)
+        puts "  Rebinding VSAN to vmknic #{nic.VmkNicName} ..."
+        params = {
+          :agentmcaddr => nic.AgentGroupMulticastAddress,
+          :agentmcport => nic.AgentGroupMulticastPort,
+          :interfacename => nic.VmkNicName,
+          :mastermcaddr => nic.MasterGroupMulticastAddress,
+          :mastermcport => nic.MasterGroupMulticastPort,
+          :multicastttl => nic.MulticastTTL,
+        }
+        #pp params
+        net.ipv4.add(params)
+      end
+    end
   end
 end
