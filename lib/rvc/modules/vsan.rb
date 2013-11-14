@@ -1022,17 +1022,17 @@ def fix_inconsistent_vms vms
   end
 end
 
-# This command can be used to rename some VMs which get renamed by our
-# management stack in case of storage APD. During APD, it is possible
-# for some VMs to get renamed to vmx file path.
-# eg. # "/vmfs/volumes/vsanDatastore/foo/foo.vmx". This command will rename
-# this VM to "foo". Please note that this is the best we can do. This VM may
-# have been named something else but we have no way of knowing that. In this
-# best effort command, we simply rename it to the name of its config file
-# (without the full path and .vmx extension ofcourse!).
 opts :fix_renamed_vms do
-  summary "Rename vms to config file names"
-  arg :vms, nil, :lookup => VIM::VirtualMachine, :multi => true
+   summary "This command can be used to rename some VMs which get renamed " \
+           "by the VC in case of storage inaccessibility. It is "           \
+           "possible for some VMs to get renamed to vmx file path. "        \
+           "eg. \"/vmfs/volumes/vsanDatastore/foo/foo.vmx\". This command " \
+           "will rename this VM to \"foo\". This is the best we can do. "   \
+           "This VM may have been named something else but we have no way " \
+           "to know. In this best effort command, we simply rename it to "  \
+           "the name of its config file (without the full path and .vmx "   \
+           "extension ofcourse!)."
+   arg :vms, nil, :lookup => VIM::VirtualMachine, :multi => true
 end
 
 def fix_renamed_vms vms
