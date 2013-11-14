@@ -1038,14 +1038,17 @@ end
 def fix_renamed_vms vms
    begin
       rename = {}
-      puts "Continuing this command will rename the foll. VMs:"
+      puts "Continuing this command will rename the following VMs:"
       vms.each do |vm|
-         m = /.+\/(.+)\.vmx/.match(vm.summary.config.vmPathName)
-         if vm.name != m[1]
-            # Save it in a hash so we don't have to do it again if
-            # user choses Y.
-            rename[vm] = m[1]
-            puts "#{vm.name} -> #{m[1]}"
+         name = vm.name
+         if /.*vmfs.*volumes.*/.match(name)
+            m = /.+\/(.+)\.vmx/.match(vm.summary.config.vmPathName)
+            if name != m[1]
+               # Save it in a hash so we don't have to do it again if
+               # user choses Y.
+               rename[vm] = m[1]
+               puts "#{name} -> #{m[1]}"
+            end
          end
       end
 
