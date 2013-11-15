@@ -225,6 +225,32 @@ def insert_cdrom dev, iso
   progress [vm.ReconfigVM_Task(:spec => spec)]
 end
 
+opts :eject_cdrom do
+  summary "Eject a disc in a virtual CDROM drive"
+  arg :dev, nil, :lookup => VIM::VirtualDevice
+end
+
+def eject_cdrom dev
+  vm = dev.rvc_vm
+  id = "cdrom-#201-#3002"
+  backing = VIM.VirtualCdromRemoteAtapiBackingInfo(
+      :deviceName => id,
+      :useAutoDetect => true)
+
+  spec = {
+    :deviceChange => [
+      {
+        :operation => :edit,
+        :device => dev.class.new(
+          :key => dev.key,
+          :controllerKey => dev.controllerKey,
+          :backing => backing)
+      }
+    ]
+  }
+
+  progress [vm.ReconfigVM_Task(:spec => spec)]
+end
 
 SCSI_CONTROLLER_TYPES = {
   'pvscsi' => VIM::ParaVirtualSCSIController,
