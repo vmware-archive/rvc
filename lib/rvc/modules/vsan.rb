@@ -2451,6 +2451,10 @@ def resync_dashboard cluster_or_host, opts
       ]
       puts t
       iter += 1
+      
+      if opts[:refresh_rate]
+        sleep opts[:refresh_rate]
+      end
     end
   end
 end
