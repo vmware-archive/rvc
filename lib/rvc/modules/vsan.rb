@@ -628,13 +628,16 @@ def _vsan_host_disks_info hosts
   vsanDiskUuids = {}
   $disksCache ||= {}
   if !hosts.keys.all?{|x| $disksCache[x]}
+    lock = Mutex.new
     hosts.map do |host, hostname|
       Thread.new do 
         if !$disksCache[host]
           c1 = conn.spawn_additional_connection
           host2 = host.dup_on_conn(c1)
           $disksCache[host] = []
-          puts "#{Time.now}: Fetching VSAN disk info from #{hostname} (may take a moment) ..."
+          lock.synchronize do 
+            puts "#{Time.now}: Fetching VSAN disk info from #{hostname} (may take a moment) ..."
+          end
           begin
             timeout(45) do 
               list = host2.esxcli.vsan.storage.list
@@ -642,7 +645,9 @@ def _vsan_host_disks_info hosts
               $disksCache[host] = list
             end
           rescue Exception => ex
-            puts "#{Time.now}: Failed to gather from #{hostname}: #{ex.class}: #{ex.message}"
+            lock.synchronize do 
+              puts "#{Time.now}: Failed to gather from #{hostname}: #{ex.class}: #{ex.message}"
+            end
           end
         end
       end
@@ -1354,7 +1359,8 @@ def disks_stats hosts_and_clusters, opts = {}
       'capacityUsed',
       'capacityReserved',
       'iops',
-      'iopsReserved'
+      'iopsReserved',
+      'disk_health',
     ])
     if disks == "BAD"
       err "Server failed to gather VSAN disk info"
@@ -1364,6 +1370,7 @@ def disks_stats hosts_and_clusters, opts = {}
     rescue
       err "Server didn't provide VSAN disk info: #{disks}"
     end
+    #pp disks
 
     vsan_disks_info = {}
     vsan_disks_info.merge!(
@@ -1384,32 +1391,34 @@ def disks_stats hosts_and_clusters, opts = {}
       host_props = hosts_props[x['host']]
       host_props ? host_props['name'] : ''
     end
-    disks.group_by{|x| x['host']}.each do |host, host_disks|
-      next if !host
-      devices = host_disks.map{|x| x['esxcli'].Device}
-      metrics = [
-        'disk.numberReadAveraged', 'disk.numberWriteAveraged',
-        'disk.deviceLatency', 'disk.maxTotalLatency',
-        'disk.queueLatency', 'disk.kernelLatency'
-      ]
-      stats = _fetch_disk_stats host, metrics, devices
-      disks.each do |v|
-        if v['esxcli'] && stats[v['esxcli'].Device]
-          v['stats'] = stats[v['esxcli'].Device]
-        else
-          v['stats'] ||= {}
-          metrics.each{|m| v['stats'][m] ||= [-1] }
-        end
-      end
-    end
+
+    # Stats are now better handled by observer
+    # disks.group_by{|x| x['host']}.each do |host, host_disks|
+      # next if !host
+      # devices = host_disks.map{|x| x['esxcli'].Device}
+      # metrics = [
+        # 'disk.numberReadAveraged', 'disk.numberWriteAveraged',
+        # 'disk.deviceLatency', 'disk.maxTotalLatency',
+        # 'disk.queueLatency', 'disk.kernelLatency'
+      # ]
+      # stats = _fetch_disk_stats host, metrics, devices
+      # disks.each do |v|
+        # if v['esxcli'] && stats[v['esxcli'].Device]
+          # v['stats'] = stats[v['esxcli'].Device]
+        # else
+          # v['stats'] ||= {}
+          # metrics.each{|m| v['stats'][m] ||= [-1] }
+        # end
+      # end
+    # end
     
     t = Terminal::Table.new()
     if opts[:show_iops]
-      t << [nil,           nil,     nil,    'Num', 'Capacity', nil, nil,        'Iops', nil,        nil,    'Device']
-      t << ['DisplayName', 'Host', 'isSSD', 'Comp', 'Total', 'Used', 'Reserved', 'Total', 'Reserved', 'Used', 'Latencies']
+      t << [nil,           nil,     nil,    'Num', 'Capacity', nil, nil,        'Iops', nil,        nil,    ]
+      t << ['DisplayName', 'Host', 'isSSD', 'Comp', 'Total', 'Used', 'Reserved', 'Total', 'Reserved', ]
     else
-      t << [nil,           nil,     nil,    'Num',  'Capacity', nil,    nil,        nil,    'Device']
-      t << ['DisplayName', 'Host', 'isSSD', 'Comp', 'Total',    'Used', 'Reserved', 'Used', 'Latencies']
+      t << [nil,           nil,     nil,    'Num',  'Capacity', nil,    nil,        'Status']
+      t << ['DisplayName', 'Host', 'isSSD', 'Comp', 'Total',    'Used', 'Reserved', 'Health']
     end
     t.add_separator
     # XXX: Would be nice to show displayName and host
@@ -1438,13 +1447,38 @@ def disks_stats hosts_and_clusters, opts = {}
           ]
         end
         
+        # cols += [
+          # "%dr/%dw" % [x['stats']['disk.numberReadAveraged'].first,
+                       # x['stats']['disk.numberWriteAveraged'].first],
+          # "%dd/%dq/%dk" % [x['stats']['disk.deviceLatency'].first,
+                           # x['stats']['disk.queueLatency'].first,
+                           # x['stats']['disk.kernelLatency'].first,],
+        # ]
+        
+        health = "N/A"
+        if x['disk_health'] && x['disk_health']['healthFlags']
+          flags = x['disk_health']['healthFlags']
+          health = []
+          {
+            4 => "FAILED",
+            5 => "OFFLINE",
+            6 => "DECOMMISSIONED",
+          }.each do |k, v|
+            if flags & (1 << k) != 0
+              health << v
+            end
+          end
+          if health.length == 0
+            health = "OK"
+          else
+            health = health.join(", ")
+          end
+          
+        end
         cols += [
-          "%dr/%dw" % [x['stats']['disk.numberReadAveraged'].first,
-                       x['stats']['disk.numberWriteAveraged'].first],
-          "%dd/%dq/%dk" % [x['stats']['disk.deviceLatency'].first,
-                           x['stats']['disk.queueLatency'].first,
-                           x['stats']['disk.kernelLatency'].first,],
+          health 
         ]
+
         t << cols
       end
       if group != groups.keys.last
@@ -2275,7 +2309,7 @@ end
 opts :resync_dashboard do
   summary "Resyncing dashboard"
   arg :cluster_or_host, nil, :lookup => [VIM::ClusterComputeResource, VIM::HostSystem]
-  opt :refresh_rate, "Refresh interval (in sec). Default is no refresh", :type => :boolean
+  opt :refresh_rate, "Refresh interval (in sec). Default is no refresh", :type => :int
 end
 
 def resync_dashboard cluster_or_host, opts
@@ -2302,6 +2336,7 @@ def resync_dashboard cluster_or_host, opts
     if !host
       err "Couldn't find any connected hosts"
     end
+    hostname = hosts_props[host]['name']
     vsanIntSys = hosts_props[host]['configManager.vsanInternalSystem']
 
     vsanSysList = Hash[hosts_props.map do |host, props| 
@@ -2329,17 +2364,17 @@ def resync_dashboard cluster_or_host, opts
     
     iter = 0
     while (iter == 0) || opts[:refresh_rate]
-      puts "#{Time.now}: Querying all objects in the system ..."
+      puts "#{Time.now}: Querying all objects in the system from #{hostname} ..."
       
-      objects = vsanIntSys.query_cmmds([
-        {:type => 'DOM_OBJECT'}
-      ], :gzip => true)
-      if !objects
-        err "Server failed to gather DOM_OBJECT entries"
+      result = vsanIntSys.query_syncing_vsan_objects({})
+      if !result
+        err "Server failed to gather syncing objects"
       end
+      objects = result['dom_objects']
       
       puts "#{Time.now}: Got all the info, computing table ..."
-      objects = objects.select do |obj|
+      objects = objects.map do |uuid, objInfo|
+        obj = objInfo['config']
         comps = _components_in_dom_config(obj['content'])
         bytesToSyncTotal = 0
         recoveryETATotal = 0
@@ -2356,8 +2391,10 @@ def resync_dashboard cluster_or_host, opts
         end
         obj['bytesToSync'] = bytesToSyncTotal
         obj['recoveryETA'] = recoveryETATotal
-        comps.length > 0
-      end
+        if comps.length > 0
+          obj
+        end
+      end.compact
       obj_uuids = objects.map{|x| x['uuid']}
       objects = Hash[objects.map{|x| [x['uuid'], x]}]
       
