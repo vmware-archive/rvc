@@ -34,6 +34,19 @@ class RbVmomi::VIM
   end
 end
 
+module PbmHelperModule
+  def _catch_spbm_resets(conn)
+    begin
+      yield
+    rescue EOFError
+      if conn
+        conn.pbm = nil
+      end
+      raise "Connection to SPBM timed out, try again"
+    end
+  end
+end
+
 RbVmomi::VIM::Datacenter
 class RbVmomi::VIM::Datacenter
   def rvc_list_children_profiles
@@ -105,7 +118,7 @@ end
 RbVmomi::VIM::Datastore
 class RbVmomi::VIM::Datastore
   def to_pbmhub
-    PBM::PbmPlacementPlacementHub(:hubType => "Datastore", :hubId => _ref)
+    PBM::PbmPlacementHub(:hubType => "Datastore", :hubId => _ref)
   end
   
   def pbm_capability_profiles
@@ -171,8 +184,8 @@ class RbVmomi::VIM::ManagedObject
     _catch_spbm_resets(conn) do 
       pbm = _connection.pbm
       pm = pbm.serviceContent.profileManager
-      ids = pm.QueryAssociatedProfile(:entity => self.to_pbmobjref)
-      pm.retrieveProfileContent(:profileIds => ids) 
+      ids = pm.PbmQueryAssociatedProfile(:entity => self.to_pbmobjref)
+      pm.PbmRetrieveContent(:profileIds => ids) 
     end
   end
 
@@ -212,11 +225,11 @@ class RbVmomi::PBM::PbmPlacementSolver
       raise Exception("Passing in more than one profile currently not supported")
     end
     dsMoMap = Hash[datastores.map{|x| [x._ref, x]}]
-    results = self.Solve(
+    results = self.PbmSolve(
       :hubsToSearch => datastores.map{|x| x.to_pbmhub}, 
       :requirements => [
         {
-          :subject => PBM.PbmPlacementPlacementSubject(
+          :subject => PBM.PbmPlacementSubject(
             :subjectType=>"VirtualMachine", 
             :subjectId=>"fake"
           ), 
@@ -240,6 +253,7 @@ end
 RbVmomi::PBM::PbmCapabilityProfile
 class RbVmomi::PBM::PbmCapabilityProfile
   include InventoryObject
+  include PbmHelperModule
   
   def children
     {
@@ -252,8 +266,9 @@ class RbVmomi::PBM::PbmCapabilityProfile
     pbm = @connection
     vim = @dc._connection
     pc = vim.propertyCollector
+    pm = pbm.serviceContent.profileManager
     
-    vms = pm.QueryAssociatedEntity(
+    vms = pm.PbmQueryAssociatedEntity(
       :profile => self.profileId, 
       :entityType => 'virtualMachine'
     )
