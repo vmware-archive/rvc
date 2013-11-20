@@ -1047,6 +1047,63 @@ def fix_inconsistent_vms vms
   end
 end
 
+opts :fix_renamed_vms do
+   summary "This command can be used to rename some VMs which get renamed " \
+           "by the VC in case of storage inaccessibility. It is "           \
+           "possible for some VMs to get renamed to vmx file path. "        \
+           "eg. \"/vmfs/volumes/vsanDatastore/foo/foo.vmx\". This command " \
+           "will rename this VM to \"foo\". This is the best we can do. "   \
+           "This VM may have been named something else but we have no way " \
+           "to know. In this best effort command, we simply rename it to "  \
+           "the name of its config file (without the full path and .vmx "   \
+           "extension ofcourse!)."
+   arg :vms, nil, :lookup => VIM::VirtualMachine, :multi => true
+end
+
+def fix_renamed_vms vms
+   begin
+      conn = vms.first._connection
+      pc = conn.propertyCollector
+      vmProps = pc.collectMultiple(vms, 'name', 'summary.config.vmPathName')
+
+      rename = {}
+      puts "Continuing this command will rename the following VMs:"
+      begin
+         vmProps.each do |k,v|
+            name = v['name']
+            cfgPath = v['summary.config.vmPathName']
+            if /.*vmfs.*volumes.*/.match(name)
+               m = /.+\/(.+)\.vmx/.match(cfgPath)
+               if name != m[1]
+                  # Save it in a hash so we don't have to do it again if
+                  # user choses Y.
+                  rename[k] = m[1]
+                  puts "#{name} -> #{m[1]}"
+               end
+            end
+         end
+      rescue Exception => ex
+         # Swallow the exception. No need to stop other vms.
+         puts "Skipping VM due to exception: #{ex.class}: #{ex.message}"
+      end
+
+      if rename.length == 0
+         puts "Nothing to do"
+         return
+      end
+
+      puts "Do you want to continue [y/N]?"
+      opt = $stdin.gets.chomp
+      if opt == 'y' || opt == 'Y'
+         puts "Renaming..."
+         tasks = rename.keys.map do |vm|
+            vm.Rename_Task(:newName => rename[vm])
+         end
+         progress(tasks)
+      end
+   end
+end
+
 opts :vm_object_info do
   summary "Fetch VSAN object information about a VM"
   arg :vms, nil, :lookup => VIM::VirtualMachine, :multi => true
