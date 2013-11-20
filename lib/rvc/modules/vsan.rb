@@ -1491,13 +1491,25 @@ def disks_stats hosts_and_clusters, opts = {}
 end
 
 
-opts :hosts_stats do
-  summary "Show disk stats about all hosts in VSAN"
+opts :whatif_host_failures do
+  summary "Simulates how host failures impact VSAN resource usage"
+  banner <<-EOS
+
+The command shows current VSAN disk usage, but also simulates how 
+disk usage would evolve under a host failure. Concretely the simulation 
+assumes that all objects would be brought back to full policy 
+compliance by bringing up new mirrors of existing data. 
+The command makes some simplifying assumptions about disk space 
+balance in the cluster. It is mostly intended to do a rough estimate 
+if a host failure would drive the cluster to being close to full.
+
+EOS
   arg :hosts_and_clusters, nil, :lookup => [VIM::HostSystem, VIM::ClusterComputeResource], :multi => true
   opt :num_host_failures_to_simulate, "Number of host failures to simulate", :default => 1
+  opt :show_current_usage_per_host, "Show current resources used per host"
 end
 
-def hosts_stats hosts_and_clusters, opts = {}
+def whatif_host_failures hosts_and_clusters, opts = {}
   opts[:compute_number_of_components] = true
   conn = hosts_and_clusters.first._connection
   hosts = hosts_and_clusters.select{|x| x.is_a?(VIM::HostSystem)}
@@ -1560,99 +1572,155 @@ def hosts_stats hosts_and_clusters, opts = {}
     hosts_disks = Hash[disks.values.group_by{|x| x['owner']}.map do |owner, hostDisks|
       props = {}
       hdds = hostDisks.select{|disk| disk['isSsd'] == 0}
+      ssds = hostDisks.select{|disk| disk['isSsd'] == 1}
       hdds.each do |disk|
-        ['capacityUsed', 'capacityReserved', 'capacity'].each do |x|
+        [
+          'capacityUsed', 'capacityReserved', 
+          'capacity', 'lsom_objects_count'
+        ].each do |x|
           props[x] ||= 0
           props[x] += disk[x]
+        end
+      end
+      ssds.each do |disk|
+        [
+          'capacityReserved', 'capacity', 
+        ].each do |x|
+          props["ssd_#{x}"] ||= 0
+          props["ssd_#{x}"] += disk[x]
         end
       end
       h = node_uuids[owner]
       props['host'] = h
       props['hostname'] = h ? hosts_props[h]['name'] : owner
       props['numHDDs'] = hdds.length
+      props['maxComponents'] = 3000 # XXX
       [owner, props]
     end]
     
     sorted_hosts = hosts_disks.values.sort_by{|x| -x['capacityUsed']}
     
-    puts "Current utilization of hosts:"
-    t = Terminal::Table.new()
-    t << [nil,    nil,       'Capacity', nil,    nil,      ]
-    t << ['Host', 'NumHDDs', 'Total',    'Used', 'Reserved']
-    t.add_separator
-    
-    hosts_disks.each do |owner, x|
-      cols = [
-        x['hostname'],
-        x['numHDDs'],
-        "%.2f GB" % [x['capacity'].to_f / 1024**3],
-        "%.0f %%" % [x['capacityUsed'].to_f * 100 / x['capacity'].to_f],
-        "%.0f %%" % [x['capacityReserved'].to_f * 100 / x['capacity'].to_f],
-      ]
-      t << cols
+    if opts[:show_current_usage_per_host]
+      puts "Current utilization of hosts:"
+      t = Terminal::Table.new()
+      t << [nil,    nil,       'HDD Capacity', nil,    nil,    'Components', 'SSD Capacity']
+      t << ['Host', 'NumHDDs', 'Total',    'Used', 'Reserved', 'Used',       'Reserved']
+      t.add_separator
+      
+      hosts_disks.each do |owner, x|
+        cols = [
+          x['hostname'],
+          x['numHDDs'],
+          "%.2f GB" % [x['capacity'].to_f / 1024**3],
+          "%.0f %%" % [x['capacityUsed'].to_f * 100 / x['capacity'].to_f],
+          "%.0f %%" % [x['capacityReserved'].to_f * 100 / x['capacity'].to_f],
+          "%4u/%u (%.0f %%)" % [
+            x['lsom_objects_count'], 
+            x['maxComponents'], 
+            x['lsom_objects_count'].to_f * 100 / x['maxComponents'].to_f
+          ],
+          "%.0f %%" % [x['ssd_capacityReserved'].to_f * 100 / x['ssd_capacity'].to_f],
+        ]
+        t << cols
+      end
+      puts t
+      puts ""
     end
-    
-    puts t
 
-    puts ""
     puts "Simulating #{opts[:num_host_failures_to_simulate]} host failures:"
-    puts "The command shows current VSAN disk usage, but also simulates how "
-    puts "disk usage would evolve under a host failure. Concretely the simulation "
-    puts "assumes that all objects would be brought back to full policy "
-    puts "compliance by bringing up new mirrors of existing data. "
-    puts "The command makes some simplifying assumptions about disk space "
-    puts "balance in the cluster. It is mostly intended to do a rough estimate "
-    puts "if a host failure would drive the cluster to being close to full."
     puts ""
     worst_host = sorted_hosts[0]
+
+    if sorted_hosts.length < 3
+      puts "Cluster unable to regain full policy compliance after host failure, "
+      puts "not enough hosts remaining."
+      return
+    end
+
     t = Terminal::Table.new()
-    t << [
-      "Host with most data on it:",
-      worst_host['hostname']
-    ]
-    t << [
-      "Data to be newly mirrored:",
-      "%.2f GB" % [worst_host['capacityUsed'].to_f / 1024**3],
-    ]
+    t << ["Resource", "Usage right now", "Usage after failure/re-protection"]
+    t.add_separator
+    capacityRow = ["HDD capacity"]
+
+    # Capacity before failure
     used = sorted_hosts.map{|x| x['capacityUsed']}.sum
     total = sorted_hosts.map{|x| x['capacity']}.sum
     free = total - used
     usedPctOriginal = 100.0 - (free.to_f * 100 / total.to_f)
-    t << [
-      "Capacity before failure:",
-      "%.2f GB free, %.0f%% used" % [
-        free.to_f / 1024**3,
-        usedPctOriginal
-      ]
+    capacityRow << "%3.0f%% used (%.2f GB free)" % [
+      usedPctOriginal,
+      free.to_f / 1024**3,
     ]
-    if sorted_hosts.length >= 3
-      used = sorted_hosts[1..-1].map{|x| x['capacityUsed']}.sum
-      total = sorted_hosts[1..-1].map{|x| x['capacity']}.sum
-      additional = worst_host['capacityUsed']
-      free = total - used
-      usedPctBeforeReMirror = 100.0 - (free.to_f * 100 / total.to_f)
-      usedPctAfterReMirror = 100.0 - ((free - additional).to_f * 100 / total.to_f)
-      usedPctIncrease = usedPctAfterReMirror - usedPctOriginal
-      t << [
-        "Capacity after failure, before re-mirroring:",
-        "%.2f GB free, %.0f%% used" % [
-          free.to_f / 1024**3,
-          usedPctBeforeReMirror
-        ]
-      ]
-      t << [
-        "Capacity after failure, after re-mirroring:",
-        "%.2f GB free, %.0f%% used" % [
-          (free - additional).to_f / 1024**3,
-          usedPctAfterReMirror,
-        ]
-      ]
-      puts t
-    else
-      puts t
-      puts "Cluster unable to regain full policy compliance after host failure, "
-      puts "not enough hosts remaining."
-    end
+    
+    # Capacity after rebuild
+    used = sorted_hosts[1..-1].map{|x| x['capacityUsed']}.sum
+    total = sorted_hosts[1..-1].map{|x| x['capacity']}.sum
+    additional = worst_host['capacityUsed']
+    free = total - used
+    usedPctBeforeReMirror = 100.0 - (free.to_f * 100 / total.to_f)
+    usedPctAfterReMirror = 100.0 - ((free - additional).to_f * 100 / total.to_f)
+    usedPctIncrease = usedPctAfterReMirror - usedPctOriginal
+    capacityRow << "%3.0f%% used (%.2f GB free)" % [
+      usedPctAfterReMirror,
+      (free - additional).to_f / 1024**3,
+    ]
+    t << capacityRow
+    
+    # Components before failure
+    sorted_hosts = hosts_disks.values.sort_by{|x| -x['lsom_objects_count']}
+    worst_host = sorted_hosts[0]
+    used = sorted_hosts.map{|x| x['lsom_objects_count']}.sum
+    total = sorted_hosts.map{|x| x['maxComponents']}.sum
+    free = total - used
+    usedPctOriginal = 100.0 - (free.to_f * 100 / total.to_f)
+    componentsRow = ["Components"]
+    componentsRow << "%3.0f%% used (%u available)" % [
+      usedPctOriginal,
+      free,
+    ]
+
+    # Components after rebuild
+    used = sorted_hosts[1..-1].map{|x| x['lsom_objects_count']}.sum
+    total = sorted_hosts[1..-1].map{|x| x['maxComponents']}.sum
+    additional = worst_host['lsom_objects_count']
+    free = total - used
+    usedPctBeforeReMirror = 100.0 - (free.to_f * 100 / total.to_f)
+    usedPctAfterReMirror = 100.0 - ((free - additional).to_f * 100 / total.to_f)
+    usedPctIncrease = usedPctAfterReMirror - usedPctOriginal
+    componentsRow << "%3.0f%% used (%u available)" % [
+      usedPctAfterReMirror,
+      (free - additional),
+    ]
+    t << componentsRow
+
+    # RC reservations before failure
+    sorted_hosts = hosts_disks.values.sort_by{|x| -x['ssd_capacityReserved']}
+    worst_host = sorted_hosts[0]
+    used = sorted_hosts.map{|x| x['ssd_capacityReserved']}.sum
+    total = sorted_hosts.map{|x| x['ssd_capacity']}.sum
+    free = total - used
+    usedPctOriginal = 100.0 - (free.to_f * 100 / total.to_f)
+    rcReservationsRow = ["RC reservations"]
+    rcReservationsRow << "%3.0f%% used (%.2f GB free)" % [
+      usedPctOriginal,
+      free.to_f / 1024**3,
+    ]
+
+    # RC reservations after rebuild
+    used = sorted_hosts[1..-1].map{|x| x['ssd_capacityReserved']}.sum
+    total = sorted_hosts[1..-1].map{|x| x['ssd_capacity']}.sum
+    additional = worst_host['ssd_capacityReserved']
+    free = total - used
+    usedPctBeforeReMirror = 100.0 - (free.to_f * 100 / total.to_f)
+    usedPctAfterReMirror = 100.0 - ((free - additional).to_f * 100 / total.to_f)
+    usedPctIncrease = usedPctAfterReMirror - usedPctOriginal
+    rcReservationsRow << "%3.0f%% used (%.2f GB free)" % [
+      usedPctAfterReMirror,
+      (free - additional).to_f / 1024**3,
+    ]
+    t << rcReservationsRow
+        
+    puts t
   end
 end
 
@@ -2785,14 +2853,34 @@ class RbVmomi::VIM::HostVsanInternalSystem
     objects    
   end
   
-  def query_syncing_vsan_objects(opts)
+  def query_syncing_vsan_objects(opts = {})
     json = self.QuerySyncingVsanObjects(opts)
     objects = _parseJson json
     if !objects
-      raise "Server failed to gather VSAN object info for #{obj_uuids}: JSON = '#{json}'"
+      raise "Server failed to query syncing objects: JSON = '#{json}'"
     end
     objects    
   end
+  
+  def query_physical_vsan_disks(opts)
+    json = self.QueryPhysicalVsanDisks(opts)
+    objects = _parseJson json
+    if !objects
+      raise "Server failed to query vsan disks: JSON = '#{json}'"
+    end
+    objects    
+  end
+  
+  def query_objects_on_physical_vsan_disk(opts)
+    json = self.QueryObjectsOnPhysicalVsanDisk(opts)
+    objects = _parseJson json
+    if !objects
+      raise "Server failed to query objects on vsan disks: JSON = '#{json}'"
+    end
+    objects    
+  end
+  
+  
 end
 
 def _parseJson json
