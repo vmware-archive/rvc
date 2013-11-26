@@ -38,6 +38,19 @@ db['HostVsanInternalSystem']['methods']["QuerySyncingVsanObjects"] =
      "is-task"=>false,
      "version-id-ref"=>nil,
      "wsdl_type"=>"xsd:string"}}
+db['HostVsanInternalSystem']['methods']["GetVsanObjExtAttrs"] = 
+  {"params"=>
+    [{"name"=>"uuids",
+      "is-array"=>true,
+      "is-optional"=>true,
+      "version-id-ref"=>nil,
+      "wsdl_type"=>"xsd:string"}],
+   "result"=>
+    {"is-array"=>false,
+     "is-optional"=>false,
+     "is-task"=>false,
+     "version-id-ref"=>nil,
+     "wsdl_type"=>"xsd:string"}}
 db = nil
 
 $vsanUseGzipApis = false
@@ -377,7 +390,7 @@ def _host_info host, prefix = ''
   line.call "  Cluster role: #{status.nodeState.state}"
   line.call "  Cluster UUID: #{config.clusterInfo.uuid}"
   line.call "  Node UUID: #{config.clusterInfo.nodeUuid}"
-  line.call "  Member UUIDs: #{status.memberUuid}"
+  line.call "  Member UUIDs: #{status.memberUuid} (#{status.memberUuid.length})"
   line.call "Storage info:"
   line.call "  Auto claim: %s" % (config.storageInfo.autoClaimStorage ? "yes" : "no")
   line.call "  Disk Mappings:"
@@ -1626,6 +1639,18 @@ def whatif_host_failures hosts_and_clusters, opts = {}
       err "Server didn't provide VSAN disk info: #{objs}"
     end
     
+    # XXX: Do this in threads
+    hosts.map do |host|
+      Thread.new do 
+        c1 = conn.spawn_additional_connection
+        props = hosts_props[host]
+        vsanIntSys2 = props['configManager.vsanInternalSystem']
+        vsanIntSys3 = vsanIntSys2.dup_on_conn(c1)
+        res = vsanIntSys3.query_vsan_statistics(:labels => ['lsom-node'])
+        hosts_props[host]['lsom.node'] = res['lsom.node']
+      end
+    end.each{|t| t.join}
+    
     hosts_disks = Hash[disks.values.group_by{|x| x['owner']}.map do |owner, hostDisks|
       props = {}
       hdds = hostDisks.select{|disk| disk['isSsd'] == 0}
@@ -1651,7 +1676,10 @@ def whatif_host_failures hosts_and_clusters, opts = {}
       props['host'] = h
       props['hostname'] = h ? hosts_props[h]['name'] : owner
       props['numHDDs'] = hdds.length
-      props['maxComponents'] = 3000 # XXX
+      props['maxComponents'] = 3000
+      if hosts_props[h]['lsom.node']
+        props['maxComponents'] = hosts_props[h]['lsom.node']['numMaxComponents']
+      end
       [owner, props]
     end]
     
@@ -2918,6 +2946,15 @@ class RbVmomi::VIM::HostVsanInternalSystem
     end
     objects    
   end
+
+  def query_vsan_statistics(opts = {})
+    json = self.QueryVsanStatistics(opts)
+    objects = _parseJson json
+    if !objects
+      raise "Server failed to query vsan stats: JSON = '#{json}'"
+    end
+    objects    
+  end
   
   def query_physical_vsan_disks(opts)
     json = self.QueryPhysicalVsanDisks(opts)
@@ -3072,10 +3109,13 @@ def check_limits hosts_and_clusters, opts = {}
         begin
           timeout(45) do
             t1 = Time.now 
-            res = vsanIntSys2.QueryVsanStatistics(:labels => ['rdtglobal'])
+            res = vsanIntSys2.query_vsan_statistics(
+              :labels => ['rdtglobal', 'lsom-node']
+            )
             t2 = Time.now
             hosts_props[host]['profiling']['rdtglobal'] = t2 - t1
-            hosts_props[host]['rdtglobal'] = JSON.parse(res)['rdt.globalinfo']
+            hosts_props[host]['rdtglobal'] = res['rdt.globalinfo']
+            hosts_props[host]['lsom.node'] = res['lsom.node']
           end
         rescue Exception => ex
           puts "Failed to gather RDT info from #{props['name']}: #{ex.class}: #{ex.message}"
@@ -3167,6 +3207,7 @@ def check_limits hosts_and_clusters, opts = {}
     t.add_separator
     hosts_props.each do |host, props|
       rdt = props['rdtglobal'] || {}
+      lsomnode = props['lsom.node'] || {}
       dom = props['dom'] || {}
       t << [
         props['name'],
@@ -3177,7 +3218,9 @@ def check_limits hosts_and_clusters, opts = {}
           "Owners: #{dom['numOwners'] || 'N/A'}",
         ].join("\n"),
         ([
-          "Components: #{props['components']}/3000",
+          "Components: #{props['components']}/%s" % [
+            lsomnode['numMaxComponents'] || 'N/A'
+          ],
         ] + (props['disks'] || []).map do |disk|
           if disk['capacity'] > 0
             usage = disk['capacityUsed'] * 100 / disk['capacity']
