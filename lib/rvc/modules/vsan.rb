@@ -735,7 +735,7 @@ opts :disk_object_info do
   arg :disk_uuid, nil, :type => :string, :multi => true
 end
 
-def disk_object_info cluster_or_host, disk_uuids, opts
+def disk_object_info cluster_or_host, disk_uuids, opts = {}
   conn = cluster_or_host._connection
   pc = conn.propertyCollector
   
@@ -915,19 +915,11 @@ def cmmds_find cluster_or_host, opts
     hostUuidMap = Hash[vsanSysList.map do |hostname, sys|
       [clusterInfos[sys]['config.clusterInfo'].nodeUuid, hostname] 
     end]
-    json = vsanIntSys.QueryCmmds(:queries => [{
+    entries = vsanIntSys.query_cmmds([{
       :owner => opts[:owner],
       :uuid => opts[:uuid],
       :type => opts[:type],
-    }])
-    if json == "BAD"
-      err "Server rejected CMMDS query"
-    end
-    begin
-      entries = JSON.load(json)['result']
-    rescue
-      err "Server rejected CMMDS query: #{json}"
-    end
+    }], :gzip => true)
   end
 
   t = Terminal::Table.new()
@@ -3820,4 +3812,289 @@ def reapply_vsan_vmknic_config hosts, opts
       end
     end
   end
+end
+
+
+opts :recover_spbm do
+  summary "SPBM Recovery"
+  arg :cluster_or_host, nil, :lookup => [VIM::ClusterComputeResource, VIM::HostSystem]
+  opt :show_details, "Show all the details", :type => :boolean
+end
+
+def recover_spbm cluster_or_host, opts
+  conn = cluster_or_host._connection
+  pc = conn.propertyCollector
+  host = cluster_or_host
+  entries = []
+  hostUuidMap = {}
+  startTime = Time.now
+  _run_with_rev(conn, "dev") do
+    vsanIntSys = nil
+    puts "#{Time.now}: Fetching Host info"
+    if cluster_or_host.is_a?(VIM::ClusterComputeResource)
+      cluster = cluster_or_host
+      hosts = cluster.host
+    else
+      hosts = [host]
+    end
+    
+    hosts_props = pc.collectMultiple(hosts,
+      'name', 
+      'runtime.connectionState',
+      'configManager.vsanSystem',
+      'configManager.vsanInternalSystem',
+      'datastore'
+    )
+    connected_hosts = hosts_props.select do |k,v| 
+      v['runtime.connectionState'] == 'connected'
+    end.keys
+    host = connected_hosts.first
+    if !host
+      err "Couldn't find any connected hosts"
+    end
+    vsanIntSys = hosts_props[host]['configManager.vsanInternalSystem']
+    vsanSysList = Hash[hosts_props.map do |host, props| 
+      [props['name'], props['configManager.vsanSystem']]
+    end]
+    clusterInfos = pc.collectMultiple(vsanSysList.values, 
+                                      'config.clusterInfo')
+    hostUuidMap = Hash[vsanSysList.map do |hostname, sys|
+      [clusterInfos[sys]['config.clusterInfo'].nodeUuid, hostname] 
+    end]
+    
+    puts "#{Time.now}: Fetching Datastore info"
+    datastores = hosts_props.values.map{|x| x['datastore']}.flatten
+    datastores_props = pc.collectMultiple(datastores, 'name', 'summary.type')
+    vsanDsList = datastores_props.select do |ds, props|
+      props['summary.type'] == "vsan"
+    end.keys
+    if vsanDsList.length > 1
+      err "Two VSAN datastores found, can't handle that"
+    end
+    vsanDs = vsanDsList[0]
+    
+    puts "#{Time.now}: Fetching VM properties"
+    vms = vsanDs.vm
+    vms_props = pc.collectMultiple(vms, 'name', 'config.hardware.device')
+    
+    puts "#{Time.now}: Fetching policies used on VSAN from CMMDS"
+    entries = vsanIntSys.query_cmmds([{
+      :type => "POLICY",
+    }], :gzip => true)
+    
+    policies = entries.map{|x| x['content']}.uniq
+
+    puts "#{Time.now}: Fetching SPBM profiles"
+    pbm = conn.pbm
+    pm = pbm.serviceContent.profileManager
+    profileIds = pm.PbmQueryProfile(
+      :resourceType => {:resourceType => "STORAGE"}, 
+      :profileCategory => "REQUIREMENT"
+    )
+    if profileIds.length > 0
+      profiles = pm.PbmRetrieveContent(:profileIds => profileIds)
+    else
+      profiles = []
+    end
+    profilesMap = Hash[profiles.map do |x|
+      ["#{x.profileId.uniqueId}-gen#{x.generationId}", x]
+    end]
+    
+    puts "#{Time.now}: Fetching VM <-> SPBM profile association"
+    vms_entities = vms.map do |vm|
+      vm.all_pbmobjref(:vms_props => vms_props)
+    end.flatten.map{|x| x.dynamicProperty = []; x}
+    associatedProfiles = pm.PbmQueryAssociatedProfiles(
+      :entities => vms_entities
+    )
+    associatedEntities = associatedProfiles.map{|x| x.object}.uniq
+    puts "#{Time.now}: Computing which VMs do not have a SPBM Profile ..."
+    
+    nonAssociatedEntities = vms_entities - associatedEntities
+    
+    vmsMap = Hash[vms.map{|x| [x._ref, x]}]
+    nonAssociatedVms = {}
+    nonAssociatedEntities.map do |entity|
+      vm = vmsMap[entity.key.split(":").first]
+      nonAssociatedVms[vm] ||= []
+      nonAssociatedVms[vm] << [entity.objectType, entity.key]
+    end
+    puts "#{Time.now}: Fetching additional info about some VMs"
+    
+    vms_props2 = pc.collectMultiple(vms, 'summary.config.vmPathName')
+
+    puts "#{Time.now}: Got all info, computing after %.2f sec" % [
+      Time.now - startTime
+    ]
+    
+    policies.each do |policy|
+      policy['spbmRecoveryCandidate'] = false
+      policy['spbmProfile'] = nil
+      if policy['spbmProfileId']
+        name = "%s-gen%s" % [
+          policy['spbmProfileId'],
+          policy['spbmProfileGenerationNumber'],
+        ]
+        policy['spbmName'] = name
+        policy['spbmProfile'] = profilesMap[name]
+        if policy['spbmProfile']
+          name = policy['spbmProfile'].name
+          policy['spbmName'] = name
+          name = "Existing SPBM Profile:\n#{name}"
+        else
+          policy['spbmRecoveryCandidate'] = true
+          profile = profiles.find do |profile|
+            profile.profileId.uniqueId == policy['spbmProfileId'] &&
+            profile.generationId > policy['spbmProfileGenerationNumber']
+          end
+          # XXX: We should check if there is a profile that matches
+          # one we recovered
+          if profile
+            name = policy['spbmProfile'].name
+            name = "Old generation of SPBM Profile:\n#{name}"
+          else
+            name = "Unknown SPBM Profile. UUID:\n#{name}"
+          end
+        end
+      else
+        name = "Not managed by SPBM"
+        policy['spbmName'] = name
+      end
+      propCap = policy['proportionalCapacity']
+      if propCap && propCap.is_a?(Array) && propCap.length == 2
+        policy['proportionalCapacity'] = policy['proportionalCapacity'][0]
+      end
+      
+      policy['spbmDescr'] = name
+    end
+    entriesMap = Hash[entries.map{|x| [x['uuid'], x]}]
+
+    nonAssociatedEntities = []
+    nonAssociatedVms.each do |vm, entities|
+      if entities.any?{|x| x == ["virtualMachine", vm._ref]}
+        vmxPath = vms_props2[vm]['summary.config.vmPathName']
+        if vmxPath =~ /^\[([^\]]*)\] ([^\/])\//
+          nsUuid = $2
+          entry = entriesMap[nsUuid]
+          if entry && entry['content']['spbmProfileId']
+            # This is a candidate
+            nonAssociatedEntities << {
+              :objUuid => nsUuid, 
+              :type => "virtualMachine", 
+              :key => vm._ref,
+              :entry => entry,
+              :vm => vm,
+              :label => "VM Home",
+            }
+          end
+        end
+      end
+      devices = vms_props[vm]['config.hardware.device']
+      disks = devices.select{|x| x.is_a?(VIM::VirtualDisk)}
+      disks.each do |disk|
+        key = "#{vm._ref}:#{disk.key}"
+        if entities.any?{|x| x == ["virtualDiskId", key]}
+          objUuid = disk.backing.backingObjectId
+          if objUuid
+            entry = entriesMap[objUuid]
+            if entry && entry['content']['spbmProfileId']
+              # This is a candidate
+              nonAssociatedEntities << {
+                :objUuid => objUuid, 
+                :type => "virtualDiskId", 
+                :key => key,
+                :entry => entry,
+                :vm => vm,
+                :label => disk.deviceInfo.label,
+              }
+            end
+          end
+        end
+      end
+    end
+    nonAssociatedEntities.each do |entity|
+      policy = policies.find do |policy|
+        match = true
+        ['spbmProfileId', 'spbmProfileGenerationNumber'].each do |k|
+          match = match && policy[k] == entity[:entry]['content'][k]
+        end
+        match
+      end
+      entity[:policy] = policy
+    end
+    
+    candidates = policies.select{|p| p['spbmRecoveryCandidate'] == true}
+
+    puts "#{Time.now}: Done computing"
+
+    if !opts[:show_details]
+      puts ""
+      puts "Found %d missing SPBM Profiles." % candidates.length
+      puts "Found %d entities not associated with their SPBM Profiles." %  nonAssociatedEntities.length
+      puts ""
+      puts "You have a number of options (can be combined):"
+      puts "1) Run command with --show-details to see a full report about missing"
+      puts "SPBM Profiles and missing VM <-> SPBM Profile associations."
+      puts "2) Run command with --create-missing-profiles to automatically create"
+      puts "all missing SPBM profiles."
+      puts "3)Run command with --create-missing-associations to automatically"
+      puts "create all missing VM <-> SPBM Profile associations."
+    end
+
+    if opts[:show_details]
+      puts "SPBM Profiles used by VSAN:"
+      t = Terminal::Table.new()
+      t << ['SPBM ID', 'policy']
+      policies.each do |policy|
+        t.add_separator
+        t << [
+          policy['spbmDescr'],
+          policy.select{|k,v| k !~ /spbm/}.map{|k,v| "#{k}: #{v}"}.join("\n")
+        ]
+      end
+      puts t
+      puts ""
+    
+      if candidates.length > 0
+        puts "Recreate missing SPBM Profiles using following RVC commands:"
+        candidates.each do |policy|
+          rules = policy.select{|k,v| k !~ /spbm/}
+          s = rules.map{|k,v| "--rule VSAN.#{k}=#{v}"}.join(" ")
+          puts "spbm.profile_create #{s} #{policy['spbmName']}"
+        end
+        puts ""
+      end
+    end
+    
+    if opts[:show_details] && nonAssociatedEntities.length > 0
+      puts "Following missing VM <-> SPBM Profile associations were found:"
+      t = Terminal::Table.new()
+      t << ['Entity', 'VM', 'Profile']
+      t.add_separator
+      nonAssociatedEntities.each do |entity|
+        #puts "'%s' of VM '%s' should be associated with profile '%s' but isn't." % [
+        t << [
+          entity[:label],
+          vms_props[entity[:vm]]['name'],
+          entity[:policy]['spbmName'],
+        ]
+        
+        # Fix up the associations. Disabled for now until I can check
+        # with Sudarsan
+        # profile = entity[:policy]['spbmProfile']
+        # if profile
+          # pm.PbmAssociate(
+            # :entity => PBM::PbmServerObjectRef(
+              # :objectType => entity[:type],
+              # :key => entity[:key],
+              # :serverUuid => conn.serviceContent.about.instanceUuid
+            # ), 
+            # :profile => profile.profileId
+          # )
+        # end
+      end
+      puts t
+    end
+  end
+  
 end

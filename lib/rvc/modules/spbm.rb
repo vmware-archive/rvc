@@ -203,8 +203,15 @@ end
 
 RbVmomi::VIM::VirtualMachine
 class RbVmomi::VIM::VirtualMachine
-  def disks_pbmobjref
-    disks.map do |disk|
+  def disks_pbmobjref(opts = {})
+    if opts[:vms_props] && opts[:vms_props][self] &&
+       opts[:vms_props][self]['config.hardware.device']
+      devices = opts[:vms_props][self]['config.hardware.device']
+      _disks = devices.select{|x| x.is_a?(VIM::VirtualDisk)}
+    else
+      _disks = disks
+    end
+    _disks.map do |disk|
       PBM::PbmServerObjectRef(
         :objectType => "virtualDiskId",
         :key => "#{self._ref}:#{disk.key}",
@@ -213,8 +220,8 @@ class RbVmomi::VIM::VirtualMachine
     end
   end
   
-  def all_pbmobjref
-    [to_pbmobjref] + disks_pbmobjref
+  def all_pbmobjref(opts = {})
+    [to_pbmobjref] + disks_pbmobjref(opts)
   end
 end
 
