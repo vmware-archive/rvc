@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/vim'
+
 DEFAULT_SERVER_PLACEHOLDER = '0.0.0.0'
 
 def wait_for_multiple_tasks tasks, timeout

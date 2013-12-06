@@ -1120,7 +1120,12 @@ def vm_object_info vms, opts
   begin
   conn = vms.first._connection
   pc = conn.propertyCollector
-  opts[:cluster] ||= vms.first.runtime.host.parent
+  firstVm = vms.first
+  host = firstVm.runtime.host
+  if !host
+    err "VM #{firstVm.name} doesn't have an assigned host (yet?)"
+  end
+  opts[:cluster] ||= host.parent
   _run_with_rev(conn, "dev") do 
     vmsProps = pc.collectMultiple(vms, 
       'name', 'config.hardware.device', 'summary.config',
