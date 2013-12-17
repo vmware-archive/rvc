@@ -191,11 +191,15 @@ class RbVmomi::VIM::VirtualMachine
   end
 
   def self.ls_properties
-    %w(name runtime.powerState)
+    %w(name runtime.powerState runtime.connectionState)
   end
   
   def ls_text r
-    ": #{r['runtime.powerState']}"
+    out = ": #{r['runtime.powerState']}"
+    if r['runtime.connectionState'] != 'connected'
+      out = "#{out}, #{r['runtime.connectionState']}"
+    end
+    out
   end
 
   def children

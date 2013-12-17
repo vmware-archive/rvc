@@ -20,6 +20,7 @@
 
 require 'rbvmomi/vim'
 require 'rbvmomi/pbm'
+require 'rvc/vim'
 
 PBM = RbVmomi::PBM
 
@@ -30,6 +31,19 @@ class RbVmomi::VIM
   
   def pbm= x
     @pbm = nil
+  end
+end
+
+module PbmHelperModule
+  def _catch_spbm_resets(conn)
+    begin
+      yield
+    rescue EOFError
+      if conn
+        conn.pbm = nil
+      end
+      raise "Connection to SPBM timed out, try again"
+    end
   end
 end
 
@@ -104,7 +118,7 @@ end
 RbVmomi::VIM::Datastore
 class RbVmomi::VIM::Datastore
   def to_pbmhub
-    PBM::PbmPlacementPlacementHub(:hubType => "Datastore", :hubId => _ref)
+    PBM::PbmPlacementHub(:hubType => "Datastore", :hubId => _ref)
   end
   
   def pbm_capability_profiles
@@ -170,8 +184,8 @@ class RbVmomi::VIM::ManagedObject
     _catch_spbm_resets(conn) do 
       pbm = _connection.pbm
       pm = pbm.serviceContent.profileManager
-      ids = pm.QueryAssociatedProfile(:entity => self.to_pbmobjref)
-      pm.retrieveProfileContent(:profileIds => ids) 
+      ids = pm.PbmQueryAssociatedProfile(:entity => self.to_pbmobjref)
+      pm.PbmRetrieveContent(:profileIds => ids) 
     end
   end
 
@@ -189,8 +203,15 @@ end
 
 RbVmomi::VIM::VirtualMachine
 class RbVmomi::VIM::VirtualMachine
-  def disks_pbmobjref
-    disks.map do |disk|
+  def disks_pbmobjref(opts = {})
+    if opts[:vms_props] && opts[:vms_props][self] &&
+       opts[:vms_props][self]['config.hardware.device']
+      devices = opts[:vms_props][self]['config.hardware.device']
+      _disks = devices.select{|x| x.is_a?(VIM::VirtualDisk)}
+    else
+      _disks = disks
+    end
+    _disks.map do |disk|
       PBM::PbmServerObjectRef(
         :objectType => "virtualDiskId",
         :key => "#{self._ref}:#{disk.key}",
@@ -199,8 +220,8 @@ class RbVmomi::VIM::VirtualMachine
     end
   end
   
-  def all_pbmobjref
-    [to_pbmobjref] + disks_pbmobjref
+  def all_pbmobjref(opts = {})
+    [to_pbmobjref] + disks_pbmobjref(opts)
   end
 end
 
@@ -211,11 +232,11 @@ class RbVmomi::PBM::PbmPlacementSolver
       raise Exception("Passing in more than one profile currently not supported")
     end
     dsMoMap = Hash[datastores.map{|x| [x._ref, x]}]
-    results = self.Solve(
+    results = self.PbmSolve(
       :hubsToSearch => datastores.map{|x| x.to_pbmhub}, 
       :requirements => [
         {
-          :subject => PBM.PbmPlacementPlacementSubject(
+          :subject => PBM.PbmPlacementSubject(
             :subjectType=>"VirtualMachine", 
             :subjectId=>"fake"
           ), 
@@ -239,6 +260,7 @@ end
 RbVmomi::PBM::PbmCapabilityProfile
 class RbVmomi::PBM::PbmCapabilityProfile
   include InventoryObject
+  include PbmHelperModule
   
   def children
     {
@@ -251,8 +273,9 @@ class RbVmomi::PBM::PbmCapabilityProfile
     pbm = @connection
     vim = @dc._connection
     pc = vim.propertyCollector
+    pm = pbm.serviceContent.profileManager
     
-    vms = pm.QueryAssociatedEntity(
+    vms = pm.PbmQueryAssociatedEntity(
       :profile => self.profileId, 
       :entityType => 'virtualMachine'
     )

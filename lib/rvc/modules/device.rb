@@ -130,6 +130,7 @@ def reconfig_net devs, opts
     device_changes = my_devs.map do |dev|
       dev = dev.dup
       dev.backing = backing
+      { :operation => :edit, :device => dev }
     end
     spec = { :deviceChange => device_changes }
     vm.ReconfigVM_Task(:spec => spec)

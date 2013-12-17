@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+require 'rvc/vim'
+
 begin
   require 'net/ssh'
 rescue LoadError
@@ -49,55 +51,53 @@ def config_syslog entity, ip, opts
   pc = conn.propertyCollector
   
   lock = Mutex.new
-  _run_with_rev(conn, "dev") do 
-    hosts_props = pc.collectMultiple(hosts,
-      'name', 
-      'runtime.connectionState',
-    )
-    connected_hosts = hosts_props.select do |k,v| 
-      v['runtime.connectionState'] == 'connected'
-    end.keys
-    host = connected_hosts.first
-    if !connected_hosts.first
-      err "Couldn't find any connected hosts"
-    end
+  hosts_props = pc.collectMultiple(hosts,
+    'name', 
+    'runtime.connectionState',
+  )
+  connected_hosts = hosts_props.select do |k,v| 
+    v['runtime.connectionState'] == 'connected'
+  end.keys
+  host = connected_hosts.first
+  if !connected_hosts.first
+    err "Couldn't find any connected hosts"
+  end
 
-    puts "#{Time.now}: Configuring all ESX hosts ..."
-    loghost = "udp://#{ip}:514"
-    hosts.map do |host|
-      Thread.new do
-        begin 
-          c1 = conn.spawn_additional_connection
-          host  = host.dup_on_conn(c1)
-          hostName = host.name
-          lock.synchronize do 
-            puts "#{Time.now}: Configuring syslog on #{hostName}"
-          end
-          syslog = host.esxcli.system.syslog
-          syslog.config.set(:loghost => loghost)
-          syslog.reload
-        rescue Exception => ex
-          puts "#{Time.now}: #{host.name}: Got exception: #{ex.class}: #{ex.message}"
+  puts "#{Time.now}: Configuring all ESX hosts ..."
+  loghost = "udp://#{ip}:514"
+  hosts.map do |host|
+    Thread.new do
+      begin 
+        c1 = conn.spawn_additional_connection
+        host  = host.dup_on_conn(c1)
+        hostName = host.name
+        lock.synchronize do 
+          puts "#{Time.now}: Configuring syslog on #{hostName}"
         end
+        syslog = host.esxcli.system.syslog
+        syslog.config.set(:loghost => loghost)
+        syslog.reload
+      rescue Exception => ex
+        puts "#{Time.now}: #{host.name}: Got exception: #{ex.class}: #{ex.message}"
       end
-    end.each{|t| t.join}
-    puts "#{Time.now}: Done configuring syslog on all hosts"
-    
-    local = "#{File.dirname(__FILE__)}/configurevCloudSuiteSyslog.sh"
-    osType = conn.serviceContent.about.osType
-    if File.exists?(local) && osType == "linux-x64"
-      puts "#{Time.now}: Configuring VCVA ..."
-      Net::SSH.start(conn.host, "root", :password => opts[:vc_root_pwd], 
-                     :paranoid => false) do |ssh|
-        ssh.scp.upload!(local, "/tmp/configurevCloudSuiteSyslog.sh")
-        cmd = "sh /tmp/configurevCloudSuiteSyslog.sh vcsa #{ip}"
-        puts "#{Time.now}: Running '#{cmd}' on VCVA"
-        puts ssh.exec!(cmd)
-      end
-      puts "#{Time.now}: Done with VC"
-    else
-      puts "#{Time.now}: VC isn't Linux, skipping ..."
     end
+  end.each{|t| t.join}
+  puts "#{Time.now}: Done configuring syslog on all hosts"
+  
+  local = "#{File.dirname(__FILE__)}/configurevCloudSuiteSyslog.sh"
+  osType = conn.serviceContent.about.osType
+  if File.exists?(local) && osType == "linux-x64"
+    puts "#{Time.now}: Configuring VCVA ..."
+    Net::SSH.start(conn.host, "root", :password => opts[:vc_root_pwd], 
+                   :paranoid => false) do |ssh|
+      ssh.scp.upload!(local, "/tmp/configurevCloudSuiteSyslog.sh")
+      cmd = "sh /tmp/configurevCloudSuiteSyslog.sh vcsa #{ip}"
+      puts "#{Time.now}: Running '#{cmd}' on VCVA"
+      puts ssh.exec!(cmd)
+    end
+    puts "#{Time.now}: Done with VC"
+  else
+    puts "#{Time.now}: VC isn't Linux, skipping ..."
   end
   puts "#{Time.now}: Done"
 end

@@ -38,7 +38,22 @@ db['HostVsanInternalSystem']['methods']["QuerySyncingVsanObjects"] =
      "is-task"=>false,
      "version-id-ref"=>nil,
      "wsdl_type"=>"xsd:string"}}
+db['HostVsanInternalSystem']['methods']["GetVsanObjExtAttrs"] = 
+  {"params"=>
+    [{"name"=>"uuids",
+      "is-array"=>true,
+      "is-optional"=>true,
+      "version-id-ref"=>nil,
+      "wsdl_type"=>"xsd:string"}],
+   "result"=>
+    {"is-array"=>false,
+     "is-optional"=>false,
+     "is-task"=>false,
+     "version-id-ref"=>nil,
+     "wsdl_type"=>"xsd:string"}}
 db = nil
+
+$vsanUseGzipApis = false
 
 def is_uuid str
   str =~ /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/
@@ -375,7 +390,7 @@ def _host_info host, prefix = ''
   line.call "  Cluster role: #{status.nodeState.state}"
   line.call "  Cluster UUID: #{config.clusterInfo.uuid}"
   line.call "  Node UUID: #{config.clusterInfo.nodeUuid}"
-  line.call "  Member UUIDs: #{status.memberUuid}"
+  line.call "  Member UUIDs: #{status.memberUuid} (#{status.memberUuid.length})"
   line.call "Storage info:"
   line.call "  Auto claim: %s" % (config.storageInfo.autoClaimStorage ? "yes" : "no")
   line.call "  Disk Mappings:"
@@ -614,26 +629,50 @@ def _print_dom_config_tree dom_obj_uuid, obj_infos, indent = 0, opts = {}
   _print_dom_config_tree_int dom_obj['content'], dom_components_str, indent
 end
 
-def _vsan_host_disks_info host, hostname = nil
-  hostname = host.name
-  vsanDiskUuids = {}
-  $disksCache ||= {}
-  if !$disksCache[host]
-    $disksCache[host] = []
-    puts "#{Time.now}: Fetching VSAN disk info from #{hostname} (may take a moment) ..."
-    begin
-      timeout(45) do 
-        list = host.esxcli.vsan.storage.list
-        list.each{|x| x._set_property :host, host}
-        $disksCache[host] = list
-      end
-    rescue Exception => ex
-      puts "#{Time.now}: Failed to gather from #{hostname}: #{ex.class}: #{ex.message}"
+# hosts is a hash: host => hostname
+def _vsan_host_disks_info hosts
+  hosts.each do |k,v| 
+    if !v
+      hosts[k] = k.name
     end
   end
-  disks = $disksCache[host] 
-  disks.each do |disk|
-    vsanDiskUuids[disk.VSANUUID] = disk
+  
+  conn = hosts.keys.first._connection
+  vsanDiskUuids = {}
+  $disksCache ||= {}
+  if !hosts.keys.all?{|x| $disksCache[x]}
+    lock = Mutex.new
+    hosts.map do |host, hostname|
+      Thread.new do 
+        if !$disksCache[host]
+          c1 = conn.spawn_additional_connection
+          host2 = host.dup_on_conn(c1)
+          $disksCache[host] = []
+          lock.synchronize do 
+            puts "#{Time.now}: Fetching VSAN disk info from #{hostname} (may take a moment) ..."
+          end
+          begin
+            timeout(45) do 
+              list = host2.esxcli.vsan.storage.list
+              list.each{|x| x._set_property :host, host}
+              $disksCache[host] = list
+            end
+          rescue Exception => ex
+            lock.synchronize do 
+              puts "#{Time.now}: Failed to gather from #{hostname}: #{ex.class}: #{ex.message}"
+            end
+          end
+        end
+      end
+    end.each{|t| t.join}
+    puts "#{Time.now}: Done fetching VSAN disk infos"
+  end
+
+  hosts.map do |host, hostname|
+    disks = $disksCache[host] 
+    disks.each do |disk|
+      vsanDiskUuids[disk.VSANUUID] = disk
+    end
   end
   
   vsanDiskUuids
@@ -667,9 +706,9 @@ def _vsan_cluster_disks_info cluster, opts = {}
     [vsan_info.nodeUuid, host]
   end]
   vsan_disk_uuids = {}
-  hosts_props.map do |host, props|
-    vsan_disk_uuids.merge!(_vsan_host_disks_info(host, props['name'])) 
-  end  
+  vsan_disk_uuids.merge!(
+    _vsan_host_disks_info(Hash[hosts_props.map{|h, p| [h, p['name']]}]) 
+  )  
   
   [host_vsan_uuids, hosts_props, vsan_disk_uuids]
 end
@@ -680,7 +719,7 @@ opts :object_info do
   arg :obj_uuid, nil, :type => :string, :multi => true
 end
 
-def object_info cluster, obj_uuids, opts
+def object_info cluster, obj_uuids, opts = {}
   opts[:cluster] = cluster
   objs = _object_info obj_uuids, opts
   indent = 0
@@ -694,10 +733,9 @@ opts :disk_object_info do
   summary "Fetch information about all VSAN objects on a given physical disk"
   arg :cluster_or_host, "Cluster or host on which to fetch the object info", :lookup => VIM::ClusterComputeResource
   arg :disk_uuid, nil, :type => :string, :multi => true
-  opt :password, "ESX Password", :type => :string
 end
 
-def disk_object_info cluster_or_host, disk_uuids, opts
+def disk_object_info cluster_or_host, disk_uuids, opts = {}
   conn = cluster_or_host._connection
   pc = conn.propertyCollector
   
@@ -877,19 +915,11 @@ def cmmds_find cluster_or_host, opts
     hostUuidMap = Hash[vsanSysList.map do |hostname, sys|
       [clusterInfos[sys]['config.clusterInfo'].nodeUuid, hostname] 
     end]
-    json = vsanIntSys.QueryCmmds(:queries => [{
+    entries = vsanIntSys.query_cmmds([{
       :owner => opts[:owner],
       :uuid => opts[:uuid],
       :type => opts[:type],
-    }])
-    if json == "BAD"
-      err "Server rejected CMMDS query"
-    end
-    begin
-      entries = JSON.load(json)['result']
-    rescue
-      err "Server rejected CMMDS query: #{json}"
-    end
+    }], :gzip => true)
   end
 
   t = Terminal::Table.new()
@@ -1022,11 +1052,67 @@ def fix_inconsistent_vms vms
   end
 end
 
+opts :fix_renamed_vms do
+   summary "This command can be used to rename some VMs which get renamed " \
+           "by the VC in case of storage inaccessibility. It is "           \
+           "possible for some VMs to get renamed to vmx file path. "        \
+           "eg. \"/vmfs/volumes/vsanDatastore/foo/foo.vmx\". This command " \
+           "will rename this VM to \"foo\". This is the best we can do. "   \
+           "This VM may have been named something else but we have no way " \
+           "to know. In this best effort command, we simply rename it to "  \
+           "the name of its config file (without the full path and .vmx "   \
+           "extension ofcourse!)."
+   arg :vms, nil, :lookup => VIM::VirtualMachine, :multi => true
+end
+
+def fix_renamed_vms vms
+   begin
+      conn = vms.first._connection
+      pc = conn.propertyCollector
+      vmProps = pc.collectMultiple(vms, 'name', 'summary.config.vmPathName')
+
+      rename = {}
+      puts "Continuing this command will rename the following VMs:"
+      begin
+         vmProps.each do |k,v|
+            name = v['name']
+            cfgPath = v['summary.config.vmPathName']
+            if /.*vmfs.*volumes.*/.match(name)
+               m = /.+\/(.+)\.vmx/.match(cfgPath)
+               if name != m[1]
+                  # Save it in a hash so we don't have to do it again if
+                  # user choses Y.
+                  rename[k] = m[1]
+                  puts "#{name} -> #{m[1]}"
+               end
+            end
+         end
+      rescue Exception => ex
+         # Swallow the exception. No need to stop other vms.
+         puts "Skipping VM due to exception: #{ex.class}: #{ex.message}"
+      end
+
+      if rename.length == 0
+         puts "Nothing to do"
+         return
+      end
+
+      puts "Do you want to continue [y/N]?"
+      opt = $stdin.gets.chomp
+      if opt == 'y' || opt == 'Y'
+         puts "Renaming..."
+         tasks = rename.keys.map do |vm|
+            vm.Rename_Task(:newName => rename[vm])
+         end
+         progress(tasks)
+      end
+   end
+end
+
 opts :vm_object_info do
   summary "Fetch VSAN object information about a VM"
   arg :vms, nil, :lookup => VIM::VirtualMachine, :multi => true
   opt :cluster, "Cluster on which to fetch the object info", :lookup => VIM::ClusterComputeResource
-  opt :password, "ESX Password", :type => :string
   opt :perspective_from_host, "Host to query object info from", :lookup => VIM::HostSystem
 end
 
@@ -1034,7 +1120,12 @@ def vm_object_info vms, opts
   begin
   conn = vms.first._connection
   pc = conn.propertyCollector
-  opts[:cluster] ||= vms.first.runtime.host.parent
+  firstVm = vms.first
+  host = firstVm.runtime.host
+  if !host
+    err "VM #{firstVm.name} doesn't have an assigned host (yet?)"
+  end
+  opts[:cluster] ||= host.parent
   _run_with_rev(conn, "dev") do 
     vmsProps = pc.collectMultiple(vms, 
       'name', 'config.hardware.device', 'summary.config',
@@ -1335,7 +1426,8 @@ def disks_stats hosts_and_clusters, opts = {}
       'capacityUsed',
       'capacityReserved',
       'iops',
-      'iopsReserved'
+      'iopsReserved',
+      'disk_health',
     ])
     if disks == "BAD"
       err "Server failed to gather VSAN disk info"
@@ -1343,13 +1435,14 @@ def disks_stats hosts_and_clusters, opts = {}
     begin
       disks = JSON.load(disks)
     rescue
-      err "Server didn't provide VSAN disk info: #{objs}"
+      err "Server didn't provide VSAN disk info: #{disks}"
     end
+    #pp disks
 
     vsan_disks_info = {}
-    hosts.each do |host|
-      vsan_disks_info.merge!(_vsan_host_disks_info(host, hosts_props[host]['name']))
-    end
+    vsan_disks_info.merge!(
+      _vsan_host_disks_info(Hash[hosts.map{|h| [h, hosts_props[h]['name']]}]) 
+    )  
     disks.each do |k, v| 
       v['esxcli'] = vsan_disks_info[v['uuid']]
       if v['esxcli']
@@ -1365,32 +1458,34 @@ def disks_stats hosts_and_clusters, opts = {}
       host_props = hosts_props[x['host']]
       host_props ? host_props['name'] : ''
     end
-    disks.group_by{|x| x['host']}.each do |host, host_disks|
-      next if !host
-      devices = host_disks.map{|x| x['esxcli'].Device}
-      metrics = [
-        'disk.numberReadAveraged', 'disk.numberWriteAveraged',
-        'disk.deviceLatency', 'disk.maxTotalLatency',
-        'disk.queueLatency', 'disk.kernelLatency'
-      ]
-      stats = _fetch_disk_stats host, metrics, devices
-      disks.each do |v|
-        if v['esxcli'] && stats[v['esxcli'].Device]
-          v['stats'] = stats[v['esxcli'].Device]
-        else
-          v['stats'] ||= {}
-          metrics.each{|m| v['stats'][m] ||= [-1] }
-        end
-      end
-    end
+
+    # Stats are now better handled by observer
+    # disks.group_by{|x| x['host']}.each do |host, host_disks|
+      # next if !host
+      # devices = host_disks.map{|x| x['esxcli'].Device}
+      # metrics = [
+        # 'disk.numberReadAveraged', 'disk.numberWriteAveraged',
+        # 'disk.deviceLatency', 'disk.maxTotalLatency',
+        # 'disk.queueLatency', 'disk.kernelLatency'
+      # ]
+      # stats = _fetch_disk_stats host, metrics, devices
+      # disks.each do |v|
+        # if v['esxcli'] && stats[v['esxcli'].Device]
+          # v['stats'] = stats[v['esxcli'].Device]
+        # else
+          # v['stats'] ||= {}
+          # metrics.each{|m| v['stats'][m] ||= [-1] }
+        # end
+      # end
+    # end
     
     t = Terminal::Table.new()
     if opts[:show_iops]
-      t << [nil,           nil,     nil,    'Num', 'Capacity', nil, nil,        'Iops', nil,        nil,    'Device']
-      t << ['DisplayName', 'Host', 'isSSD', 'Comp', 'Total', 'Used', 'Reserved', 'Total', 'Reserved', 'Used', 'Latencies']
+      t << [nil,           nil,     nil,    'Num', 'Capacity', nil, nil,        'Iops', nil,        nil,    ]
+      t << ['DisplayName', 'Host', 'isSSD', 'Comp', 'Total', 'Used', 'Reserved', 'Total', 'Reserved', ]
     else
-      t << [nil,           nil,     nil,    'Num',  'Capacity', nil,    nil,        nil,    'Device']
-      t << ['DisplayName', 'Host', 'isSSD', 'Comp', 'Total',    'Used', 'Reserved', 'Used', 'Latencies']
+      t << [nil,           nil,     nil,    'Num',  'Capacity', nil,    nil,        'Status']
+      t << ['DisplayName', 'Host', 'isSSD', 'Comp', 'Total',    'Used', 'Reserved', 'Health']
     end
     t.add_separator
     # XXX: Would be nice to show displayName and host
@@ -1419,13 +1514,38 @@ def disks_stats hosts_and_clusters, opts = {}
           ]
         end
         
+        # cols += [
+          # "%dr/%dw" % [x['stats']['disk.numberReadAveraged'].first,
+                       # x['stats']['disk.numberWriteAveraged'].first],
+          # "%dd/%dq/%dk" % [x['stats']['disk.deviceLatency'].first,
+                           # x['stats']['disk.queueLatency'].first,
+                           # x['stats']['disk.kernelLatency'].first,],
+        # ]
+        
+        health = "N/A"
+        if x['disk_health'] && x['disk_health']['healthFlags']
+          flags = x['disk_health']['healthFlags']
+          health = []
+          {
+            4 => "FAILED",
+            5 => "OFFLINE",
+            6 => "DECOMMISSIONED",
+          }.each do |k, v|
+            if flags & (1 << k) != 0
+              health << v
+            end
+          end
+          if health.length == 0
+            health = "OK"
+          else
+            health = health.join(", ")
+          end
+          
+        end
         cols += [
-          "%dr/%dw" % [x['stats']['disk.numberReadAveraged'].first,
-                       x['stats']['disk.numberWriteAveraged'].first],
-          "%dd/%dq/%dk" % [x['stats']['disk.deviceLatency'].first,
-                           x['stats']['disk.queueLatency'].first,
-                           x['stats']['disk.kernelLatency'].first,],
+          health 
         ]
+
         t << cols
       end
       if group != groups.keys.last
@@ -1438,13 +1558,25 @@ def disks_stats hosts_and_clusters, opts = {}
 end
 
 
-opts :hosts_stats do
-  summary "Show disk stats about all hosts in VSAN"
+opts :whatif_host_failures do
+  summary "Simulates how host failures impact VSAN resource usage"
+  banner <<-EOS
+
+The command shows current VSAN disk usage, but also simulates how 
+disk usage would evolve under a host failure. Concretely the simulation 
+assumes that all objects would be brought back to full policy 
+compliance by bringing up new mirrors of existing data. 
+The command makes some simplifying assumptions about disk space 
+balance in the cluster. It is mostly intended to do a rough estimate 
+if a host failure would drive the cluster to being close to full.
+
+EOS
   arg :hosts_and_clusters, nil, :lookup => [VIM::HostSystem, VIM::ClusterComputeResource], :multi => true
   opt :num_host_failures_to_simulate, "Number of host failures to simulate", :default => 1
+  opt :show_current_usage_per_host, "Show current resources used per host"
 end
 
-def hosts_stats hosts_and_clusters, opts = {}
+def whatif_host_failures hosts_and_clusters, opts = {}
   opts[:compute_number_of_components] = true
   conn = hosts_and_clusters.first._connection
   hosts = hosts_and_clusters.select{|x| x.is_a?(VIM::HostSystem)}
@@ -1504,102 +1636,173 @@ def hosts_stats hosts_and_clusters, opts = {}
       err "Server didn't provide VSAN disk info: #{objs}"
     end
     
+    # XXX: Do this in threads
+    hosts.map do |host|
+      Thread.new do 
+        c1 = conn.spawn_additional_connection
+        props = hosts_props[host]
+        vsanIntSys2 = props['configManager.vsanInternalSystem']
+        vsanIntSys3 = vsanIntSys2.dup_on_conn(c1)
+        res = vsanIntSys3.query_vsan_statistics(:labels => ['lsom-node'])
+        hosts_props[host]['lsom.node'] = res['lsom.node']
+      end
+    end.each{|t| t.join}
+    
     hosts_disks = Hash[disks.values.group_by{|x| x['owner']}.map do |owner, hostDisks|
       props = {}
       hdds = hostDisks.select{|disk| disk['isSsd'] == 0}
+      ssds = hostDisks.select{|disk| disk['isSsd'] == 1}
       hdds.each do |disk|
-        ['capacityUsed', 'capacityReserved', 'capacity'].each do |x|
+        [
+          'capacityUsed', 'capacityReserved', 
+          'capacity', 'lsom_objects_count'
+        ].each do |x|
           props[x] ||= 0
           props[x] += disk[x]
+        end
+      end
+      ssds.each do |disk|
+        [
+          'capacityReserved', 'capacity', 
+        ].each do |x|
+          props["ssd_#{x}"] ||= 0
+          props["ssd_#{x}"] += disk[x]
         end
       end
       h = node_uuids[owner]
       props['host'] = h
       props['hostname'] = h ? hosts_props[h]['name'] : owner
       props['numHDDs'] = hdds.length
+      props['maxComponents'] = 3000
+      if hosts_props[h]['lsom.node']
+        props['maxComponents'] = hosts_props[h]['lsom.node']['numMaxComponents']
+      end
       [owner, props]
     end]
     
     sorted_hosts = hosts_disks.values.sort_by{|x| -x['capacityUsed']}
     
-    puts "Current utilization of hosts:"
-    t = Terminal::Table.new()
-    t << [nil,    nil,       'Capacity', nil,    nil,      ]
-    t << ['Host', 'NumHDDs', 'Total',    'Used', 'Reserved']
-    t.add_separator
-    
-    hosts_disks.each do |owner, x|
-      cols = [
-        x['hostname'],
-        x['numHDDs'],
-        "%.2f GB" % [x['capacity'].to_f / 1024**3],
-        "%.0f %%" % [x['capacityUsed'].to_f * 100 / x['capacity'].to_f],
-        "%.0f %%" % [x['capacityReserved'].to_f * 100 / x['capacity'].to_f],
-      ]
-      t << cols
+    if opts[:show_current_usage_per_host]
+      puts "Current utilization of hosts:"
+      t = Terminal::Table.new()
+      t << [nil,    nil,       'HDD Capacity', nil,    nil,    'Components', 'SSD Capacity']
+      t << ['Host', 'NumHDDs', 'Total',    'Used', 'Reserved', 'Used',       'Reserved']
+      t.add_separator
+      
+      hosts_disks.each do |owner, x|
+        cols = [
+          x['hostname'],
+          x['numHDDs'],
+          "%.2f GB" % [x['capacity'].to_f / 1024**3],
+          "%.0f %%" % [x['capacityUsed'].to_f * 100 / x['capacity'].to_f],
+          "%.0f %%" % [x['capacityReserved'].to_f * 100 / x['capacity'].to_f],
+          "%4u/%u (%.0f %%)" % [
+            x['lsom_objects_count'], 
+            x['maxComponents'], 
+            x['lsom_objects_count'].to_f * 100 / x['maxComponents'].to_f
+          ],
+          "%.0f %%" % [x['ssd_capacityReserved'].to_f * 100 / x['ssd_capacity'].to_f],
+        ]
+        t << cols
+      end
+      puts t
+      puts ""
     end
-    
-    puts t
 
-    puts ""
     puts "Simulating #{opts[:num_host_failures_to_simulate]} host failures:"
-    puts "The command shows current VSAN disk usage, but also simulates how "
-    puts "disk usage would evolve under a host failure. Concretely the simulation "
-    puts "assumes that all objects would be brought back to full policy "
-    puts "compliance by bringing up new mirrors of existing data. "
-    puts "The command makes some simplifying assumptions about disk space "
-    puts "balance in the cluster. It is mostly intended to do a rough estimate "
-    puts "if a host failure would drive the cluster to being close to full."
     puts ""
     worst_host = sorted_hosts[0]
+
+    if sorted_hosts.length < 3
+      puts "Cluster unable to regain full policy compliance after host failure, "
+      puts "not enough hosts remaining."
+      return
+    end
+
     t = Terminal::Table.new()
-    t << [
-      "Host with most data on it:",
-      worst_host['hostname']
-    ]
-    t << [
-      "Data to be newly mirrored:",
-      "%.2f GB" % [worst_host['capacityUsed'].to_f / 1024**3],
-    ]
+    t << ["Resource", "Usage right now", "Usage after failure/re-protection"]
+    t.add_separator
+    capacityRow = ["HDD capacity"]
+
+    # Capacity before failure
     used = sorted_hosts.map{|x| x['capacityUsed']}.sum
     total = sorted_hosts.map{|x| x['capacity']}.sum
     free = total - used
     usedPctOriginal = 100.0 - (free.to_f * 100 / total.to_f)
-    t << [
-      "Capacity before failure:",
-      "%.2f GB free, %.0f%% used" % [
-        free.to_f / 1024**3,
-        usedPctOriginal
-      ]
+    capacityRow << "%3.0f%% used (%.2f GB free)" % [
+      usedPctOriginal,
+      free.to_f / 1024**3,
     ]
-    if sorted_hosts.length >= 3
-      used = sorted_hosts[1..-1].map{|x| x['capacityUsed']}.sum
-      total = sorted_hosts[1..-1].map{|x| x['capacity']}.sum
-      additional = worst_host['capacityUsed']
-      free = total - used
-      usedPctBeforeReMirror = 100.0 - (free.to_f * 100 / total.to_f)
-      usedPctAfterReMirror = 100.0 - ((free - additional).to_f * 100 / total.to_f)
-      usedPctIncrease = usedPctAfterReMirror - usedPctOriginal
-      t << [
-        "Capacity after failure, before re-mirroring:",
-        "%.2f GB free, %.0f%% used" % [
-          free.to_f / 1024**3,
-          usedPctBeforeReMirror
-        ]
-      ]
-      t << [
-        "Capacity after failure, after re-mirroring:",
-        "%.2f GB free, %.0f%% used" % [
-          (free - additional).to_f / 1024**3,
-          usedPctAfterReMirror,
-        ]
-      ]
-      puts t
-    else
-      puts t
-      puts "Cluster unable to regain full policy compliance after host failure, "
-      puts "not enough hosts remaining."
-    end
+    
+    # Capacity after rebuild
+    used = sorted_hosts[1..-1].map{|x| x['capacityUsed']}.sum
+    total = sorted_hosts[1..-1].map{|x| x['capacity']}.sum
+    additional = worst_host['capacityUsed']
+    free = total - used
+    usedPctBeforeReMirror = 100.0 - (free.to_f * 100 / total.to_f)
+    usedPctAfterReMirror = 100.0 - ((free - additional).to_f * 100 / total.to_f)
+    usedPctIncrease = usedPctAfterReMirror - usedPctOriginal
+    capacityRow << "%3.0f%% used (%.2f GB free)" % [
+      usedPctAfterReMirror,
+      (free - additional).to_f / 1024**3,
+    ]
+    t << capacityRow
+    
+    # Components before failure
+    sorted_hosts = hosts_disks.values.sort_by{|x| -x['lsom_objects_count']}
+    worst_host = sorted_hosts[0]
+    used = sorted_hosts.map{|x| x['lsom_objects_count']}.sum
+    total = sorted_hosts.map{|x| x['maxComponents']}.sum
+    free = total - used
+    usedPctOriginal = 100.0 - (free.to_f * 100 / total.to_f)
+    componentsRow = ["Components"]
+    componentsRow << "%3.0f%% used (%u available)" % [
+      usedPctOriginal,
+      free,
+    ]
+
+    # Components after rebuild
+    used = sorted_hosts[1..-1].map{|x| x['lsom_objects_count']}.sum
+    total = sorted_hosts[1..-1].map{|x| x['maxComponents']}.sum
+    additional = worst_host['lsom_objects_count']
+    free = total - used
+    usedPctBeforeReMirror = 100.0 - (free.to_f * 100 / total.to_f)
+    usedPctAfterReMirror = 100.0 - ((free - additional).to_f * 100 / total.to_f)
+    usedPctIncrease = usedPctAfterReMirror - usedPctOriginal
+    componentsRow << "%3.0f%% used (%u available)" % [
+      usedPctAfterReMirror,
+      (free - additional),
+    ]
+    t << componentsRow
+
+    # RC reservations before failure
+    sorted_hosts = hosts_disks.values.sort_by{|x| -x['ssd_capacityReserved']}
+    worst_host = sorted_hosts[0]
+    used = sorted_hosts.map{|x| x['ssd_capacityReserved']}.sum
+    total = sorted_hosts.map{|x| x['ssd_capacity']}.sum
+    free = total - used
+    usedPctOriginal = 100.0 - (free.to_f * 100 / total.to_f)
+    rcReservationsRow = ["RC reservations"]
+    rcReservationsRow << "%3.0f%% used (%.2f GB free)" % [
+      usedPctOriginal,
+      free.to_f / 1024**3,
+    ]
+
+    # RC reservations after rebuild
+    used = sorted_hosts[1..-1].map{|x| x['ssd_capacityReserved']}.sum
+    total = sorted_hosts[1..-1].map{|x| x['ssd_capacity']}.sum
+    additional = worst_host['ssd_capacityReserved']
+    free = total - used
+    usedPctBeforeReMirror = 100.0 - (free.to_f * 100 / total.to_f)
+    usedPctAfterReMirror = 100.0 - ((free - additional).to_f * 100 / total.to_f)
+    usedPctIncrease = usedPctAfterReMirror - usedPctOriginal
+    rcReservationsRow << "%3.0f%% used (%.2f GB free)" % [
+      usedPctAfterReMirror,
+      (free - additional).to_f / 1024**3,
+    ]
+    t << rcReservationsRow
+        
+    puts t
   end
 end
 
@@ -2256,7 +2459,7 @@ end
 opts :resync_dashboard do
   summary "Resyncing dashboard"
   arg :cluster_or_host, nil, :lookup => [VIM::ClusterComputeResource, VIM::HostSystem]
-  opt :password, "ESX Password", :type => :string
+  opt :refresh_rate, "Refresh interval (in sec). Default is no refresh", :type => :int
 end
 
 def resync_dashboard cluster_or_host, opts
@@ -2283,6 +2486,7 @@ def resync_dashboard cluster_or_host, opts
     if !host
       err "Couldn't find any connected hosts"
     end
+    hostname = hosts_props[host]['name']
     vsanIntSys = hosts_props[host]['configManager.vsanInternalSystem']
 
     vsanSysList = Hash[hosts_props.map do |host, props| 
@@ -2308,90 +2512,100 @@ def resync_dashboard cluster_or_host, opts
       'config.hardware.device', 'summary.config'
     )
     
-    puts "#{Time.now}: Querying all objects in the system ..."
-    
-    objects = vsanIntSys.query_cmmds([
-      {:type => 'DOM_OBJECT'}
-    ])
-    if !objects
-      err "Server failed to gather DOM_OBJECT entries"
-    end
-    
-    puts "#{Time.now}: Got all the info, computing table ..."
-    objects = objects.select do |obj|
-      comps = _components_in_dom_config(obj['content'])
-      bytesToSyncTotal = 0
-      recoveryETATotal = 0
-      comps = comps.select do |comp|
-        state = comp['attributes']['componentState']
-        bytesToSync = comp['attributes']['bytesToSync'] || 0
-        recoveryETA = comp['attributes']['recoveryETA'] || 0
-        resync = [10, 6].member?(state) && bytesToSync != 0
-        if resync
-          bytesToSyncTotal += bytesToSync
-          recoveryETATotal = [recoveryETA, recoveryETATotal].max
+    iter = 0
+    while (iter == 0) || opts[:refresh_rate]
+      puts "#{Time.now}: Querying all objects in the system from #{hostname} ..."
+      
+      result = vsanIntSys.query_syncing_vsan_objects({})
+      if !result
+        err "Server failed to gather syncing objects"
+      end
+      objects = result['dom_objects']
+      
+      puts "#{Time.now}: Got all the info, computing table ..."
+      objects = objects.map do |uuid, objInfo|
+        obj = objInfo['config']
+        comps = _components_in_dom_config(obj['content'])
+        bytesToSyncTotal = 0
+        recoveryETATotal = 0
+        comps = comps.select do |comp|
+          state = comp['attributes']['componentState']
+          bytesToSync = comp['attributes']['bytesToSync'] || 0
+          recoveryETA = comp['attributes']['recoveryETA'] || 0
+          resync = [10, 6].member?(state) && bytesToSync != 0
+          if resync
+            bytesToSyncTotal += bytesToSync
+            recoveryETATotal = [recoveryETA, recoveryETATotal].max
+          end
+          resync
         end
-        resync
+        obj['bytesToSync'] = bytesToSyncTotal
+        obj['recoveryETA'] = recoveryETATotal
+        if comps.length > 0
+          obj
+        end
+      end.compact
+      obj_uuids = objects.map{|x| x['uuid']}
+      objects = Hash[objects.map{|x| [x['uuid'], x]}]
+      
+      all_obj_uuids = []
+      vmToObjMap = {}
+      vms.each do |vm|
+        vm_obj_uuids = _get_vm_obj_uuids(vm, vmsProps)
+        vm_obj_uuids = vm_obj_uuids.select{|x, v| obj_uuids.member?(x)}
+        vm_obj_uuids = vm_obj_uuids.reject{|x, v| all_obj_uuids.member?(x)}
+        all_obj_uuids += vm_obj_uuids.keys
+        if vm_obj_uuids.length > 0
+          vmToObjMap[vm] = vm_obj_uuids
+        end
       end
-      obj['bytesToSync'] = bytesToSyncTotal
-      obj['recoveryETA'] = recoveryETATotal
-      comps.length > 0
-    end
-    obj_uuids = objects.map{|x| x['uuid']}
-    objects = Hash[objects.map{|x| [x['uuid'], x]}]
-    
-    all_obj_uuids = []
-    vmToObjMap = {}
-    vms.each do |vm|
-      vm_obj_uuids = _get_vm_obj_uuids(vm, vmsProps)
-      vm_obj_uuids = vm_obj_uuids.select{|x, v| obj_uuids.member?(x)}
-      vm_obj_uuids = vm_obj_uuids.reject{|x, v| all_obj_uuids.member?(x)}
-      all_obj_uuids += vm_obj_uuids.keys
-      if vm_obj_uuids.length > 0
-        vmToObjMap[vm] = vm_obj_uuids
-      end
-    end
-    
-    t = Terminal::Table.new()
-    t << [
-      'VM/Object', 
-      'Syncing objects', 
-      'Bytes to sync', 
-      #'ETA',
-    ]
-    t.add_separator
-    bytesToSyncGrandTotal = 0
-    objGrandTotal = 0
-    vmToObjMap.each do |vm, vm_obj_uuids|
-      vmProps = vmsProps[vm]
-      objs = vm_obj_uuids.keys.map{|x| objects[x]}
-      bytesToSyncTotal = objs.map{|obj| obj['bytesToSync']}.sum
-      recoveryETATotal = objs.map{|obj| obj['recoveryETA']}.max
+      
+      t = Terminal::Table.new()
       t << [
-        vmProps['name'], 
-        objs.length,
-        "", #"%.2f GB" % (bytesToSyncTotal.to_f / 1024**3),
+        'VM/Object', 
+        'Syncing objects', 
+        'Bytes to sync', 
+        #'ETA',
+      ]
+      t.add_separator
+      bytesToSyncGrandTotal = 0
+      objGrandTotal = 0
+      vmToObjMap.each do |vm, vm_obj_uuids|
+        vmProps = vmsProps[vm]
+        objs = vm_obj_uuids.keys.map{|x| objects[x]}
+        bytesToSyncTotal = objs.map{|obj| obj['bytesToSync']}.sum
+        recoveryETATotal = objs.map{|obj| obj['recoveryETA']}.max
+        t << [
+          vmProps['name'], 
+          objs.length,
+          "", #"%.2f GB" % (bytesToSyncTotal.to_f / 1024**3),
+          #"%.2f min" % (recoveryETATotal.to_f / 60),
+        ]
+        objs.each do |obj|
+          t << [
+            "   %s" % (vm_obj_uuids[obj['uuid']] || obj['uuid']), 
+            '',
+            "%.2f GB" % (obj['bytesToSync'].to_f / 1024**3),
+            #"%.2f min" % (obj['recoveryETA'].to_f / 60),
+          ]
+        end
+        bytesToSyncGrandTotal += bytesToSyncTotal
+        objGrandTotal += objs.length
+      end
+      t.add_separator
+      t << [
+        'Total', 
+        objGrandTotal,
+        "%.2f GB" % (bytesToSyncGrandTotal.to_f / 1024**3),
         #"%.2f min" % (recoveryETATotal.to_f / 60),
       ]
-      objs.each do |obj|
-        t << [
-          "   %s" % (vm_obj_uuids[obj['uuid']] || obj['uuid']), 
-          '',
-          "%.2f GB" % (obj['bytesToSync'].to_f / 1024**3),
-          #"%.2f min" % (obj['recoveryETA'].to_f / 60),
-        ]
+      puts t
+      iter += 1
+      
+      if opts[:refresh_rate]
+        sleep opts[:refresh_rate]
       end
-      bytesToSyncGrandTotal += bytesToSyncTotal
-      objGrandTotal += objs.length
     end
-    t.add_separator
-    t << [
-      'Total', 
-      objGrandTotal,
-      "%.2f GB" % (bytesToSyncGrandTotal.to_f / 1024**3),
-      #"%.2f min" % (recoveryETATotal.to_f / 60),
-    ]
-    puts t
   end
 end
 
@@ -2692,11 +2906,21 @@ class RbVmomi::VIM::HostVsanInternalSystem
     end
   end  
   
-  def query_cmmds queries
+  def query_cmmds queries, opts = {}
+    useGzip = (opts[:gzip]) && $vsanUseGzipApis
+    if useGzip
+      queries = queries + [{:type => "GZIP"}]
+    end
     json = self.QueryCmmds(:queries => queries)
+    if useGzip
+      gzip = Base64.decode64(json)
+      gz = Zlib::GzipReader.new(StringIO.new(gzip))
+      json = gz.read
+    end
     objects = _parseJson json
     if !objects
       raise "Server failed to gather CMMDS entries: JSON = '#{json}'"
+#      raise "Server failed to gather CMMDS entries: JSON = #{json.length}"
     end
     objects = objects['result']
     objects    
@@ -2711,14 +2935,43 @@ class RbVmomi::VIM::HostVsanInternalSystem
     objects    
   end
   
-  def query_syncing_vsan_objects(opts)
+  def query_syncing_vsan_objects(opts = {})
     json = self.QuerySyncingVsanObjects(opts)
     objects = _parseJson json
     if !objects
-      raise "Server failed to gather VSAN object info for #{obj_uuids}: JSON = '#{json}'"
+      raise "Server failed to query syncing objects: JSON = '#{json}'"
     end
     objects    
   end
+
+  def query_vsan_statistics(opts = {})
+    json = self.QueryVsanStatistics(opts)
+    objects = _parseJson json
+    if !objects
+      raise "Server failed to query vsan stats: JSON = '#{json}'"
+    end
+    objects    
+  end
+  
+  def query_physical_vsan_disks(opts)
+    json = self.QueryPhysicalVsanDisks(opts)
+    objects = _parseJson json
+    if !objects
+      raise "Server failed to query vsan disks: JSON = '#{json}'"
+    end
+    objects    
+  end
+  
+  def query_objects_on_physical_vsan_disk(opts)
+    json = self.QueryObjectsOnPhysicalVsanDisk(opts)
+    objects = _parseJson json
+    if !objects
+      raise "Server failed to query objects on vsan disks: JSON = '#{json}'"
+    end
+    objects    
+  end
+  
+  
 end
 
 def _parseJson json
@@ -2845,14 +3098,21 @@ def check_limits hosts_and_clusters, opts = {}
       if props['runtime.connectionState'] != 'connected'
         next
       end
+      hosts_props[host]['profiling'] = {}
       Thread.new do 
         vsanIntSys = props['configManager.vsanInternalSystem']
         c1 = conn.spawn_additional_connection
-        vsanIntSys  = vsanIntSys.dup_on_conn(c1)
+        vsanIntSys2  = vsanIntSys.dup_on_conn(c1)
         begin
-          timeout(45) do 
-            res = vsanIntSys.QueryVsanStatistics(:labels => ['rdtglobal'])
-            hosts_props[host]['rdtglobal'] = JSON.parse(res)['rdt.globalinfo']
+          timeout(45) do
+            t1 = Time.now 
+            res = vsanIntSys2.query_vsan_statistics(
+              :labels => ['rdtglobal', 'lsom-node']
+            )
+            t2 = Time.now
+            hosts_props[host]['profiling']['rdtglobal'] = t2 - t1
+            hosts_props[host]['rdtglobal'] = res['rdt.globalinfo']
+            hosts_props[host]['lsom.node'] = res['lsom.node']
           end
         rescue Exception => ex
           puts "Failed to gather RDT info from #{props['name']}: #{ex.class}: #{ex.message}"
@@ -2860,11 +3120,30 @@ def check_limits hosts_and_clusters, opts = {}
 
         begin
           timeout(60) do 
-            res = vsanIntSys.QueryVsanStatistics(:labels => ['dom', 'dom-objects'])
+            t1 = Time.now
+            res = vsanIntSys2.QueryVsanStatistics(
+              :labels => ['dom', 'dom-objects-counts']
+            )
             res = JSON.parse(res)
+            if res && !res['dom.owners.count']
+              # XXX: Remove me later
+              # This code is a fall back path in case we are dealing
+              # with an old ESX host (before Nov13 2013). As we only 
+              # need to be compatible with VSAN GA, we can remove this
+              # code once everyone is upgraded. 
+              res = vsanIntSys2.QueryVsanStatistics(
+                :labels => ['dom', 'dom-objects']
+              )
+              res = JSON.parse(res)
+              numOwners = res['dom.owners.stats'].keys.length
+            else
+              numOwners = res['dom.owners.count'].keys.length
+            end
+            t2 = Time.now
+            hosts_props[host]['profiling']['domstats'] = t2 - t1
             hosts_props[host]['dom'] = {
               'numClients'=> res['dom.clients'].keys.length, 
-              'numOwners'=> res['dom.owners.stats'].keys.length,
+              'numOwners'=> numOwners,
             }
           end
         rescue Exception => ex
@@ -2873,13 +3152,16 @@ def check_limits hosts_and_clusters, opts = {}
           
         begin
           timeout(45) do 
-            disks = vsanIntSys.QueryPhysicalVsanDisks(:props => [
+            t1 = Time.now
+            disks = vsanIntSys2.QueryPhysicalVsanDisks(:props => [
               'lsom_objects_count',
               'uuid',
               'isSsd',
               'capacity',
               'capacityUsed',
             ])
+            t2 = Time.now
+            hosts_props[host]['profiling']['physdisk'] = t2 - t1
             disks = JSON.load(disks)
   
             # Getting the data from all hosts is kind of overkill, but
@@ -2895,12 +3177,16 @@ def check_limits hosts_and_clusters, opts = {}
       end
     end.compact.each{|t| t.join}
     
+    # hosts_props.each do |host, props|
+      # puts "#{Time.now}: Host #{props['name']}: #{props['profiling']}"
+    # end
+    
     puts "#{Time.now}: Gathering disks info ..."
     disks = all_disks
     vsan_disks_info = {}
-    hosts.each do |host|
-      vsan_disks_info.merge!(_vsan_host_disks_info(host, hosts_props[host]['name']))
-    end
+    vsan_disks_info.merge!(
+      _vsan_host_disks_info(Hash[hosts.map{|h| [h, hosts_props[h]['name']]}]) 
+    )  
     disks.each do |k, v| 
       v['esxcli'] = vsan_disks_info[v['uuid']]
       if v['esxcli']
@@ -2918,6 +3204,7 @@ def check_limits hosts_and_clusters, opts = {}
     t.add_separator
     hosts_props.each do |host, props|
       rdt = props['rdtglobal'] || {}
+      lsomnode = props['lsom.node'] || {}
       dom = props['dom'] || {}
       t << [
         props['name'],
@@ -2928,7 +3215,9 @@ def check_limits hosts_and_clusters, opts = {}
           "Owners: #{dom['numOwners'] || 'N/A'}",
         ].join("\n"),
         ([
-          "Components: #{props['components']}/3000",
+          "Components: #{props['components']}/%s" % [
+            lsomnode['numMaxComponents'] || 'N/A'
+          ],
         ] + (props['disks'] || []).map do |disk|
           if disk['capacity'] > 0
             usage = disk['capacityUsed'] * 100 / disk['capacity']
@@ -3051,11 +3340,12 @@ def obj_status_report cluster_or_host, opts
       'config.hardware.device', 'summary.config'
     )
     
-    puts "#{Time.now}: Querying all objects in the system ..."
+    hostname = hosts_props[host]['name']
+    puts "#{Time.now}: Querying all objects in the system from #{hostname} ..."
     
     objects = vsanIntSys.query_cmmds([
       {:type => 'DOM_OBJECT'}
-    ])
+    ], :gzip => true)
     if !objects
       err "Server failed to gather DOM_OBJECT entries"
     end
@@ -3071,7 +3361,10 @@ def obj_status_report cluster_or_host, opts
 
     puts "#{Time.now}: Querying all components in the system ..."
     # Need a list of live comp uuids to see if components are orphaned.
-    liveComps = vsanIntSys.query_cmmds([{:type => 'LSOM_OBJECT'}])
+    liveComps = vsanIntSys.query_cmmds(
+      [{:type => 'LSOM_OBJECT'}], 
+      :gzip => true
+    )
     liveComps = liveComps.select do |comp|
       comp['health'] == "Healthy"
     end
@@ -3467,4 +3760,346 @@ def check_state cluster_or_host, opts
     puts ""
 
   end
+end
+
+
+opts :reapply_vsan_vmknic_config do
+  summary "Unbinds and rebinds VSAN to its vmknics"
+  arg :host, nil, :lookup => [VIM::HostSystem], :multi => true
+  opt :vmknic, "Refresh a specific vmknic. default is all vmknics", :type => :string
+  opt :dry_run, "Do a dry run: Show what changes would be made", :type => :boolean
+end
+
+def reapply_vsan_vmknic_config hosts, opts
+  hosts.each do |host|
+    hostname = host.name
+    net = host.esxcli.vsan.network
+    nics = net.list()
+    if opts[:vmknic]
+      nics = nics.select{|x| x.VmkNicName == opts[:vmknic]}
+    end
+    keys = {
+      :AgentGroupMulticastAddress => :agentmcaddr,
+      :AgentGroupMulticastPort => :agentmcport,
+      :IPProtocol => nil,
+      :InterfaceUUID => nil,
+      :MasterGroupMulticastAddress => :mastermcaddr,
+      :MasterGroupMulticastPort => :mastermcport,
+      :MulticastTTL => :multicastttl,
+    }
+    puts "Host: #{hostname}"
+    if opts[:dry_run]
+      nics.each do |nic|
+        puts "  Would reapply config of vmknic #{nic.VmkNicName}:"
+        keys.keys.each do |key|
+          puts "    #{key.to_s}: #{nic.send(key)}"
+        end
+      end
+    else
+      nics.each do |nic|
+        puts "  Reapplying config of #{nic.VmkNicName}:"
+        keys.keys.each do |key|
+          puts "    #{key.to_s}: #{nic.send(key)}"
+        end
+        puts "  Unbinding VSAN from vmknic #{nic.VmkNicName} ..."
+        net.ipv4.remove(:interfacename => nic.VmkNicName)
+        puts "  Rebinding VSAN to vmknic #{nic.VmkNicName} ..."
+        params = {
+          :agentmcaddr => nic.AgentGroupMulticastAddress,
+          :agentmcport => nic.AgentGroupMulticastPort,
+          :interfacename => nic.VmkNicName,
+          :mastermcaddr => nic.MasterGroupMulticastAddress,
+          :mastermcport => nic.MasterGroupMulticastPort,
+          :multicastttl => nic.MulticastTTL,
+        }
+        #pp params
+        net.ipv4.add(params)
+      end
+    end
+  end
+end
+
+
+opts :recover_spbm do
+  summary "SPBM Recovery"
+  arg :cluster_or_host, nil, :lookup => [VIM::ClusterComputeResource, VIM::HostSystem]
+  opt :show_details, "Show all the details", :type => :boolean
+end
+
+def recover_spbm cluster_or_host, opts
+  conn = cluster_or_host._connection
+  pc = conn.propertyCollector
+  host = cluster_or_host
+  entries = []
+  hostUuidMap = {}
+  startTime = Time.now
+  _run_with_rev(conn, "dev") do
+    vsanIntSys = nil
+    puts "#{Time.now}: Fetching Host info"
+    if cluster_or_host.is_a?(VIM::ClusterComputeResource)
+      cluster = cluster_or_host
+      hosts = cluster.host
+    else
+      hosts = [host]
+    end
+    
+    hosts_props = pc.collectMultiple(hosts,
+      'name', 
+      'runtime.connectionState',
+      'configManager.vsanSystem',
+      'configManager.vsanInternalSystem',
+      'datastore'
+    )
+    connected_hosts = hosts_props.select do |k,v| 
+      v['runtime.connectionState'] == 'connected'
+    end.keys
+    host = connected_hosts.first
+    if !host
+      err "Couldn't find any connected hosts"
+    end
+    vsanIntSys = hosts_props[host]['configManager.vsanInternalSystem']
+    vsanSysList = Hash[hosts_props.map do |host, props| 
+      [props['name'], props['configManager.vsanSystem']]
+    end]
+    clusterInfos = pc.collectMultiple(vsanSysList.values, 
+                                      'config.clusterInfo')
+    hostUuidMap = Hash[vsanSysList.map do |hostname, sys|
+      [clusterInfos[sys]['config.clusterInfo'].nodeUuid, hostname] 
+    end]
+    
+    puts "#{Time.now}: Fetching Datastore info"
+    datastores = hosts_props.values.map{|x| x['datastore']}.flatten
+    datastores_props = pc.collectMultiple(datastores, 'name', 'summary.type')
+    vsanDsList = datastores_props.select do |ds, props|
+      props['summary.type'] == "vsan"
+    end.keys
+    if vsanDsList.length > 1
+      err "Two VSAN datastores found, can't handle that"
+    end
+    vsanDs = vsanDsList[0]
+    
+    puts "#{Time.now}: Fetching VM properties"
+    vms = vsanDs.vm
+    vms_props = pc.collectMultiple(vms, 'name', 'config.hardware.device')
+    
+    puts "#{Time.now}: Fetching policies used on VSAN from CMMDS"
+    entries = vsanIntSys.query_cmmds([{
+      :type => "POLICY",
+    }], :gzip => true)
+    
+    policies = entries.map{|x| x['content']}.uniq
+
+    puts "#{Time.now}: Fetching SPBM profiles"
+    pbm = conn.pbm
+    pm = pbm.serviceContent.profileManager
+    profileIds = pm.PbmQueryProfile(
+      :resourceType => {:resourceType => "STORAGE"}, 
+      :profileCategory => "REQUIREMENT"
+    )
+    if profileIds.length > 0
+      profiles = pm.PbmRetrieveContent(:profileIds => profileIds)
+    else
+      profiles = []
+    end
+    profilesMap = Hash[profiles.map do |x|
+      ["#{x.profileId.uniqueId}-gen#{x.generationId}", x]
+    end]
+    
+    puts "#{Time.now}: Fetching VM <-> SPBM profile association"
+    vms_entities = vms.map do |vm|
+      vm.all_pbmobjref(:vms_props => vms_props)
+    end.flatten.map{|x| x.dynamicProperty = []; x}
+    associatedProfiles = pm.PbmQueryAssociatedProfiles(
+      :entities => vms_entities
+    )
+    associatedEntities = associatedProfiles.map{|x| x.object}.uniq
+    puts "#{Time.now}: Computing which VMs do not have a SPBM Profile ..."
+    
+    nonAssociatedEntities = vms_entities - associatedEntities
+    
+    vmsMap = Hash[vms.map{|x| [x._ref, x]}]
+    nonAssociatedVms = {}
+    nonAssociatedEntities.map do |entity|
+      vm = vmsMap[entity.key.split(":").first]
+      nonAssociatedVms[vm] ||= []
+      nonAssociatedVms[vm] << [entity.objectType, entity.key]
+    end
+    puts "#{Time.now}: Fetching additional info about some VMs"
+    
+    vms_props2 = pc.collectMultiple(vms, 'summary.config.vmPathName')
+
+    puts "#{Time.now}: Got all info, computing after %.2f sec" % [
+      Time.now - startTime
+    ]
+    
+    policies.each do |policy|
+      policy['spbmRecoveryCandidate'] = false
+      policy['spbmProfile'] = nil
+      if policy['spbmProfileId']
+        name = "%s-gen%s" % [
+          policy['spbmProfileId'],
+          policy['spbmProfileGenerationNumber'],
+        ]
+        policy['spbmName'] = name
+        policy['spbmProfile'] = profilesMap[name]
+        if policy['spbmProfile']
+          name = policy['spbmProfile'].name
+          policy['spbmName'] = name
+          name = "Existing SPBM Profile:\n#{name}"
+        else
+          policy['spbmRecoveryCandidate'] = true
+          profile = profiles.find do |profile|
+            profile.profileId.uniqueId == policy['spbmProfileId'] &&
+            profile.generationId > policy['spbmProfileGenerationNumber']
+          end
+          # XXX: We should check if there is a profile that matches
+          # one we recovered
+          if profile
+            name = policy['spbmProfile'].name
+            name = "Old generation of SPBM Profile:\n#{name}"
+          else
+            name = "Unknown SPBM Profile. UUID:\n#{name}"
+          end
+        end
+      else
+        name = "Not managed by SPBM"
+        policy['spbmName'] = name
+      end
+      propCap = policy['proportionalCapacity']
+      if propCap && propCap.is_a?(Array) && propCap.length == 2
+        policy['proportionalCapacity'] = policy['proportionalCapacity'][0]
+      end
+      
+      policy['spbmDescr'] = name
+    end
+    entriesMap = Hash[entries.map{|x| [x['uuid'], x]}]
+
+    nonAssociatedEntities = []
+    nonAssociatedVms.each do |vm, entities|
+      if entities.any?{|x| x == ["virtualMachine", vm._ref]}
+        vmxPath = vms_props2[vm]['summary.config.vmPathName']
+        if vmxPath =~ /^\[([^\]]*)\] ([^\/])\//
+          nsUuid = $2
+          entry = entriesMap[nsUuid]
+          if entry && entry['content']['spbmProfileId']
+            # This is a candidate
+            nonAssociatedEntities << {
+              :objUuid => nsUuid, 
+              :type => "virtualMachine", 
+              :key => vm._ref,
+              :entry => entry,
+              :vm => vm,
+              :label => "VM Home",
+            }
+          end
+        end
+      end
+      devices = vms_props[vm]['config.hardware.device']
+      disks = devices.select{|x| x.is_a?(VIM::VirtualDisk)}
+      disks.each do |disk|
+        key = "#{vm._ref}:#{disk.key}"
+        if entities.any?{|x| x == ["virtualDiskId", key]}
+          objUuid = disk.backing.backingObjectId
+          if objUuid
+            entry = entriesMap[objUuid]
+            if entry && entry['content']['spbmProfileId']
+              # This is a candidate
+              nonAssociatedEntities << {
+                :objUuid => objUuid, 
+                :type => "virtualDiskId", 
+                :key => key,
+                :entry => entry,
+                :vm => vm,
+                :label => disk.deviceInfo.label,
+              }
+            end
+          end
+        end
+      end
+    end
+    nonAssociatedEntities.each do |entity|
+      policy = policies.find do |policy|
+        match = true
+        ['spbmProfileId', 'spbmProfileGenerationNumber'].each do |k|
+          match = match && policy[k] == entity[:entry]['content'][k]
+        end
+        match
+      end
+      entity[:policy] = policy
+    end
+    
+    candidates = policies.select{|p| p['spbmRecoveryCandidate'] == true}
+
+    puts "#{Time.now}: Done computing"
+
+    if !opts[:show_details]
+      puts ""
+      puts "Found %d missing SPBM Profiles." % candidates.length
+      puts "Found %d entities not associated with their SPBM Profiles." %  nonAssociatedEntities.length
+      puts ""
+      puts "You have a number of options (can be combined):"
+      puts "1) Run command with --show-details to see a full report about missing"
+      puts "SPBM Profiles and missing VM <-> SPBM Profile associations."
+      puts "2) Run command with --create-missing-profiles to automatically create"
+      puts "all missing SPBM profiles."
+      puts "3)Run command with --create-missing-associations to automatically"
+      puts "create all missing VM <-> SPBM Profile associations."
+    end
+
+    if opts[:show_details]
+      puts "SPBM Profiles used by VSAN:"
+      t = Terminal::Table.new()
+      t << ['SPBM ID', 'policy']
+      policies.each do |policy|
+        t.add_separator
+        t << [
+          policy['spbmDescr'],
+          policy.select{|k,v| k !~ /spbm/}.map{|k,v| "#{k}: #{v}"}.join("\n")
+        ]
+      end
+      puts t
+      puts ""
+    
+      if candidates.length > 0
+        puts "Recreate missing SPBM Profiles using following RVC commands:"
+        candidates.each do |policy|
+          rules = policy.select{|k,v| k !~ /spbm/}
+          s = rules.map{|k,v| "--rule VSAN.#{k}=#{v}"}.join(" ")
+          puts "spbm.profile_create #{s} #{policy['spbmName']}"
+        end
+        puts ""
+      end
+    end
+    
+    if opts[:show_details] && nonAssociatedEntities.length > 0
+      puts "Following missing VM <-> SPBM Profile associations were found:"
+      t = Terminal::Table.new()
+      t << ['Entity', 'VM', 'Profile']
+      t.add_separator
+      nonAssociatedEntities.each do |entity|
+        #puts "'%s' of VM '%s' should be associated with profile '%s' but isn't." % [
+        t << [
+          entity[:label],
+          vms_props[entity[:vm]]['name'],
+          entity[:policy]['spbmName'],
+        ]
+        
+        # Fix up the associations. Disabled for now until I can check
+        # with Sudarsan
+        # profile = entity[:policy]['spbmProfile']
+        # if profile
+          # pm.PbmAssociate(
+            # :entity => PBM::PbmServerObjectRef(
+              # :objectType => entity[:type],
+              # :key => entity[:key],
+              # :serverUuid => conn.serviceContent.about.instanceUuid
+            # ), 
+            # :profile => profile.profileId
+          # )
+        # end
+      end
+      puts t
+    end
+  end
+  
 end
