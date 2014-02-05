@@ -148,36 +148,22 @@ def prompt_password
 end
 
 def keychain_password username , hostname
-   return nil unless RbConfig::CONFIG['host_os'] =~ /^darwin1[01]/
+   return nil unless RbConfig::CONFIG['host_os'] =~ /^darwin/
 
-  begin
-    require 'osx_keychain'
-  rescue LoadError
-    return nil
+  cmd = "security 2>&1 >/dev/null find-generic-password -s rvc -ga #{username}@#{hostname}"
+  IO.popen(cmd) do |security|
+    return $1 if security.readline =~ /^password: "(.*)"$/
   end
-
-  keychain = OSXKeychain.new
-  return keychain["rvc", "#{username}@#{hostname}" ]
-
+  return nil
 end
 
 def save_keychain_password username , password , hostname
   # only works for OSX at the minute.
-  return false unless RbConfig::CONFIG['host_os'] =~ /^darwin10/
+  return unless RbConfig::CONFIG['host_os'] =~ /^darwin/
 
-  # check we already managed to load that gem.
-  if defined? OSXKeychain::VERSION
-
-    if agree("Save password for connection (y/n)? ", true)
-      keychain = OSXKeychain.new
-
-      # update the keychain, unless it's already set to that.
-      keychain.set("rvc", "#{username}@#{hostname}" , password ) unless 
-        keychain["rvc", "#{username}@#{hostname}" ] == password
-    end
-  else
-    return false
-  end
+  return unless agree("Save password for connection (y/n)? ", true)
+  cmd = "security add-generic-password -s rvc -a #{username}@#{hostname} -w '#{password}' login.keychain"
+  system(cmd)
 end
 
 
