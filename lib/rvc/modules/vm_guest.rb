@@ -382,7 +382,7 @@ def upload_file vms, opts
       # XXX: Not acceptable for big files
       file_size = open(opts[:local_path], 'rb').read.length
     else
-      err "local file does not exist" unless File.exists? local_path
+      err "local file does not exist" unless File.exists? opts[:local_path]
       file = File.new(opts[:local_path], 'rb')
       file_size = file.size
     end  
