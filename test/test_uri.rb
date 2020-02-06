@@ -31,4 +31,10 @@ class UriTest < Test::Unit::TestCase
     uri = RVC::URIParser.parse "user:password@host:80"
     assert_equal "//user:password@host:80", uri.to_s
   end
+  
+  def test_user_domain
+    # We're looking for an encoded URI here.
+    uri = RVC::URIParser.parse "COMPANY\\user:password@host"
+    assert_equal "//COMPANY%5Cuser:password@host", uri.to_s
+  end
 end
