@@ -712,3 +712,69 @@ rvc_alias :screenshot
 def screenshot vm, local_path
   http_download vm._connection, "/screen?id=#{vm._ref}", local_path
 end
+
+
+opts :wait_for_screenshot do
+  summary "Wait for screen to match screenshot"
+  arg :vm, nil, :lookup => VIM::VirtualMachine
+  opt :screenshot_image, "Path of image to compare to", :required => true, :type => :string
+  opt :threshold, "Match threshold", :default => 5.0, :type => :float
+  opt :timeout, "Threshold in seconds", :default => 1800, :type => :int
+  opt :interval, "Interval to wait between checks", :default => 5, :type => :int
+end
+
+def wait_for_screenshot vm, opts
+  begin
+    require 'oily_png'
+  rescue LoadError
+    require 'chunky_png'
+  end
+
+  expected_png = load_image opts[:screenshot_image]
+
+  Timeout.timeout opts[:timeout] do
+    while true
+      new_file = Tempfile.new(['screenshot', '.png'])
+      new_file.close
+      shell.cmds.vm.screenshot vm, new_file.path
+      new_png = load_image new_file.path
+      new_file.unlink
+
+      if expected_png.height == new_png.height and expected_png.width == new_png.width
+        diff_percentage = image_diff expected_png, new_png
+        return if diff_percentage < opts[:threshold]
+      end
+
+      sleep opts[:interval]
+    end
+  end
+rescue Timeout::Error
+  err "Timed out waiting for screenshot"
+end
+
+
+def load_image path
+  ChunkyPNG::Image.from_file(path)
+end
+
+# This code was adapted from http://jeffkreeftmeijer.com/2011/comparing-images-and-creating-image-diffs/
+def image_diff image1, image2
+  diff_sum = 0
+  max_sqrt = Math.sqrt(ChunkyPNG::Color::MAX ** 2 * 3)
+
+  image1.height.times do |y|
+    image1.row(y).each_with_index do |pixel, x|
+      unless pixel == image2[x,y]
+        score = Math.sqrt(
+          (ChunkyPNG::Color::r(image2[x,y]) - ChunkyPNG::Color::r(pixel)) ** 2 +
+          (ChunkyPNG::Color::g(image2[x,y]) - ChunkyPNG::Color::g(pixel)) ** 2 +
+          (ChunkyPNG::Color::b(image2[x,y]) - ChunkyPNG::Color::b(pixel)) ** 2
+        ) / max_sqrt
+
+        diff_sum += score
+      end
+    end
+  end
+
+  diff_sum / image1.pixels.length * 100
+end
