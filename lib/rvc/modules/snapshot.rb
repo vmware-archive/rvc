@@ -93,3 +93,64 @@ def remove snapshots, opts
     )
   end
 end
+
+
+opts :revert_snapshot_by_name do
+  summary "Revert to named snapshot"
+  arg :entity, nil, :lookup => [VIM::VirtualMachine, RVC::RootSnapshotFolder, RVC::SnapshotFolder]
+  arg :name, :type => :string
+end
+
+def revert_snapshot_by_name(entity, name)
+  snapshots_to_revert = get_snapshots_by_name(entity, name)
+
+  err "Could not find snapshot named #{name}" if snapshots_to_revert.empty?
+  err "Found multiple snapshots named #{name}" if snapshots_to_revert.size > 1
+
+  revert snapshots_to_revert.first
+end
+
+
+opts :remove_snapshots_by_name do
+  summary "Remove snapshots by name"
+  arg :entity, nil, :lookup => [VIM::VirtualMachine, RVC::RootSnapshotFolder, RVC::SnapshotFolder]
+  arg :name, :type => :string
+  opt :remove_children, "Whether to remove the snapshot's children too"
+end
+
+def remove_snapshots_by_name(entity, name, opts)
+  snapshots_to_remove = get_snapshots_by_name(entity, name)
+
+  remove snapshots_to_remove, opts
+end
+
+
+def get_snapshots_by_name entity, name
+  if entity.is_a? VIM::VirtualMachine
+    snapshot_entity = entity.children["snapshots"]
+    snapshot_entity.rvc_link(entity, "snapshots")
+    entity = snapshot_entity
+  end
+
+  if entity.is_a? RVC::RootSnapshotFolder
+    new_snapshots = []
+    entity.children.each { |k,v| v.rvc_link(entity, k); new_snapshots << v }
+  elsif entity.is_a? RVC::SnapshotFolder
+    new_snapshots = [entity]
+  end
+
+  found_snapshots = []
+  until new_snapshots.empty?
+    new_snapshots.each do |snapshot|
+      snapshot.children.each { |k,v| v.rvc_link(snapshot, k); new_snapshots << v }
+      found_snapshots << snapshot if snapshot.find_tree.name == name
+      new_snapshots.delete snapshot
+    end
+  end
+
+  found_snapshots.each do |snap|
+    puts snap.rvc_path_str
+  end
+
+  found_snapshots
+end
