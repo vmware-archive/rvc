@@ -535,6 +535,24 @@ def migrate vms, opts
 end
 
 
+opts :relocate do
+  summary "Relocate a VM"
+  arg :vm, nil, :lookup => VIM::VirtualMachine, :multi => true
+  opt :pool, "Resource pool", :short => 'p', :type => :string, :lookup => VIM::ResourcePool
+  opt :host, "Host", :short => 'o', :type => :string, :lookup => VIM::HostSystem
+  opt :datastore, "Datastore", :short => 'd', :type => :string, :lookup => VIM::Datastore
+end
+
+def relocate vms, opts
+  tasks vms, :RelocateVM, :spec => {
+                             :pool => opts[:pool],
+                             :host => opts[:host],
+                             :datastore => opts[:datastore]
+                         },
+                         :priority => :defaultPriority
+end
+
+
 opts :clone do
   summary "Clone a VM"
   arg :src, nil, :lookup => VIM::VirtualMachine
